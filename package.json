@@ -1,0 +1,54 @@
+{
+  "name": "sparxie",
+  "version": "0.1.1",
+  "description": "Shared Sparxie contracts and HTTP client.",
+  "author": "Keni",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KennyKeni/sparxie.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KennyKeni/sparxie/issues"
+  },
+  "homepage": "https://github.com/KennyKeni/sparxie#readme",
+  "keywords": [
+    "sparxie",
+    "sdk",
+    "job-automation",
+    "typescript"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "pnpm lint && pnpm test && pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vitest": "^2.1.9"
+  }
+}

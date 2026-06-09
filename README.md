@@ -1,0 +1,54 @@
+# sparxie
+
+Shared TypeScript contracts, validators, and HTTP client for Sparxie job automation tools.
+
+## Install
+
+```sh
+pnpm add sparxie
+```
+
+```sh
+npm install sparxie
+```
+
+## Usage
+
+```ts
+import {
+  createHttpJobAppClient,
+  defaultJobAppApiBaseUrl,
+  isApplicationStatus,
+} from 'sparxie'
+
+const client = createHttpJobAppClient({
+  baseUrl: defaultJobAppApiBaseUrl,
+})
+
+const queue = await client.queue.list({ bucket: 'ready' })
+
+console.log(isApplicationStatus('submitted'))
+console.log(queue.items)
+```
+
+## Development
+
+```sh
+corepack enable
+pnpm install
+pnpm lint
+pnpm test
+pnpm build
+npm pack --dry-run
+```
+
+## Releases
+
+Releases are published from Git tags.
+
+1. Update `package.json` with the new version.
+2. Commit the change.
+3. Tag the commit as `vX.Y.Z`, matching the package version exactly.
+4. Push the tag.
+
+The `Publish` GitHub Actions workflow verifies, builds, packs, and publishes the package to npm.
