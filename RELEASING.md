@@ -19,12 +19,17 @@ npm publish --access public --provenance=false
 
 After the package exists on npm, configure npm Trusted Publishing for:
 
-- Package: `sparxie`
-- Provider: GitHub Actions
-- Owner: `KennyKeni`
-- Repository: `sparxie`
-- Workflow filename: `publish.yml`
-- Allowed action: `npm publish`
+```sh
+npx npm@11.16.0 trust github sparxie \
+  --repo KennyKeni/sparxie \
+  --file publish.yml \
+  --allow-publish \
+  -y
+```
+
+The `--allow-publish` flag is required so the trusted publisher is allowed to
+run `npm publish`. npm `11.13.0` does not include this flag even though the
+registry requires it, so use npm `11.16.0` or newer for trust setup.
 
 ## Normal Release
 
