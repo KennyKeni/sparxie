@@ -14,7 +14,7 @@ pnpm test
 pnpm build
 npm pack --dry-run
 npm login
-npm publish --access public
+npm publish --access public --provenance=false
 ```
 
 After the package exists on npm, configure npm Trusted Publishing for:
@@ -35,3 +35,6 @@ git push --tags
 ```
 
 The tag must be `vX.Y.Z` and match `package.json`.
+
+Tagged GitHub Actions releases publish with npm provenance. The first local publish
+uses `--provenance=false` because local shells do not have a GitHub OIDC provider.
