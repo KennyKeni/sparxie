@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createHttpJobAppClient, JobAppHttpError } from './index'
+import { createHttpValedictorianClient, ValedictorianHttpError } from './index'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -16,7 +16,7 @@ function mockFetch(response: Response) {
   return fetchMock
 }
 
-describe('HTTP job app client', () => {
+describe('HTTP Valedictorian client', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -24,8 +24,8 @@ describe('HTTP job app client', () => {
   it('lists applications with query params and bearer auth', async () => {
     const payload = { items: [], total: 0, limit: 25, offset: 10, hasMore: false }
     const fetchMock = mockFetch(jsonResponse(payload))
-    const client = createHttpJobAppClient({
-      baseUrl: 'https://job-app.test/base/',
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test/base/',
       token: 'secret-token',
     })
 
@@ -42,7 +42,7 @@ describe('HTTP job app client', () => {
     ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://job-app.test/v1/applications?status=needs_user_info&hasApplied=false&minScore=6&source=linkedin&sort=company_asc&limit=25&offset=10',
+      'https://valedictorian.test/v1/applications?status=needs_user_info&hasApplied=false&minScore=6&source=linkedin&sort=company_asc&limit=25&offset=10',
       {
         headers: {
           accept: 'application/json',
@@ -58,7 +58,7 @@ describe('HTTP job app client', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'application 1' }))
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'not found' }, { status: 404 }))
     vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     await expect(client.applications.get('application 1')).resolves.toEqual({
       id: 'application 1',
@@ -87,8 +87,8 @@ describe('HTTP job app client', () => {
       bucketCounts: { apply_now: 0 },
     }
     const fetchMock = mockFetch(jsonResponse(payload))
-    const client = createHttpJobAppClient({
-      baseUrl: 'https://job-app.test/base/',
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test/base/',
       token: 'secret-token',
     })
 
@@ -101,7 +101,7 @@ describe('HTTP job app client', () => {
     ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://job-app.test/v1/queue?bucket=apply_now&limit=25&offset=5',
+      'https://valedictorian.test/v1/queue?bucket=apply_now&limit=25&offset=5',
       {
         headers: {
           accept: 'application/json',
@@ -118,7 +118,7 @@ describe('HTTP job app client', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ fullName: 'Kenny Lin', answers: [] }))
     fetchMock.mockResolvedValueOnce(jsonResponse({ basics: { fullName: 'Kenny Lin' }, answers: [] }))
     vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     await client.profile.get()
     await client.profile.update({ fullName: 'Kenny Lin', answers: [] })
@@ -150,7 +150,7 @@ describe('HTTP job app client', () => {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
     vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     await client.policy.config.get()
     await client.policy.config.update({ scoring: { applyCutoff: 7 } })
@@ -242,7 +242,7 @@ describe('HTTP job app client', () => {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
     vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     await client.runs.start({
       runType: 'sourcing',
@@ -374,7 +374,7 @@ describe('HTTP job app client', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'application-1', status: 'submitted' }))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     await client.applications.updateStatus({
       applicationId: 'application-1',
@@ -429,7 +429,7 @@ describe('HTTP job app client', () => {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
     vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     await client.applications.create({
       companyName: 'Versant Media',
@@ -656,7 +656,7 @@ describe('HTTP job app client', () => {
 
   it('throws useful errors for non-2xx responses', async () => {
     mockFetch(jsonResponse({ message: 'bad status' }, { status: 422 }))
-    const client = createHttpJobAppClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 
     let thrown: unknown
 
@@ -667,10 +667,10 @@ describe('HTTP job app client', () => {
     }
 
     expect(thrown).toMatchObject({
-      name: 'JobAppHttpError',
+      name: 'ValedictorianHttpError',
       status: 422,
       message: 'bad status',
     })
-    expect(thrown).toBeInstanceOf(JobAppHttpError)
+    expect(thrown).toBeInstanceOf(ValedictorianHttpError)
   })
 })

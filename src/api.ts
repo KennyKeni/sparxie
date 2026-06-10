@@ -1,6 +1,6 @@
-export const defaultJobAppApiBaseUrl = 'http://127.0.0.1:4317'
+export const defaultValedictorianApiBaseUrl = 'http://127.0.0.1:4317'
 
-export const jobAppApiPaths = {
+export const valedictorianApiPaths = {
   health: '/v1/health',
   capabilities: '/v1/capabilities',
   applications: '/v1/applications',

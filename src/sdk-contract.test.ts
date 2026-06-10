@@ -7,7 +7,7 @@ import {
   applicationListSorts,
   applicationStatuses,
   canonicalizeApplicationUrl,
-  defaultJobAppApiBaseUrl,
+  defaultValedictorianApiBaseUrl,
   defaultPolicyConfig,
   defaultLocalCapabilities,
   isApplicationAttemptActorType,
@@ -18,7 +18,7 @@ import {
   isRunType,
   isSourcingMergeStatus,
   isWorkMode,
-  jobAppApiPaths,
+  valedictorianApiPaths,
   MAX_APPLICATION_LIST_LIMIT,
   manualReviewKinds,
   normalizeApplicationLinkKind,
@@ -145,50 +145,54 @@ describe('SDK public contract', () => {
   })
 
   it('exports API paths and default local API URL', () => {
-    expect(defaultJobAppApiBaseUrl).toBe('http://127.0.0.1:4317')
-    expect(jobAppApiPaths.health).toBe('/v1/health')
-    expect(jobAppApiPaths.capabilities).toBe('/v1/capabilities')
-    expect(jobAppApiPaths.applications).toBe('/v1/applications')
-    expect(jobAppApiPaths.application('application 1')).toBe('/v1/applications/application%201')
-    expect(jobAppApiPaths.applicationStatus('application 1')).toBe(
+    expect(defaultValedictorianApiBaseUrl).toBe('http://127.0.0.1:4317')
+    expect(valedictorianApiPaths.health).toBe('/v1/health')
+    expect(valedictorianApiPaths.capabilities).toBe('/v1/capabilities')
+    expect(valedictorianApiPaths.applications).toBe('/v1/applications')
+    expect(valedictorianApiPaths.application('application 1')).toBe(
+      '/v1/applications/application%201',
+    )
+    expect(valedictorianApiPaths.applicationStatus('application 1')).toBe(
       '/v1/applications/application%201/status',
     )
-    expect(jobAppApiPaths.applicationAttempts('application 1')).toBe(
+    expect(valedictorianApiPaths.applicationAttempts('application 1')).toBe(
       '/v1/applications/application%201/attempts',
     )
-    expect(jobAppApiPaths.applicationAttemptSteps('application 1', 'attempt 1')).toBe(
+    expect(valedictorianApiPaths.applicationAttemptSteps('application 1', 'attempt 1')).toBe(
       '/v1/applications/application%201/attempts/attempt%201/steps',
     )
-    expect(jobAppApiPaths.applicationAttemptComplete('application 1', 'attempt 1')).toBe(
+    expect(valedictorianApiPaths.applicationAttemptComplete('application 1', 'attempt 1')).toBe(
       '/v1/applications/application%201/attempts/attempt%201/complete',
     )
-    expect(jobAppApiPaths.runs).toBe('/v1/runs')
-    expect(jobAppApiPaths.runSteps('run 1')).toBe('/v1/runs/run%201/steps')
-    expect(jobAppApiPaths.runComplete('run 1')).toBe('/v1/runs/run%201/complete')
-    expect(jobAppApiPaths.sourcingFindings).toBe('/v1/sourcing/findings')
-    expect(jobAppApiPaths.sourcingCandidatesProcess).toBe(
+    expect(valedictorianApiPaths.runs).toBe('/v1/runs')
+    expect(valedictorianApiPaths.runSteps('run 1')).toBe('/v1/runs/run%201/steps')
+    expect(valedictorianApiPaths.runComplete('run 1')).toBe('/v1/runs/run%201/complete')
+    expect(valedictorianApiPaths.sourcingFindings).toBe('/v1/sourcing/findings')
+    expect(valedictorianApiPaths.sourcingCandidatesProcess).toBe(
       '/v1/sourcing/candidates/process',
     )
-    expect(jobAppApiPaths.sourcingFinding('finding 1')).toBe(
+    expect(valedictorianApiPaths.sourcingFinding('finding 1')).toBe(
       '/v1/sourcing/findings/finding%201',
     )
-    expect(jobAppApiPaths.sourcingFindingDecide('finding 1')).toBe(
+    expect(valedictorianApiPaths.sourcingFindingDecide('finding 1')).toBe(
       '/v1/sourcing/findings/finding%201/decide',
     )
-    expect(jobAppApiPaths.sourcingFindingPromote('finding 1')).toBe(
+    expect(valedictorianApiPaths.sourcingFindingPromote('finding 1')).toBe(
       '/v1/sourcing/findings/finding%201/promote',
     )
-    expect(jobAppApiPaths.scores).toBe('/v1/scores')
-    expect(jobAppApiPaths.policyConfig).toBe('/v1/policy/config')
-    expect(jobAppApiPaths.policyConfigReset).toBe('/v1/policy/config/reset')
-    expect(jobAppApiPaths.policyEvidence).toBe('/v1/policy/evidence')
-    expect(jobAppApiPaths.policyEvaluateApplication).toBe(
+    expect(valedictorianApiPaths.scores).toBe('/v1/scores')
+    expect(valedictorianApiPaths.policyConfig).toBe('/v1/policy/config')
+    expect(valedictorianApiPaths.policyConfigReset).toBe('/v1/policy/config/reset')
+    expect(valedictorianApiPaths.policyEvidence).toBe('/v1/policy/evidence')
+    expect(valedictorianApiPaths.policyEvaluateApplication).toBe(
       '/v1/policy/evaluate/application',
     )
-    expect(jobAppApiPaths.policyEvaluateSourcingCandidate).toBe(
+    expect(valedictorianApiPaths.policyEvaluateSourcingCandidate).toBe(
       '/v1/policy/evaluate/sourcing-candidate',
     )
-    expect(jobAppApiPaths.policyEvaluateRunWindow).toBe('/v1/policy/evaluate/run-window')
+    expect(valedictorianApiPaths.policyEvaluateRunWindow).toBe(
+      '/v1/policy/evaluate/run-window',
+    )
   })
 
   it('exports local capabilities for clients to adapt behavior', () => {
