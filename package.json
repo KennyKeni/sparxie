@@ -1,7 +1,7 @@
 {
   "name": "sparxie",
-  "version": "0.1.1",
-  "description": "Shared Sparxie contracts and HTTP client.",
+  "version": "0.2.0",
+  "description": "Shared Valedictorian contracts and HTTP client.",
   "author": "Keni",
   "license": "MIT",
   "type": "module",
@@ -23,7 +23,7 @@
   "keywords": [
     "sparxie",
     "sdk",
-    "job-automation",
+    "valedictorian",
     "typescript"
   ],
   "exports": {
@@ -41,6 +41,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
+    "prepare": "pnpm build",
     "prepublishOnly": "pnpm lint && pnpm test && pnpm build",
     "test": "vitest run",
     "test:watch": "vitest"

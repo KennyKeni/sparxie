@@ -1,4 +1,4 @@
-import { defaultJobAppApiBaseUrl, jobAppApiPaths } from './api.js'
+import { defaultValedictorianApiBaseUrl, valedictorianApiPaths } from './api.js'
 import type {
   ApplicationEventsListInput,
   ApplicationAttemptsListInput,
@@ -6,26 +6,26 @@ import type {
   ApplicationListQuery,
   StatusUpdateInput,
 } from './application.js'
-import type { JobAppClient } from './client.js'
+import type { ValedictorianClient } from './client.js'
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { QueueListQuery } from './queue.js'
 import type { ScoreInput } from './scoring.js'
 import type { SourcingFindingsListInput } from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
 
-export interface HttpJobAppClientOptions {
+export interface HttpValedictorianClientOptions {
   baseUrl?: string
   token?: string
   fetch?: typeof fetch
 }
 
-export class JobAppHttpError extends Error {
+export class ValedictorianHttpError extends Error {
   readonly status: number
   readonly body: unknown
 
   constructor({ body, message, status }: { body: unknown; message: string; status: number }) {
     super(message)
-    this.name = 'JobAppHttpError'
+    this.name = 'ValedictorianHttpError'
     this.status = status
     this.body = body
   }
@@ -194,11 +194,11 @@ export function policyEvidenceListQueryToSearchParams(query: PolicyEvidenceListI
   return params
 }
 
-export function createHttpJobAppClient({
-  baseUrl = defaultJobAppApiBaseUrl,
+export function createHttpValedictorianClient({
+  baseUrl = defaultValedictorianApiBaseUrl,
   fetch: fetchImplementation = fetch,
   token,
-}: HttpJobAppClientOptions = {}): JobAppClient {
+}: HttpValedictorianClientOptions = {}): ValedictorianClient {
   async function request<T>(
     path: string,
     options: {
@@ -235,7 +235,7 @@ export function createHttpJobAppClient({
     const body = await readResponseBody(response)
 
     if (!response.ok) {
-      throw new JobAppHttpError({
+      throw new ValedictorianHttpError({
         body,
         message: responseMessage(body, response.statusText),
         status: response.status,
@@ -248,15 +248,15 @@ export function createHttpJobAppClient({
   return {
     applications: {
       list(query) {
-        return request(jobAppApiPaths.applications, {
+        return request(valedictorianApiPaths.applications, {
           query: applicationListQueryToSearchParams(query),
         })
       },
       async get(id) {
         try {
-          return await request(jobAppApiPaths.application(id))
+          return await request(valedictorianApiPaths.application(id))
         } catch (error) {
-          if (error instanceof JobAppHttpError && error.status === 404) {
+          if (error instanceof ValedictorianHttpError && error.status === 404) {
             return null
           }
 
@@ -264,7 +264,7 @@ export function createHttpJobAppClient({
         }
       },
       create(input) {
-        return request(jobAppApiPaths.applications, {
+        return request(valedictorianApiPaths.applications, {
           body: input,
           method: 'POST',
         })
@@ -272,13 +272,13 @@ export function createHttpJobAppClient({
       update(input) {
         const { applicationId, ...body } = input
 
-        return request(jobAppApiPaths.application(applicationId), {
+        return request(valedictorianApiPaths.application(applicationId), {
           body,
           method: 'PATCH',
         })
       },
       updateStatus(input: StatusUpdateInput) {
-        return request(jobAppApiPaths.applicationStatus(input.applicationId), {
+        return request(valedictorianApiPaths.applicationStatus(input.applicationId), {
           body: {
             status: input.status,
             notes: input.notes,
@@ -287,7 +287,7 @@ export function createHttpJobAppClient({
         })
       },
       archive(input) {
-        return request(jobAppApiPaths.applicationArchive(input.applicationId), {
+        return request(valedictorianApiPaths.applicationArchive(input.applicationId), {
           body: {
             note: input.note,
           },
@@ -298,7 +298,7 @@ export function createHttpJobAppClient({
         update(input) {
           const { applicationId, ...body } = input
 
-          return request(jobAppApiPaths.applicationWorkflow(applicationId), {
+          return request(valedictorianApiPaths.applicationWorkflow(applicationId), {
             body,
             method: 'PATCH',
           })
@@ -306,7 +306,7 @@ export function createHttpJobAppClient({
       },
       notes: {
         append(input) {
-          return request(jobAppApiPaths.applicationNotes(input.applicationId), {
+          return request(valedictorianApiPaths.applicationNotes(input.applicationId), {
             body: {
               message: input.message,
             },
@@ -318,14 +318,14 @@ export function createHttpJobAppClient({
         list(input) {
           const { applicationId, ...query } = input
 
-          return request(jobAppApiPaths.applicationLinks(applicationId), {
+          return request(valedictorianApiPaths.applicationLinks(applicationId), {
             query: applicationLinksListQueryToSearchParams(query),
           })
         },
         create(input) {
           const { applicationId, ...body } = input
 
-          return request(jobAppApiPaths.applicationLinks(applicationId), {
+          return request(valedictorianApiPaths.applicationLinks(applicationId), {
             body,
             method: 'POST',
           })
@@ -333,7 +333,7 @@ export function createHttpJobAppClient({
         update(input) {
           const { applicationId, linkId, ...body } = input
 
-          return request(jobAppApiPaths.applicationLink(applicationId, linkId), {
+          return request(valedictorianApiPaths.applicationLink(applicationId, linkId), {
             body,
             method: 'PATCH',
           })
@@ -343,7 +343,7 @@ export function createHttpJobAppClient({
         list(input) {
           const { applicationId, ...query } = input
 
-          return request(jobAppApiPaths.applicationEvents(applicationId), {
+          return request(valedictorianApiPaths.applicationEvents(applicationId), {
             query: applicationEventsListQueryToSearchParams(query),
           })
         },
@@ -352,14 +352,14 @@ export function createHttpJobAppClient({
         list(input) {
           const { applicationId, ...query } = input
 
-          return request(jobAppApiPaths.applicationAttempts(applicationId), {
+          return request(valedictorianApiPaths.applicationAttempts(applicationId), {
             query: applicationAttemptsListQueryToSearchParams(query),
           })
         },
         start(input) {
           const { applicationId, ...body } = input
 
-          return request(jobAppApiPaths.applicationAttempts(applicationId), {
+          return request(valedictorianApiPaths.applicationAttempts(applicationId), {
             body,
             method: 'POST',
           })
@@ -367,7 +367,7 @@ export function createHttpJobAppClient({
         step(input) {
           const { applicationId, attemptId, ...body } = input
 
-          return request(jobAppApiPaths.applicationAttemptSteps(applicationId, attemptId), {
+          return request(valedictorianApiPaths.applicationAttemptSteps(applicationId, attemptId), {
             body,
             method: 'POST',
           })
@@ -375,7 +375,7 @@ export function createHttpJobAppClient({
         complete(input) {
           const { applicationId, attemptId, ...body } = input
 
-          return request(jobAppApiPaths.applicationAttemptComplete(applicationId, attemptId), {
+          return request(valedictorianApiPaths.applicationAttemptComplete(applicationId, attemptId), {
             body,
             method: 'PATCH',
           })
@@ -384,7 +384,7 @@ export function createHttpJobAppClient({
     },
     scores: {
       record(input: ScoreInput) {
-        return request(jobAppApiPaths.scores, {
+        return request(valedictorianApiPaths.scores, {
           body: input,
           method: 'POST',
         })
@@ -392,7 +392,7 @@ export function createHttpJobAppClient({
     },
     queue: {
       list(query) {
-        return request(jobAppApiPaths.queue, {
+        return request(valedictorianApiPaths.queue, {
           query: queueListQueryToSearchParams(query),
         })
       },
@@ -400,16 +400,16 @@ export function createHttpJobAppClient({
     policy: {
       config: {
         get() {
-          return request(jobAppApiPaths.policyConfig)
+          return request(valedictorianApiPaths.policyConfig)
         },
         reset() {
-          return request(jobAppApiPaths.policyConfigReset, {
+          return request(valedictorianApiPaths.policyConfigReset, {
             body: {},
             method: 'POST',
           })
         },
         update(patch) {
-          return request(jobAppApiPaths.policyConfig, {
+          return request(valedictorianApiPaths.policyConfig, {
             body: patch,
             method: 'PATCH',
           })
@@ -417,12 +417,12 @@ export function createHttpJobAppClient({
       },
       evidence: {
         list(query) {
-          return request(jobAppApiPaths.policyEvidence, {
+          return request(valedictorianApiPaths.policyEvidence, {
             query: policyEvidenceListQueryToSearchParams(query),
           })
         },
         record(input) {
-          return request(jobAppApiPaths.policyEvidence, {
+          return request(valedictorianApiPaths.policyEvidence, {
             body: input,
             method: 'POST',
           })
@@ -430,19 +430,19 @@ export function createHttpJobAppClient({
       },
       evaluate: {
         application(input) {
-          return request(jobAppApiPaths.policyEvaluateApplication, {
+          return request(valedictorianApiPaths.policyEvaluateApplication, {
             body: input,
             method: 'POST',
           })
         },
         sourcingCandidate(input) {
-          return request(jobAppApiPaths.policyEvaluateSourcingCandidate, {
+          return request(valedictorianApiPaths.policyEvaluateSourcingCandidate, {
             body: input,
             method: 'POST',
           })
         },
         runWindow(input) {
-          return request(jobAppApiPaths.policyEvaluateRunWindow, {
+          return request(valedictorianApiPaths.policyEvaluateRunWindow, {
             body: input,
             method: 'POST',
           })
@@ -451,28 +451,28 @@ export function createHttpJobAppClient({
     },
     profile: {
       get() {
-        return request(jobAppApiPaths.profile)
+        return request(valedictorianApiPaths.profile)
       },
       update(input) {
-        return request(jobAppApiPaths.profile, {
+        return request(valedictorianApiPaths.profile, {
           body: input,
           method: 'PATCH',
         })
       },
       agentContext: {
         get() {
-          return request(jobAppApiPaths.profileAgentContext)
+          return request(valedictorianApiPaths.profileAgentContext)
         },
       },
     },
     runs: {
       list(query) {
-        return request(jobAppApiPaths.runs, {
+        return request(valedictorianApiPaths.runs, {
           query: workflowRunListQueryToSearchParams(query),
         })
       },
       start(input) {
-        return request(jobAppApiPaths.runs, {
+        return request(valedictorianApiPaths.runs, {
           body: input,
           method: 'POST',
         })
@@ -480,7 +480,7 @@ export function createHttpJobAppClient({
       step(input) {
         const { workflowRunId, ...body } = input
 
-        return request(jobAppApiPaths.runSteps(workflowRunId), {
+        return request(valedictorianApiPaths.runSteps(workflowRunId), {
           body,
           method: 'POST',
         })
@@ -488,7 +488,7 @@ export function createHttpJobAppClient({
       complete(input) {
         const { workflowRunId, ...body } = input
 
-        return request(jobAppApiPaths.runComplete(workflowRunId), {
+        return request(valedictorianApiPaths.runComplete(workflowRunId), {
           body,
           method: 'PATCH',
         })
@@ -497,7 +497,7 @@ export function createHttpJobAppClient({
     sourcing: {
       candidates: {
         process(input) {
-          return request(jobAppApiPaths.sourcingCandidatesProcess, {
+          return request(valedictorianApiPaths.sourcingCandidatesProcess, {
             body: input,
             method: 'POST',
           })
@@ -505,12 +505,12 @@ export function createHttpJobAppClient({
       },
       findings: {
         list(query) {
-          return request(jobAppApiPaths.sourcingFindings, {
+          return request(valedictorianApiPaths.sourcingFindings, {
             query: sourcingFindingListQueryToSearchParams(query),
           })
         },
         create(input) {
-          return request(jobAppApiPaths.sourcingFindings, {
+          return request(valedictorianApiPaths.sourcingFindings, {
             body: input,
             method: 'POST',
           })
@@ -518,7 +518,7 @@ export function createHttpJobAppClient({
         update(input) {
           const { findingId, ...body } = input
 
-          return request(jobAppApiPaths.sourcingFinding(findingId), {
+          return request(valedictorianApiPaths.sourcingFinding(findingId), {
             body,
             method: 'PATCH',
           })
@@ -526,13 +526,13 @@ export function createHttpJobAppClient({
         decide(input) {
           const { findingId, ...body } = input
 
-          return request(jobAppApiPaths.sourcingFindingDecide(findingId), {
+          return request(valedictorianApiPaths.sourcingFindingDecide(findingId), {
             body,
             method: 'POST',
           })
         },
         promote(input) {
-          return request(jobAppApiPaths.sourcingFindingPromote(input.findingId), {
+          return request(valedictorianApiPaths.sourcingFindingPromote(input.findingId), {
             body: {},
             method: 'POST',
           })
@@ -561,5 +561,5 @@ function responseMessage(body: unknown, fallback: string) {
     return body.message
   }
 
-  return fallback || 'Job App request failed'
+  return fallback || 'Valedictorian request failed'
 }

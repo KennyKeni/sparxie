@@ -1,4 +1,4 @@
-export interface JobAppCapabilities {
+export interface ValedictorianCapabilities {
   localSqlite: boolean
   agentWorkflows: boolean
   hostedSync: boolean
@@ -6,7 +6,7 @@ export interface JobAppCapabilities {
   billing: boolean
 }
 
-export const defaultLocalCapabilities: JobAppCapabilities = {
+export const defaultLocalCapabilities: ValedictorianCapabilities = {
   localSqlite: true,
   agentWorkflows: true,
   hostedSync: false,

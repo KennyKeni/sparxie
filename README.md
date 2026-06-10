@@ -1,6 +1,6 @@
 # sparxie
 
-Shared TypeScript contracts, validators, and HTTP client for Sparxie job automation tools.
+Shared TypeScript contracts, validators, and HTTP client for Valedictorian tools.
 
 ## Install
 
@@ -16,13 +16,13 @@ npm install sparxie
 
 ```ts
 import {
-  createHttpJobAppClient,
-  defaultJobAppApiBaseUrl,
+  createHttpValedictorianClient,
+  defaultValedictorianApiBaseUrl,
   isApplicationStatus,
 } from 'sparxie'
 
-const client = createHttpJobAppClient({
-  baseUrl: defaultJobAppApiBaseUrl,
+const client = createHttpValedictorianClient({
+  baseUrl: defaultValedictorianApiBaseUrl,
 })
 
 const queue = await client.queue.list({ bucket: 'ready' })

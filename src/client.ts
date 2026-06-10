@@ -58,7 +58,7 @@ import type {
 } from './workflow-run.js'
 import type { ProfileAgentContext, ProfileUpdateInput, UserProfile } from './profile.js'
 
-export interface JobAppClient {
+export interface ValedictorianClient {
   applications: {
     list(query?: ApplicationListQuery): Promise<ApplicationListResult>
     get(id: string): Promise<ApplicationDetail | null>
