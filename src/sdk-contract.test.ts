@@ -148,7 +148,15 @@ describe('SDK public contract', () => {
     expect(defaultValedictorianApiBaseUrl).toBe('http://127.0.0.1:4317')
     expect(valedictorianApiPaths.health).toBe('/v1/health')
     expect(valedictorianApiPaths.capabilities).toBe('/v1/capabilities')
+    expect(valedictorianApiPaths.workspaces).toBe('/v1/workspaces')
+    expect(valedictorianApiPaths.workspaceOpen).toBe('/v1/workspaces/open')
+    expect(valedictorianApiPaths.workspaceCreate).toBe('/v1/workspaces/create')
     expect(valedictorianApiPaths.applications).toBe('/v1/applications')
+    expect(valedictorianApiPaths.profileSensitive).toBe('/v1/profile/sensitive')
+    expect(valedictorianApiPaths.secrets).toBe('/v1/secrets')
+    expect(valedictorianApiPaths.secret('greenhouse password')).toBe(
+      '/v1/secrets/greenhouse%20password',
+    )
     expect(valedictorianApiPaths.application('application 1')).toBe(
       '/v1/applications/application%201',
     )
@@ -198,9 +206,9 @@ describe('SDK public contract', () => {
   it('exports local capabilities for clients to adapt behavior', () => {
     expect(defaultLocalCapabilities).toEqual({
       localSqlite: true,
-      agentWorkflows: true,
+      agentWorkflows: false,
       hostedSync: false,
-      multiWorkspace: false,
+      multiWorkspace: true,
       billing: false,
     })
   })

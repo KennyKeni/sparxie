@@ -103,6 +103,39 @@ export interface ProfileAgentContext {
   education: ProfileEducation[]
 }
 
+export interface ProfileSecretSummary {
+  key: string
+  kind: ProfileSecretKind
+  label: string
+  updatedAt: string
+}
+
+export interface ProfileSecretsListResult {
+  items: ProfileSecretSummary[]
+}
+
+export interface UpsertProfileSecretInput {
+  key: string
+  kind: ProfileSecretKind
+  label: string
+  value: string
+}
+
+export interface ProfileSensitiveDetails {
+  birthDay: string | null
+  birthMonth: string | null
+  birthYear: string | null
+  dateOfBirth?: string | null
+  disabilityStatus: string | null
+  gender: string | null
+  hispanicLatino: string | null
+  raceEthnicity: string | null
+  ssnLast4: string | null
+  veteranStatus: string | null
+}
+
+export type ProfileSensitiveDetailsInput = Partial<ProfileSensitiveDetails>
+
 export const defaultUserProfile: UserProfile = {
   addressLine1: null,
   addressLine2: null,

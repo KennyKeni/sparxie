@@ -8,8 +8,8 @@ export interface ValedictorianCapabilities {
 
 export const defaultLocalCapabilities: ValedictorianCapabilities = {
   localSqlite: true,
-  agentWorkflows: true,
+  agentWorkflows: false,
   hostedSync: false,
-  multiWorkspace: false,
+  multiWorkspace: true,
   billing: false,
 }

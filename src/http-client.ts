@@ -6,7 +6,7 @@ import type {
   ApplicationListQuery,
   StatusUpdateInput,
 } from './application.js'
-import type { ValedictorianClient } from './client.js'
+import type { ValedictorianClient, ValedictorianWorkspaceClient } from './client.js'
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { QueueListQuery } from './queue.js'
 import type { ScoreInput } from './scoring.js'
@@ -203,7 +203,7 @@ export function createHttpValedictorianClient({
     path: string,
     options: {
       body?: unknown
-      method?: 'GET' | 'PATCH' | 'POST'
+      method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
       query?: URLSearchParams
     } = {},
   ): Promise<T> {
@@ -245,16 +245,23 @@ export function createHttpValedictorianClient({
     return body as T
   }
 
-  return {
+  function workspacePath(workspaceId: string, path: string) {
+    return `/v1/workspaces/${encodeURIComponent(workspaceId)}${path.slice('/v1'.length)}`
+  }
+
+  function createWorkspaceClient(workspaceId: string): ValedictorianWorkspaceClient {
+    const pathFor = (path: string) => workspacePath(workspaceId, path)
+
+    return {
     applications: {
       list(query) {
-        return request(valedictorianApiPaths.applications, {
+        return request(pathFor(valedictorianApiPaths.applications), {
           query: applicationListQueryToSearchParams(query),
         })
       },
       async get(id) {
         try {
-          return await request(valedictorianApiPaths.application(id))
+          return await request(pathFor(valedictorianApiPaths.application(id)))
         } catch (error) {
           if (error instanceof ValedictorianHttpError && error.status === 404) {
             return null
@@ -264,7 +271,7 @@ export function createHttpValedictorianClient({
         }
       },
       create(input) {
-        return request(valedictorianApiPaths.applications, {
+        return request(pathFor(valedictorianApiPaths.applications), {
           body: input,
           method: 'POST',
         })
@@ -272,13 +279,13 @@ export function createHttpValedictorianClient({
       update(input) {
         const { applicationId, ...body } = input
 
-        return request(valedictorianApiPaths.application(applicationId), {
+        return request(pathFor(valedictorianApiPaths.application(applicationId)), {
           body,
           method: 'PATCH',
         })
       },
       updateStatus(input: StatusUpdateInput) {
-        return request(valedictorianApiPaths.applicationStatus(input.applicationId), {
+        return request(pathFor(valedictorianApiPaths.applicationStatus(input.applicationId)), {
           body: {
             status: input.status,
             notes: input.notes,
@@ -287,7 +294,7 @@ export function createHttpValedictorianClient({
         })
       },
       archive(input) {
-        return request(valedictorianApiPaths.applicationArchive(input.applicationId), {
+        return request(pathFor(valedictorianApiPaths.applicationArchive(input.applicationId)), {
           body: {
             note: input.note,
           },
@@ -298,7 +305,7 @@ export function createHttpValedictorianClient({
         update(input) {
           const { applicationId, ...body } = input
 
-          return request(valedictorianApiPaths.applicationWorkflow(applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationWorkflow(applicationId)), {
             body,
             method: 'PATCH',
           })
@@ -306,7 +313,7 @@ export function createHttpValedictorianClient({
       },
       notes: {
         append(input) {
-          return request(valedictorianApiPaths.applicationNotes(input.applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationNotes(input.applicationId)), {
             body: {
               message: input.message,
             },
@@ -318,14 +325,14 @@ export function createHttpValedictorianClient({
         list(input) {
           const { applicationId, ...query } = input
 
-          return request(valedictorianApiPaths.applicationLinks(applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationLinks(applicationId)), {
             query: applicationLinksListQueryToSearchParams(query),
           })
         },
         create(input) {
           const { applicationId, ...body } = input
 
-          return request(valedictorianApiPaths.applicationLinks(applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationLinks(applicationId)), {
             body,
             method: 'POST',
           })
@@ -333,7 +340,7 @@ export function createHttpValedictorianClient({
         update(input) {
           const { applicationId, linkId, ...body } = input
 
-          return request(valedictorianApiPaths.applicationLink(applicationId, linkId), {
+          return request(pathFor(valedictorianApiPaths.applicationLink(applicationId, linkId)), {
             body,
             method: 'PATCH',
           })
@@ -343,7 +350,7 @@ export function createHttpValedictorianClient({
         list(input) {
           const { applicationId, ...query } = input
 
-          return request(valedictorianApiPaths.applicationEvents(applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationEvents(applicationId)), {
             query: applicationEventsListQueryToSearchParams(query),
           })
         },
@@ -352,14 +359,14 @@ export function createHttpValedictorianClient({
         list(input) {
           const { applicationId, ...query } = input
 
-          return request(valedictorianApiPaths.applicationAttempts(applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationAttempts(applicationId)), {
             query: applicationAttemptsListQueryToSearchParams(query),
           })
         },
         start(input) {
           const { applicationId, ...body } = input
 
-          return request(valedictorianApiPaths.applicationAttempts(applicationId), {
+          return request(pathFor(valedictorianApiPaths.applicationAttempts(applicationId)), {
             body,
             method: 'POST',
           })
@@ -367,7 +374,7 @@ export function createHttpValedictorianClient({
         step(input) {
           const { applicationId, attemptId, ...body } = input
 
-          return request(valedictorianApiPaths.applicationAttemptSteps(applicationId, attemptId), {
+          return request(pathFor(valedictorianApiPaths.applicationAttemptSteps(applicationId, attemptId)), {
             body,
             method: 'POST',
           })
@@ -375,7 +382,7 @@ export function createHttpValedictorianClient({
         complete(input) {
           const { applicationId, attemptId, ...body } = input
 
-          return request(valedictorianApiPaths.applicationAttemptComplete(applicationId, attemptId), {
+          return request(pathFor(valedictorianApiPaths.applicationAttemptComplete(applicationId, attemptId)), {
             body,
             method: 'PATCH',
           })
@@ -384,7 +391,7 @@ export function createHttpValedictorianClient({
     },
     scores: {
       record(input: ScoreInput) {
-        return request(valedictorianApiPaths.scores, {
+        return request(pathFor(valedictorianApiPaths.scores), {
           body: input,
           method: 'POST',
         })
@@ -392,7 +399,7 @@ export function createHttpValedictorianClient({
     },
     queue: {
       list(query) {
-        return request(valedictorianApiPaths.queue, {
+        return request(pathFor(valedictorianApiPaths.queue), {
           query: queueListQueryToSearchParams(query),
         })
       },
@@ -400,16 +407,16 @@ export function createHttpValedictorianClient({
     policy: {
       config: {
         get() {
-          return request(valedictorianApiPaths.policyConfig)
+          return request(pathFor(valedictorianApiPaths.policyConfig))
         },
         reset() {
-          return request(valedictorianApiPaths.policyConfigReset, {
+          return request(pathFor(valedictorianApiPaths.policyConfigReset), {
             body: {},
             method: 'POST',
           })
         },
         update(patch) {
-          return request(valedictorianApiPaths.policyConfig, {
+          return request(pathFor(valedictorianApiPaths.policyConfig), {
             body: patch,
             method: 'PATCH',
           })
@@ -417,12 +424,12 @@ export function createHttpValedictorianClient({
       },
       evidence: {
         list(query) {
-          return request(valedictorianApiPaths.policyEvidence, {
+          return request(pathFor(valedictorianApiPaths.policyEvidence), {
             query: policyEvidenceListQueryToSearchParams(query),
           })
         },
         record(input) {
-          return request(valedictorianApiPaths.policyEvidence, {
+          return request(pathFor(valedictorianApiPaths.policyEvidence), {
             body: input,
             method: 'POST',
           })
@@ -430,19 +437,19 @@ export function createHttpValedictorianClient({
       },
       evaluate: {
         application(input) {
-          return request(valedictorianApiPaths.policyEvaluateApplication, {
+          return request(pathFor(valedictorianApiPaths.policyEvaluateApplication), {
             body: input,
             method: 'POST',
           })
         },
         sourcingCandidate(input) {
-          return request(valedictorianApiPaths.policyEvaluateSourcingCandidate, {
+          return request(pathFor(valedictorianApiPaths.policyEvaluateSourcingCandidate), {
             body: input,
             method: 'POST',
           })
         },
         runWindow(input) {
-          return request(valedictorianApiPaths.policyEvaluateRunWindow, {
+          return request(pathFor(valedictorianApiPaths.policyEvaluateRunWindow), {
             body: input,
             method: 'POST',
           })
@@ -451,28 +458,57 @@ export function createHttpValedictorianClient({
     },
     profile: {
       get() {
-        return request(valedictorianApiPaths.profile)
+        return request(pathFor(valedictorianApiPaths.profile))
       },
       update(input) {
-        return request(valedictorianApiPaths.profile, {
+        return request(pathFor(valedictorianApiPaths.profile), {
           body: input,
           method: 'PATCH',
         })
       },
       agentContext: {
         get() {
-          return request(valedictorianApiPaths.profileAgentContext)
+          return request(pathFor(valedictorianApiPaths.profileAgentContext))
         },
+      },
+      sensitive: {
+        get() {
+          return request(pathFor(valedictorianApiPaths.profileSensitive))
+        },
+        update(input) {
+          return request(pathFor(valedictorianApiPaths.profileSensitive), {
+            body: input,
+            method: 'PATCH',
+          })
+        },
+      },
+    },
+    secrets: {
+      delete(key) {
+        return request(pathFor(valedictorianApiPaths.secret(key)), {
+          method: 'DELETE',
+        })
+      },
+      list() {
+        return request(pathFor(valedictorianApiPaths.secrets))
+      },
+      upsert(input) {
+        const { key, ...body } = input
+
+        return request(pathFor(valedictorianApiPaths.secret(key)), {
+          body,
+          method: 'PUT',
+        })
       },
     },
     runs: {
       list(query) {
-        return request(valedictorianApiPaths.runs, {
+        return request(pathFor(valedictorianApiPaths.runs), {
           query: workflowRunListQueryToSearchParams(query),
         })
       },
       start(input) {
-        return request(valedictorianApiPaths.runs, {
+        return request(pathFor(valedictorianApiPaths.runs), {
           body: input,
           method: 'POST',
         })
@@ -480,7 +516,7 @@ export function createHttpValedictorianClient({
       step(input) {
         const { workflowRunId, ...body } = input
 
-        return request(valedictorianApiPaths.runSteps(workflowRunId), {
+        return request(pathFor(valedictorianApiPaths.runSteps(workflowRunId)), {
           body,
           method: 'POST',
         })
@@ -488,7 +524,7 @@ export function createHttpValedictorianClient({
       complete(input) {
         const { workflowRunId, ...body } = input
 
-        return request(valedictorianApiPaths.runComplete(workflowRunId), {
+        return request(pathFor(valedictorianApiPaths.runComplete(workflowRunId)), {
           body,
           method: 'PATCH',
         })
@@ -497,7 +533,7 @@ export function createHttpValedictorianClient({
     sourcing: {
       candidates: {
         process(input) {
-          return request(valedictorianApiPaths.sourcingCandidatesProcess, {
+          return request(pathFor(valedictorianApiPaths.sourcingCandidatesProcess), {
             body: input,
             method: 'POST',
           })
@@ -505,12 +541,12 @@ export function createHttpValedictorianClient({
       },
       findings: {
         list(query) {
-          return request(valedictorianApiPaths.sourcingFindings, {
+          return request(pathFor(valedictorianApiPaths.sourcingFindings), {
             query: sourcingFindingListQueryToSearchParams(query),
           })
         },
         create(input) {
-          return request(valedictorianApiPaths.sourcingFindings, {
+          return request(pathFor(valedictorianApiPaths.sourcingFindings), {
             body: input,
             method: 'POST',
           })
@@ -518,7 +554,7 @@ export function createHttpValedictorianClient({
         update(input) {
           const { findingId, ...body } = input
 
-          return request(valedictorianApiPaths.sourcingFinding(findingId), {
+          return request(pathFor(valedictorianApiPaths.sourcingFinding(findingId)), {
             body,
             method: 'PATCH',
           })
@@ -526,17 +562,51 @@ export function createHttpValedictorianClient({
         decide(input) {
           const { findingId, ...body } = input
 
-          return request(valedictorianApiPaths.sourcingFindingDecide(findingId), {
+          return request(pathFor(valedictorianApiPaths.sourcingFindingDecide(findingId)), {
             body,
             method: 'POST',
           })
         },
         promote(input) {
-          return request(valedictorianApiPaths.sourcingFindingPromote(input.findingId), {
+          return request(pathFor(valedictorianApiPaths.sourcingFindingPromote(input.findingId)), {
             body: {},
             method: 'POST',
           })
         },
+      },
+    },
+  }
+  }
+
+  return {
+    capabilities: {
+      get() {
+        return request(valedictorianApiPaths.capabilities)
+      },
+    },
+    forWorkspace(workspaceId) {
+      return createWorkspaceClient(workspaceId)
+    },
+    health: {
+      get() {
+        return request(valedictorianApiPaths.health)
+      },
+    },
+    workspaces: {
+      create(input) {
+        return request(valedictorianApiPaths.workspaceCreate, {
+          body: input,
+          method: 'POST',
+        })
+      },
+      list() {
+        return request(valedictorianApiPaths.workspaces)
+      },
+      open(input) {
+        return request(valedictorianApiPaths.workspaceOpen, {
+          body: input,
+          method: 'POST',
+        })
       },
     },
   }

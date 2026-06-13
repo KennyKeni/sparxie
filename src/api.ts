@@ -3,9 +3,17 @@ export const defaultValedictorianApiBaseUrl = 'http://127.0.0.1:4317'
 export const valedictorianApiPaths = {
   health: '/v1/health',
   capabilities: '/v1/capabilities',
+  workspaces: '/v1/workspaces',
+  workspaceOpen: '/v1/workspaces/open',
+  workspaceCreate: '/v1/workspaces/create',
   applications: '/v1/applications',
   profile: '/v1/profile',
   profileAgentContext: '/v1/profile/agent-context',
+  profileSensitive: '/v1/profile/sensitive',
+  secrets: '/v1/secrets',
+  secret(secretKey: string) {
+    return `/v1/secrets/${encodeURIComponent(secretKey)}`
+  },
   policyConfig: '/v1/policy/config',
   policyConfigReset: '/v1/policy/config/reset',
   policyEvidence: '/v1/policy/evidence',

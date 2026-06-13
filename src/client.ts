@@ -56,9 +56,44 @@ import type {
   WorkflowRunsListResult,
   WorkflowRunStep,
 } from './workflow-run.js'
-import type { ProfileAgentContext, ProfileUpdateInput, UserProfile } from './profile.js'
+import type {
+  WorkspaceCreateInput,
+  WorkspaceListItem,
+  WorkspaceListResult,
+  WorkspaceOpenInput,
+} from './workspace.js'
+import type { ValedictorianCapabilities } from './capabilities.js'
+import type {
+  ProfileAgentContext,
+  ProfileSecretSummary,
+  ProfileSecretsListResult,
+  ProfileSensitiveDetails,
+  ProfileSensitiveDetailsInput,
+  ProfileUpdateInput,
+  UpsertProfileSecretInput,
+  UserProfile,
+} from './profile.js'
+
+export interface ValedictorianHealth {
+  ok: boolean
+}
 
 export interface ValedictorianClient {
+  capabilities: {
+    get(): Promise<ValedictorianCapabilities>
+  }
+  forWorkspace(workspaceId: string): ValedictorianWorkspaceClient
+  health: {
+    get(): Promise<ValedictorianHealth>
+  }
+  workspaces: {
+    create(input: WorkspaceCreateInput): Promise<WorkspaceListItem>
+    list(): Promise<WorkspaceListResult>
+    open(input: WorkspaceOpenInput): Promise<WorkspaceListItem>
+  }
+}
+
+export interface ValedictorianWorkspaceClient {
   applications: {
     list(query?: ApplicationListQuery): Promise<ApplicationListResult>
     get(id: string): Promise<ApplicationDetail | null>
@@ -115,6 +150,15 @@ export interface ValedictorianClient {
     agentContext: {
       get(): Promise<ProfileAgentContext>
     }
+    sensitive: {
+      get(): Promise<ProfileSensitiveDetails>
+      update(input: ProfileSensitiveDetailsInput): Promise<ProfileSensitiveDetails>
+    }
+  }
+  secrets: {
+    delete(key: string): Promise<void>
+    list(): Promise<ProfileSecretsListResult>
+    upsert(input: UpsertProfileSecretInput): Promise<ProfileSecretSummary>
   }
   runs: {
     list(query?: WorkflowRunsListInput): Promise<WorkflowRunsListResult>
