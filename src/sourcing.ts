@@ -14,6 +14,18 @@ export const sourcingMergeStatuses = [
 
 export type SourcingMergeStatus = (typeof sourcingMergeStatuses)[number]
 
+export const writableSourcingMergeStatuses = [
+  'new',
+  'duplicate',
+  'below_cutoff',
+  'blocked',
+  'not_fit',
+  'not_pursued',
+  'archived',
+] as const
+
+export type WritableSourcingMergeStatus = (typeof writableSourcingMergeStatuses)[number]
+
 export const manualSourcingDecisionStatuses = [
   'not_fit',
   'not_pursued',
@@ -24,6 +36,12 @@ export type ManualSourcingDecisionStatus = (typeof manualSourcingDecisionStatuse
 
 export function isSourcingMergeStatus(value: string): value is SourcingMergeStatus {
   return (sourcingMergeStatuses as readonly string[]).includes(value)
+}
+
+export function isWritableSourcingMergeStatus(
+  value: string,
+): value is WritableSourcingMergeStatus {
+  return (writableSourcingMergeStatuses as readonly string[]).includes(value)
 }
 
 export function isManualSourcingDecisionStatus(
@@ -102,7 +120,7 @@ export interface CreateSourcingFindingInput {
   fitNotes?: string | null
   duplicateNotes?: string | null
   blocker?: string | null
-  mergeStatus?: SourcingMergeStatus
+  mergeStatus?: WritableSourcingMergeStatus
   discoveredAt?: string | null
 }
 
@@ -127,7 +145,7 @@ export interface UpdateSourcingFindingInput {
   fitNotes?: string | null
   duplicateNotes?: string | null
   blocker?: string | null
-  mergeStatus?: SourcingMergeStatus
+  mergeStatus?: WritableSourcingMergeStatus
   mergeNotes?: string | null
 }
 

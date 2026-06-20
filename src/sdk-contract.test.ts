@@ -17,6 +17,7 @@ import {
   isRunStatus,
   isRunType,
   isSourcingMergeStatus,
+  isWritableSourcingMergeStatus,
   isWorkMode,
   valedictorianApiPaths,
   MAX_APPLICATION_LIST_LIMIT,
@@ -26,6 +27,7 @@ import {
   runStatuses,
   runTypes,
   sourcingMergeStatuses,
+  writableSourcingMergeStatuses,
   workModes,
 } from './index'
 import type { VerificationReceiptPayload } from './index'
@@ -119,12 +121,23 @@ describe('SDK public contract', () => {
       'not_pursued',
       'archived',
     ])
+    expect(writableSourcingMergeStatuses).toEqual([
+      'new',
+      'duplicate',
+      'below_cutoff',
+      'blocked',
+      'not_fit',
+      'not_pursued',
+      'archived',
+    ])
     expect(isRunType('sourcing')).toBe(true)
     expect(isRunType('application')).toBe(false)
     expect(isRunStatus('completed')).toBe(true)
     expect(isRunStatus('done')).toBe(false)
     expect(isSourcingMergeStatus('below_cutoff')).toBe(true)
     expect(isSourcingMergeStatus('skipped')).toBe(false)
+    expect(isWritableSourcingMergeStatus('merged')).toBe(false)
+    expect(isWritableSourcingMergeStatus('blocked')).toBe(true)
     expect(defaultPolicyConfig.scoring.applyCutoff).toBe(6)
   })
 
@@ -207,6 +220,9 @@ describe('SDK public contract', () => {
     expect(defaultLocalCapabilities).toEqual({
       localSqlite: true,
       agentWorkflows: false,
+      workflowRuns: true,
+      applicationAttempts: true,
+      sourcing: true,
       hostedSync: false,
       multiWorkspace: true,
       billing: false,
