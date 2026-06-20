@@ -20,7 +20,7 @@ export const valedictorianApiPaths = {
   policyEvaluateApplication: '/v1/policy/evaluate/application',
   policyEvaluateSourcingCandidate: '/v1/policy/evaluate/sourcing-candidate',
   policyEvaluateRunWindow: '/v1/policy/evaluate/run-window',
-  queue: '/v1/queue',
+  actionQueue: '/v1/action-queue',
   runs: '/v1/runs',
   application(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}`

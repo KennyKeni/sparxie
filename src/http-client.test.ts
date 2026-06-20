@@ -86,7 +86,7 @@ describe('HTTP Valedictorian client', () => {
     })
 
     expect(client).not.toHaveProperty('applications')
-    expect(client).not.toHaveProperty('queue')
+    expect(client).not.toHaveProperty('actionQueue')
     expect(client).not.toHaveProperty('profile')
     expect(client).not.toHaveProperty('secrets')
   })
@@ -138,14 +138,14 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
-  it('lists queue rows with query params and bearer auth', async () => {
+  it('lists action queue rows with query params and bearer auth', async () => {
     const payload = {
       items: [],
       total: 0,
       limit: 25,
       offset: 5,
       hasMore: false,
-      bucketCounts: { apply_now: 0 },
+      actionBucketCounts: { apply_now: 0 },
     }
     const fetchMock = mockFetch(jsonResponse(payload))
     const client = createHttpValedictorianClient({
@@ -155,15 +155,15 @@ describe('HTTP Valedictorian client', () => {
     const workspace = client.forWorkspace('workspace-1')
 
     await expect(
-      workspace.queue.list({
-        bucket: 'apply_now',
+      workspace.actionQueue.list({
+        actionBucket: 'apply_now',
         limit: 25,
         offset: 5,
       }),
     ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://valedictorian.test/v1/workspaces/workspace-1/queue?bucket=apply_now&limit=25&offset=5',
+      'https://valedictorian.test/v1/workspaces/workspace-1/action-queue?actionBucket=apply_now&limit=25&offset=5',
       {
         headers: {
           accept: 'application/json',

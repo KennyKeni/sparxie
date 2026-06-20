@@ -6,6 +6,7 @@ import {
   applicationAttemptStepTypes,
   applicationListSorts,
   applicationStatuses,
+  actionQueueBuckets,
   canonicalizeApplicationUrl,
   defaultValedictorianApiBaseUrl,
   defaultPolicyConfig,
@@ -139,6 +140,15 @@ describe('SDK public contract', () => {
     expect(isWritableSourcingMergeStatus('merged')).toBe(false)
     expect(isWritableSourcingMergeStatus('blocked')).toBe(true)
     expect(defaultPolicyConfig.scoring.applyCutoff).toBe(6)
+    expect(actionQueueBuckets).toEqual([
+      'apply_now',
+      'manual_review_pickup',
+      'needs_user_info',
+      'stale_lock_recovery',
+      'user_review_required',
+      'blocked',
+      'skip_below_cutoff',
+    ])
   })
 
   it('canonicalizes mutation URLs and flexible link kinds', () => {
@@ -202,6 +212,7 @@ describe('SDK public contract', () => {
       '/v1/sourcing/findings/finding%201/promote',
     )
     expect(valedictorianApiPaths.scores).toBe('/v1/scores')
+    expect(valedictorianApiPaths.actionQueue).toBe('/v1/action-queue')
     expect(valedictorianApiPaths.policyConfig).toBe('/v1/policy/config')
     expect(valedictorianApiPaths.policyConfigReset).toBe('/v1/policy/config/reset')
     expect(valedictorianApiPaths.policyEvidence).toBe('/v1/policy/evidence')

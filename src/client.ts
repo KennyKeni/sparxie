@@ -23,7 +23,7 @@ import type {
   UpdateApplicationLinkInput,
   UpdateApplicationWorkflowInput,
 } from './application.js'
-import type { QueueListQuery, QueueListResult } from './queue.js'
+import type { ActionQueueListQuery, ActionQueueListResult } from './action-queue.js'
 import type {
   EvaluateApplicationPolicyInput,
   EvaluateRunWindowPolicyInput,
@@ -125,8 +125,8 @@ export interface ValedictorianWorkspaceClient {
   scores: {
     record(input: ScoreInput): Promise<void>
   }
-  queue: {
-    list(query?: QueueListQuery): Promise<QueueListResult>
+  actionQueue: {
+    list(query?: ActionQueueListQuery): Promise<ActionQueueListResult>
   }
   policy: {
     config: {

@@ -5,7 +5,7 @@ import type {
 } from './application.js'
 import type { PolicyReason } from './policy.js'
 
-export const queueBuckets = [
+export const actionQueueBuckets = [
   'apply_now',
   'manual_review_pickup',
   'needs_user_info',
@@ -15,20 +15,20 @@ export const queueBuckets = [
   'skip_below_cutoff',
 ] as const
 
-export type QueueBucket = (typeof queueBuckets)[number]
-export type NextAction = QueueBucket
+export type ActionQueueBucket = (typeof actionQueueBuckets)[number]
+export type NextAction = ActionQueueBucket
 
-export function isQueueBucket(value: string): value is QueueBucket {
-  return (queueBuckets as readonly string[]).includes(value)
+export function isActionQueueBucket(value: string): value is ActionQueueBucket {
+  return (actionQueueBuckets as readonly string[]).includes(value)
 }
 
-export interface QueueListQuery {
-  bucket?: QueueBucket
+export interface ActionQueueListQuery {
+  actionBucket?: ActionQueueBucket
   limit?: number
   offset?: number
 }
 
-export interface QueueListItem {
+export interface ActionQueueListItem {
   id: string
   companyName: string
   roleTitle: string
@@ -42,17 +42,17 @@ export interface QueueListItem {
   primaryLink: ApplicationLinkSummary | null
   createdAt: string
   updatedAt: string
-  bucket: QueueBucket
+  actionBucket: ActionQueueBucket
   nextAction: NextAction
   reason: string
   policyReasons: PolicyReason[]
 }
 
-export interface QueueListResult {
-  items: QueueListItem[]
+export interface ActionQueueListResult {
+  items: ActionQueueListItem[]
   total: number
   limit: number
   offset: number
   hasMore: boolean
-  bucketCounts: Record<QueueBucket, number>
+  actionBucketCounts: Record<ActionQueueBucket, number>
 }

@@ -25,10 +25,11 @@ const client = createHttpValedictorianClient({
   baseUrl: defaultValedictorianApiBaseUrl,
 })
 
-const queue = await client.queue.list({ bucket: 'ready' })
+const workspace = client.forWorkspace('workspace-id')
+const actionQueue = await workspace.actionQueue.list({ actionBucket: 'apply_now' })
 
 console.log(isApplicationStatus('submitted'))
-console.log(queue.items)
+console.log(actionQueue.items)
 ```
 
 ## Development

@@ -46,11 +46,11 @@ export interface PolicyTimeWindow {
 }
 
 export interface PolicyConfig {
-  version: 1
+  version: 2
   scoring: {
     applyCutoff: number
   }
-  queue: {
+  actionQueue: {
     staleLockHours: number
   }
   manualReview: {
@@ -171,11 +171,11 @@ type DeepPartial<T> = {
 }
 
 export const defaultPolicyConfig: PolicyConfig = {
-  version: 1,
+  version: 2,
   scoring: {
     applyCutoff: 6,
   },
-  queue: {
+  actionQueue: {
     staleLockHours: 2,
   },
   manualReview: {
@@ -230,7 +230,8 @@ export function isPolicyDecisionStatus(value: string): value is PolicyDecisionSt
 export function normalizePolicyConfig(value: unknown): PolicyConfig {
   const candidate = isRecord(value) ? value : {}
   const scoring = isRecord(candidate.scoring) ? candidate.scoring : {}
-  const queue = isRecord(candidate.queue) ? candidate.queue : {}
+  const legacyQueue = isRecord(candidate.queue) ? candidate.queue : {}
+  const actionQueue = isRecord(candidate.actionQueue) ? candidate.actionQueue : legacyQueue
   const manualReview = isRecord(candidate.manualReview) ? candidate.manualReview : {}
   const daytimeWindow = isRecord(manualReview.daytimeWindow) ? manualReview.daytimeWindow : {}
   const officialPath = isRecord(candidate.officialPath) ? candidate.officialPath : {}
@@ -239,12 +240,15 @@ export function normalizePolicyConfig(value: unknown): PolicyConfig {
   const sourcing = isRecord(candidate.sourcing) ? candidate.sourcing : {}
 
   return {
-    version: 1,
+    version: 2,
     scoring: {
       applyCutoff: readPositiveNumber(scoring.applyCutoff, defaultPolicyConfig.scoring.applyCutoff),
     },
-    queue: {
-      staleLockHours: readPositiveNumber(queue.staleLockHours, defaultPolicyConfig.queue.staleLockHours),
+    actionQueue: {
+      staleLockHours: readPositiveNumber(
+        actionQueue.staleLockHours,
+        defaultPolicyConfig.actionQueue.staleLockHours,
+      ),
     },
     manualReview: {
       pickupDelayHours: readPositiveNumber(

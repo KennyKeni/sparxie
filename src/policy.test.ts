@@ -11,11 +11,11 @@ import {
 describe('policy contract', () => {
   it('exports stable defaults and evidence tags for external harnesses', () => {
     expect(defaultPolicyConfig).toMatchObject({
-      version: 1,
+      version: 2,
       scoring: {
         applyCutoff: 6,
       },
-      queue: {
+      actionQueue: {
         staleLockHours: 2,
       },
       manualReview: {
@@ -67,7 +67,20 @@ describe('policy contract', () => {
 
     expect(normalized.scoring.applyCutoff).toBe(7)
     expect(normalized.manualReview.pickupDelayHours).toBe(8)
-    expect(normalized.queue.staleLockHours).toBe(defaultPolicyConfig.queue.staleLockHours)
+    expect(normalized.actionQueue.staleLockHours).toBe(defaultPolicyConfig.actionQueue.staleLockHours)
     expect(defaultPolicyConfig.scoring.applyCutoff).toBe(6)
+  })
+
+  it('normalizes legacy queue config into action queue config', () => {
+    const normalized = normalizePolicyConfig({
+      version: 1,
+      queue: {
+        staleLockHours: 4,
+      },
+    })
+
+    expect(normalized.version).toBe(2)
+    expect(normalized.actionQueue.staleLockHours).toBe(4)
+    expect(normalized).not.toHaveProperty('queue')
   })
 })

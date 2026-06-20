@@ -8,7 +8,7 @@ import type {
 } from './application.js'
 import type { ValedictorianClient, ValedictorianWorkspaceClient } from './client.js'
 import type { PolicyEvidenceListInput } from './policy.js'
-import type { QueueListQuery } from './queue.js'
+import type { ActionQueueListQuery } from './action-queue.js'
 import type { ScoreInput } from './scoring.js'
 import type { SourcingFindingsListInput } from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
@@ -51,7 +51,7 @@ const applicationListQueryParamKeys = [
   'offset',
 ] as const
 
-const queueListQueryParamKeys = ['bucket', 'limit', 'offset'] as const
+const actionQueueListQueryParamKeys = ['actionBucket', 'limit', 'offset'] as const
 const workflowRunListQueryParamKeys = [
   'runType',
   'status',
@@ -88,10 +88,10 @@ export function applicationListQueryToSearchParams(query: ApplicationListQuery =
   return params
 }
 
-export function queueListQueryToSearchParams(query: QueueListQuery = {}) {
+export function actionQueueListQueryToSearchParams(query: ActionQueueListQuery = {}) {
   const params = new URLSearchParams()
 
-  for (const key of queueListQueryParamKeys) {
+  for (const key of actionQueueListQueryParamKeys) {
     const value = query[key]
 
     if (value !== undefined) {
@@ -397,10 +397,10 @@ export function createHttpValedictorianClient({
         })
       },
     },
-    queue: {
+    actionQueue: {
       list(query) {
-        return request(pathFor(valedictorianApiPaths.queue), {
-          query: queueListQueryToSearchParams(query),
+        return request(pathFor(valedictorianApiPaths.actionQueue), {
+          query: actionQueueListQueryToSearchParams(query),
         })
       },
     },
