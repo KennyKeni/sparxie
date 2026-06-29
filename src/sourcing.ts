@@ -27,6 +27,7 @@ export const writableSourcingMergeStatuses = [
 export type WritableSourcingMergeStatus = (typeof writableSourcingMergeStatuses)[number]
 
 export const manualSourcingDecisionStatuses = [
+  'blocked',
   'not_fit',
   'not_pursued',
   'archived',
@@ -72,6 +73,8 @@ export interface SourcingFinding {
   fitNotes: string | null
   duplicateNotes: string | null
   blocker: string | null
+  policyBlocker: string | null
+  dispositionReason: string | null
   mergeStatus: SourcingMergeStatus
   mergedApplicationId: string | null
   mergedApplicationCompanyName: string | null
@@ -120,6 +123,8 @@ export interface CreateSourcingFindingInput {
   fitNotes?: string | null
   duplicateNotes?: string | null
   blocker?: string | null
+  policyBlocker?: string | null
+  dispositionReason?: string | null
   mergeStatus?: WritableSourcingMergeStatus
   discoveredAt?: string | null
 }
@@ -145,6 +150,8 @@ export interface UpdateSourcingFindingInput {
   fitNotes?: string | null
   duplicateNotes?: string | null
   blocker?: string | null
+  policyBlocker?: string | null
+  dispositionReason?: string | null
   mergeStatus?: WritableSourcingMergeStatus
   mergeNotes?: string | null
 }
@@ -157,6 +164,8 @@ export interface SetSourcingFindingDecisionInput {
   findingId: string
   mergeStatus: ManualSourcingDecisionStatus
   mergeNotes?: string | null
+  policyBlocker?: string | null
+  dispositionReason?: string | null
 }
 
 export type SourcingCandidateScoreInput = Omit<ScoreInput, 'applicationId'>

@@ -178,6 +178,30 @@ export function canonicalizeApplicationUrl(value: string) {
   }
 }
 
+export function normalizeApplicationUrlPreservingQuery(value: string) {
+  const trimmed = value.trim()
+
+  try {
+    const url = new URL(trimmed)
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('unsupported protocol')
+    }
+
+    url.protocol = url.protocol.toLowerCase()
+    url.hostname = url.hostname.toLowerCase()
+    url.hash = ''
+
+    if ((url.protocol === 'https:' && url.port === '443') || (url.protocol === 'http:' && url.port === '80')) {
+      url.port = ''
+    }
+
+    return url.toString()
+  } catch {
+    throw new Error(`Invalid application URL: ${trimmed}`)
+  }
+}
+
 export function normalizeApplicationLinkKind(value: string) {
   const normalized = value.trim().toLowerCase().replace(/\s+/g, '_')
 

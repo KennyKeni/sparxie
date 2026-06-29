@@ -20,6 +20,8 @@ import {
   isSourcingMergeStatus,
   isWritableSourcingMergeStatus,
   isWorkMode,
+  manualSourcingDecisionStatuses,
+  normalizeApplicationUrlPreservingQuery,
   valedictorianApiPaths,
   MAX_APPLICATION_LIST_LIMIT,
   manualReviewKinds,
@@ -131,6 +133,12 @@ describe('SDK public contract', () => {
       'not_pursued',
       'archived',
     ])
+    expect(manualSourcingDecisionStatuses).toEqual([
+      'blocked',
+      'not_fit',
+      'not_pursued',
+      'archived',
+    ])
     expect(isRunType('sourcing')).toBe(true)
     expect(isRunType('application')).toBe(false)
     expect(isRunStatus('completed')).toBe(true)
@@ -160,6 +168,11 @@ describe('SDK public contract', () => {
     expect(canonicalizeApplicationUrl('http://jobs.example.com:80/path')).toBe(
       'http://jobs.example.com/path',
     )
+    expect(
+      normalizeApplicationUrlPreservingQuery(
+        ' HTTPS://Apply.Example.com:443/path?source=linkedin&route=agent&utm_source=agent#section ',
+      ),
+    ).toBe('https://apply.example.com/path?source=linkedin&route=agent&utm_source=agent')
     expect(() => canonicalizeApplicationUrl('ftp://jobs.example.com/path')).toThrow(
       'Invalid application URL: ftp://jobs.example.com/path',
     )
