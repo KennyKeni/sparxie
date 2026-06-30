@@ -10,3 +10,8 @@ export interface ScoreInput {
   rationale: string
   rubricVersion: string
 }
+
+export interface ScoreRecord extends ScoreInput {
+  id: string
+  createdAt: string
+}

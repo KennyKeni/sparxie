@@ -36,7 +36,7 @@ import type {
   PolicyEvidenceRecord,
   PolicyRunWindowDecision,
 } from './policy.js'
-import type { ScoreInput } from './scoring.js'
+import type { ScoreInput, ScoreRecord } from './scoring.js'
 import type {
   CreateSourcingFindingInput,
   ProcessSourcingCandidateInput,
@@ -123,7 +123,7 @@ export interface ValedictorianWorkspaceClient {
     }
   }
   scores: {
-    record(input: ScoreInput): Promise<void>
+    record(input: ScoreInput): Promise<ScoreRecord>
   }
   actionQueue: {
     list(query?: ActionQueueListQuery): Promise<ActionQueueListResult>

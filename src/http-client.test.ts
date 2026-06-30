@@ -493,18 +493,7 @@ describe('HTTP Valedictorian client', () => {
 
   it('updates status and records scores with JSON bodies', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'application-1', status: 'submitted' }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
-    const workspace = client.forWorkspace('workspace-1')
-
-    await workspace.applications.updateStatus({
-      applicationId: 'application-1',
-      status: 'submitted',
-      notes: 'Sent it.',
-    })
-    await workspace.scores.record({
+    const scoreRecord = {
       applicationId: 'application-1',
       score: 8,
       band: 'high',
@@ -515,7 +504,32 @@ describe('HTTP Valedictorian client', () => {
       penalties: [],
       rationale: 'Strong fit.',
       rubricVersion: 'test',
+      id: 'score-1',
+      createdAt: '2026-06-30T00:00:00.000Z',
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'application-1', status: 'submitted' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(scoreRecord))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const workspace = client.forWorkspace('workspace-1')
+
+    await workspace.applications.updateStatus({
+      applicationId: 'application-1',
+      status: 'submitted',
+      notes: 'Sent it.',
     })
+    await expect(workspace.scores.record({
+      applicationId: 'application-1',
+      score: 8,
+      band: 'high',
+      roleRelevance: 3,
+      careerSignal: 2,
+      cityWorkMode: 2,
+      compensationLogistics: 1,
+      penalties: [],
+      rationale: 'Strong fit.',
+      rubricVersion: 'test',
+    })).resolves.toEqual(scoreRecord)
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
