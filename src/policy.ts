@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import type { ApplicationStatus } from './application.js'
 
 export const policyEvidenceTags = [
@@ -215,6 +216,10 @@ export const defaultPolicyConfig: PolicyConfig = {
   },
 }
 
+const policyConfigEnvelopeSchema = z.object({
+  version: z.number().int().positive().optional(),
+}).catchall(z.unknown())
+
 export function isPolicyEvidenceTag(value: string): value is PolicyEvidenceTag {
   return (policyEvidenceTags as readonly string[]).includes(value)
 }
@@ -228,7 +233,7 @@ export function isPolicyDecisionStatus(value: string): value is PolicyDecisionSt
 }
 
 export function normalizePolicyConfig(value: unknown): PolicyConfig {
-  const candidate = isRecord(value) ? value : {}
+  const candidate = readSupportedPolicyConfigRecord(value)
   const scoring = isRecord(candidate.scoring) ? candidate.scoring : {}
   const legacyQueue = isRecord(candidate.queue) ? candidate.queue : {}
   const actionQueue = isRecord(candidate.actionQueue) ? candidate.actionQueue : legacyQueue
@@ -346,6 +351,20 @@ export function normalizePolicyConfig(value: unknown): PolicyConfig {
       overnightEndHour: readHour(sourcing.overnightEndHour, defaultPolicyConfig.sourcing.overnightEndHour),
     },
   }
+}
+
+function readSupportedPolicyConfigRecord(value: unknown): Record<string, unknown> {
+  const parsed = policyConfigEnvelopeSchema.safeParse(value)
+
+  if (!parsed.success) {
+    return {}
+  }
+
+  if (parsed.data.version !== undefined && parsed.data.version > defaultPolicyConfig.version) {
+    throw new Error(`Policy config version ${parsed.data.version} is newer than this package supports.`)
+  }
+
+  return parsed.data
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

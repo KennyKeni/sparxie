@@ -1,6 +1,6 @@
 {
   "name": "sparxie",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Shared Valedictorian contracts and HTTP client.",
   "author": "Keni",
   "license": "MIT",
@@ -46,7 +46,9 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {},
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "typescript": "^5.2.2",
     "vitest": "^2.1.9"

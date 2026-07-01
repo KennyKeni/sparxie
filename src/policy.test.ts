@@ -83,4 +83,12 @@ describe('policy contract', () => {
     expect(normalized.actionQueue.staleLockHours).toBe(4)
     expect(normalized).not.toHaveProperty('queue')
   })
+
+  it('rejects policy config versions newer than the package supports', () => {
+    expect(() =>
+      normalizePolicyConfig({
+        version: 3,
+      }),
+    ).toThrow('newer than this package supports')
+  })
 })
