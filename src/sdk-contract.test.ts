@@ -13,6 +13,7 @@ import {
   defaultLocalCapabilities,
   isApplicationAttemptActorType,
   isApplicationAttemptStepType,
+  isJobTimingMode,
   isManualReviewKind,
   isRoleKind,
   isRunStatus,
@@ -21,6 +22,8 @@ import {
   isWritableSourcingMergeStatus,
   isWorkMode,
   manualSourcingDecisionStatuses,
+  jobSeasons,
+  jobTimingModes,
   normalizeApplicationUrlPreservingQuery,
   valedictorianApiPaths,
   MAX_APPLICATION_LIST_LIMIT,
@@ -65,6 +68,8 @@ describe('SDK public contract', () => {
       'other',
     ])
     expect(workModes).toEqual(['remote', 'onsite', 'hybrid', 'unclear'])
+    expect(jobSeasons).toEqual(['spring', 'summer', 'fall'])
+    expect(jobTimingModes).toEqual(['unknown', 'terms', 'dates'])
     expect(manualReviewKinds).toEqual(['overridable', 'non_overridable'])
     expect(applicationAttemptActorTypes).toEqual(['agent', 'automation', 'user', 'system'])
     expect(applicationAttemptStepTypes).toEqual([
@@ -84,6 +89,8 @@ describe('SDK public contract', () => {
     expect(isRoleKind('intern')).toBe(false)
     expect(isWorkMode('remote')).toBe(true)
     expect(isWorkMode('distributed')).toBe(false)
+    expect(isJobTimingMode('dates')).toBe(true)
+    expect(isJobTimingMode('semester')).toBe(false)
     expect(isManualReviewKind('overridable')).toBe(true)
     expect(isManualReviewKind('manual')).toBe(false)
     expect(isApplicationAttemptActorType('agent')).toBe(true)

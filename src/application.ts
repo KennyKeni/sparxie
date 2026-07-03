@@ -1,3 +1,5 @@
+import type { JobTerm, JobTimingMode } from './job-timing.js'
+
 export const applicationStatuses = [
   'queued',
   'in_progress',
@@ -229,9 +231,14 @@ export interface ApplicationListItem {
   id: string
   companyName: string
   roleTitle: string
+  roleKind: RoleKind
   sourceName: string
   status: ApplicationStatus
   term: string | null
+  terms: JobTerm[]
+  timingMode: JobTimingMode
+  startDate: string | null
+  endDate: string | null
   location: string
   workMode: WorkMode
   hasApplied: boolean
@@ -313,6 +320,10 @@ export interface CreateApplicationInput {
   workMode: WorkMode
   status: ApplicationStatus
   term?: string | null
+  terms?: JobTerm[] | null
+  timingMode?: JobTimingMode
+  startDate?: string | null
+  endDate?: string | null
   city?: string | null
   region?: string | null
   locationRaw?: string | null
@@ -328,6 +339,10 @@ export interface UpdateApplicationInput {
   roleTitle?: string
   roleKind?: RoleKind
   term?: string | null
+  terms?: JobTerm[] | null
+  timingMode?: JobTimingMode
+  startDate?: string | null
+  endDate?: string | null
   city?: string | null
   region?: string | null
   country?: string

@@ -1,4 +1,5 @@
 import type { RoleKind, WorkMode } from './application.js'
+import type { JobTerm, JobTimingMode } from './job-timing.js'
 import type { ScoreInput } from './scoring.js'
 
 export const sourcingMergeStatuses = [
@@ -60,6 +61,10 @@ export interface SourcingFinding {
   roleTitle: string
   roleKind: RoleKind
   term: string | null
+  terms: JobTerm[]
+  timingMode: JobTimingMode
+  startDate: string | null
+  endDate: string | null
   city: string | null
   region: string | null
   country: string
@@ -110,6 +115,10 @@ export interface CreateSourcingFindingInput {
   roleTitle: string
   roleKind: RoleKind
   term?: string | null
+  terms?: JobTerm[] | null
+  timingMode?: JobTimingMode
+  startDate?: string | null
+  endDate?: string | null
   city?: string | null
   region?: string | null
   country?: string
@@ -137,6 +146,10 @@ export interface UpdateSourcingFindingInput {
   roleTitle?: string
   roleKind?: RoleKind
   term?: string | null
+  terms?: JobTerm[] | null
+  timingMode?: JobTimingMode
+  startDate?: string | null
+  endDate?: string | null
   city?: string | null
   region?: string | null
   country?: string
@@ -178,6 +191,10 @@ export interface ProcessSourcingCandidateInput {
   roleTitle: string
   roleKind: RoleKind
   term?: string | null
+  terms?: JobTerm[] | null
+  timingMode?: JobTimingMode
+  startDate?: string | null
+  endDate?: string | null
   city?: string | null
   region?: string | null
   country?: string
