@@ -7,8 +7,72 @@ export const profileEducationTypeOptions = [
   'Certificate',
   'Other',
 ] as const
+export const profileClassStandingOptions = [
+  'Freshman',
+  'Sophomore',
+  'Junior',
+  'Senior',
+  'Graduate student',
+  'Recent graduate',
+  'Other',
+] as const
+export const profilePhoneDeviceTypeOptions = ['Mobile', 'Home', 'Work', 'Other'] as const
+export const profileWorkAuthorizationOptions = [
+  'Authorized to work in the US.',
+  'Authorized to work in the US for any employer.',
+  'Authorized to work in the US with sponsorship.',
+  'Not currently authorized to work in the US.',
+  'Prefer not to answer',
+] as const
+export const profileCitizenshipStatusOptions = [
+  'US Citizen',
+  'US Permanent Resident',
+  'Non-US Citizen',
+  'Dual Citizen',
+  'Other',
+  'Prefer not to answer',
+] as const
+export const profileSponsorshipRequirementOptions = [
+  'No',
+  'Yes',
+  'Unsure',
+  'Prefer not to answer',
+] as const
+export const profileRaceEthnicityOptions = [
+  'American Indian or Alaska Native',
+  'Asian',
+  'Black or African American',
+  'Native Hawaiian or Other Pacific Islander',
+  'White',
+  'Two or more races',
+  'Other',
+  'Prefer not to answer',
+] as const
+export const profileGenderOptions = [
+  'Woman',
+  'Man',
+  'Non-binary',
+  'Other',
+  'Prefer not to answer',
+] as const
+export const profileSelfIdResponseOptions = ['Yes', 'No', 'Prefer not to answer'] as const
+export const profileVeteranStatusOptions = [
+  'Protected veteran',
+  'Not a protected veteran',
+  'Prefer not to answer',
+] as const
 
 export type ProfileSecretKind = (typeof profileSecretKinds)[number]
+export type ProfileClassStanding = (typeof profileClassStandingOptions)[number]
+export type ProfilePhoneDeviceType = (typeof profilePhoneDeviceTypeOptions)[number]
+export type ProfileWorkAuthorization = (typeof profileWorkAuthorizationOptions)[number]
+export type ProfileCitizenshipStatus = (typeof profileCitizenshipStatusOptions)[number]
+export type ProfileSponsorshipRequirement =
+  (typeof profileSponsorshipRequirementOptions)[number]
+export type ProfileRaceEthnicity = (typeof profileRaceEthnicityOptions)[number]
+export type ProfileGender = (typeof profileGenderOptions)[number]
+export type ProfileSelfIdResponse = (typeof profileSelfIdResponseOptions)[number]
+export type ProfileVeteranStatus = (typeof profileVeteranStatusOptions)[number]
 
 export interface ProfileEducation {
   classStanding: string | null

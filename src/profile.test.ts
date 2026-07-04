@@ -3,8 +3,17 @@ import {
   defaultUserProfile,
   normalizeProfileEducationInput,
   normalizeProfileAnswerInput,
+  profileCitizenshipStatusOptions,
+  profileClassStandingOptions,
   profileEducationTypeOptions,
+  profileGenderOptions,
+  profilePhoneDeviceTypeOptions,
+  profileRaceEthnicityOptions,
   profileSecretKinds,
+  profileSelfIdResponseOptions,
+  profileSponsorshipRequirementOptions,
+  profileVeteranStatusOptions,
+  profileWorkAuthorizationOptions,
   toProfileAgentContext,
   type UserProfile,
 } from './index'
@@ -87,6 +96,60 @@ describe('profile contracts', () => {
       'Bootcamp',
       'Certificate',
       'Other',
+    ])
+    expect(profileClassStandingOptions).toEqual([
+      'Freshman',
+      'Sophomore',
+      'Junior',
+      'Senior',
+      'Graduate student',
+      'Recent graduate',
+      'Other',
+    ])
+    expect(profilePhoneDeviceTypeOptions).toEqual(['Mobile', 'Home', 'Work', 'Other'])
+    expect(profileWorkAuthorizationOptions).toEqual([
+      'Authorized to work in the US.',
+      'Authorized to work in the US for any employer.',
+      'Authorized to work in the US with sponsorship.',
+      'Not currently authorized to work in the US.',
+      'Prefer not to answer',
+    ])
+    expect(profileCitizenshipStatusOptions).toEqual([
+      'US Citizen',
+      'US Permanent Resident',
+      'Non-US Citizen',
+      'Dual Citizen',
+      'Other',
+      'Prefer not to answer',
+    ])
+    expect(profileSponsorshipRequirementOptions).toEqual([
+      'No',
+      'Yes',
+      'Unsure',
+      'Prefer not to answer',
+    ])
+    expect(profileRaceEthnicityOptions).toEqual([
+      'American Indian or Alaska Native',
+      'Asian',
+      'Black or African American',
+      'Native Hawaiian or Other Pacific Islander',
+      'White',
+      'Two or more races',
+      'Other',
+      'Prefer not to answer',
+    ])
+    expect(profileGenderOptions).toEqual([
+      'Woman',
+      'Man',
+      'Non-binary',
+      'Other',
+      'Prefer not to answer',
+    ])
+    expect(profileSelfIdResponseOptions).toEqual(['Yes', 'No', 'Prefer not to answer'])
+    expect(profileVeteranStatusOptions).toEqual([
+      'Protected veteran',
+      'Not a protected veteran',
+      'Prefer not to answer',
     ])
     expect(profileSecretKinds).toEqual(['password', 'token', 'identity', 'other'])
     expect(toProfileAgentContext(profile)).toEqual({
