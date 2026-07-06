@@ -7,6 +7,7 @@ import {
 } from './index'
 import type {
   CareerSourceSummary,
+  SourceCompaniesListResponse,
   SourceJobsListResponse,
   SourceProbeResponse,
   SourceRunDetail,
@@ -79,6 +80,12 @@ describe('source ingestion contract', () => {
       latestSnapshotId: null,
       observedProvider: 'greenhouse',
       politenessPolicy: { crawlDelayMs: 1000 },
+      schedule: {
+        cadence: 'daily',
+        enabled: true,
+        nextDueAt: '2026-07-05T13:00:00.000Z',
+        timezone: 'UTC',
+      },
       sourceType: 'provider_api',
       status: 'active',
       updatedAt: '2026-07-05T12:30:00.000Z',
@@ -149,16 +156,44 @@ describe('source ingestion contract', () => {
         offset: 0,
       },
     }
+    const companiesResponse: SourceCompaniesListResponse = {
+      companies: [
+        {
+          activeJobCount: 2,
+          careerSourceCount: 1,
+          createdAt: '2026-07-05T12:00:00.000Z',
+          companyId: 'com_1',
+          companyName: 'Figma',
+          updatedAt: '2026-07-05T12:30:00.000Z',
+        },
+      ],
+      pagination: {
+        limit: 25,
+        nextOffset: null,
+        offset: 0,
+      },
+      summary: {
+        totalActiveJobs: 2,
+        totalCompanies: 1,
+      },
+    }
     const runsResponse: SourceRunsListResponse = {
+      pagination: {
+        limit: 10,
+        nextOffset: null,
+        offset: 0,
+      },
       runs: [run],
     }
 
     expect(source.status).toBe('active')
+    expect(source.schedule?.cadence).toBe('daily')
     expect(probeResponse.probe.readiness).toBe('ready')
     expect(scheduleResponse.schedule?.enabled).toBe(true)
     expect(requestResponse.requestId).toBe('srr_1')
     expect(overrideResponse.override.kind).toBe('force_publish')
     expect(jobsResponse.pagination.nextOffset).toBeNull()
-    expect(runsResponse).not.toHaveProperty('pagination')
+    expect(companiesResponse.companies[0]?.careerSourceCount).toBe(1)
+    expect(runsResponse.pagination.nextOffset).toBeNull()
   })
 })

@@ -62,14 +62,67 @@ export interface SourcedJobPosting {
   title: string
 }
 
+export type SourceJobsListSort =
+  | 'company_asc'
+  | 'company_desc'
+  | 'first_seen_asc'
+  | 'first_seen_desc'
+  | 'last_seen_asc'
+  | 'last_seen_desc'
+  | 'title_asc'
+  | 'title_desc'
+  | 'verified_asc'
+  | 'verified_desc'
+
 export interface SourceJobsListQuery {
+  active?: boolean
+  companyId?: string
   limit?: number
   offset?: number
+  search?: string
+  sourceId?: string
+  sort?: SourceJobsListSort
+  staleBefore?: string
 }
 
 export interface SourceJobsListResponse {
   jobs: SourcedJobPosting[]
   pagination: SourceIngestionPagination
+}
+
+export type SourceCompaniesListSort =
+  | 'active_jobs_desc'
+  | 'active_jobs_asc'
+  | 'company_asc'
+  | 'company_desc'
+  | 'created_asc'
+  | 'created_desc'
+  | 'updated_asc'
+  | 'updated_desc'
+
+export interface SourceCompaniesListQuery {
+  limit?: number
+  offset?: number
+  search?: string
+  sort?: SourceCompaniesListSort
+}
+
+export interface SourceCompanySummary {
+  activeJobCount: number
+  careerSourceCount: number
+  createdAt: string
+  companyId: string
+  companyName: string
+  updatedAt: string
+}
+
+export interface SourceCompaniesListResponse {
+  companies: SourceCompanySummary[]
+  pagination: SourceIngestionPagination
+  summary: {
+    totalActiveJobs: number
+    totalCompanies: number
+  }
 }
 
 export interface CareerSourceSummary {
@@ -84,18 +137,47 @@ export interface CareerSourceSummary {
   latestSnapshotId: string | null
   status: CareerSourceLifecycleStatus
   politenessPolicy: Record<string, unknown>
+  schedule?: SourceScheduleSummary | null
   createdAt: string
   updatedAt: string
 }
 
+export type CareerSourcesListSort =
+  | 'company_asc'
+  | 'company_desc'
+  | 'updated_asc'
+  | 'updated_desc'
+  | 'status_asc'
+  | 'status_desc'
+
 export interface CareerSourcesListQuery {
   limit?: number
+  observedProvider?: string
   offset?: number
+  scheduleEnabled?: boolean
+  search?: string
+  sourceType?: string
+  sort?: CareerSourcesListSort
+  status?: CareerSourceLifecycleStatus
 }
 
 export interface CareerSourcesListResponse {
   sources: CareerSourceSummary[]
   pagination: SourceIngestionPagination
+}
+
+export type DashboardCareerSourceLifecycleStatus = 'active' | 'paused' | 'retired'
+
+export interface CareerSourceLifecycleInput {
+  status: DashboardCareerSourceLifecycleStatus
+}
+
+export interface CareerSourceLifecycleResponse {
+  source: {
+    id: string
+    status: CareerSourceLifecycleStatus
+    updatedAt: string
+  }
 }
 
 export interface CreateCareerSourceInput {
@@ -130,6 +212,13 @@ export interface SourceProbeResponse {
 
 export type SourceScheduleCadence = 'hourly' | 'daily' | 'weekly'
 
+export interface SourceScheduleSummary {
+  cadence: SourceScheduleCadence
+  enabled: boolean
+  nextDueAt: string
+  timezone: string
+}
+
 export interface SourceSchedule {
   cadence: SourceScheduleCadence
   cronExpression: string | null
@@ -153,6 +242,42 @@ export interface SourceScheduleInput {
 
 export interface SourceScheduleResponse {
   schedule: SourceSchedule | null
+}
+
+export type SourceSchedulesListSort =
+  | 'cadence_asc'
+  | 'cadence_desc'
+  | 'company_asc'
+  | 'company_desc'
+  | 'next_due_asc'
+  | 'next_due_desc'
+  | 'updated_asc'
+  | 'updated_desc'
+
+export interface SourceSchedulesListQuery {
+  cadence?: SourceScheduleCadence
+  companyId?: string
+  enabled?: boolean
+  limit?: number
+  offset?: number
+  search?: string
+  sort?: SourceSchedulesListSort
+  sourceId?: string
+}
+
+export interface SourceScheduleBrowseRow extends SourceSchedule {
+  canonicalHost: string
+  companyId: string
+  companyName: string
+  createdAt: string
+  entryUrl: string
+  sourceStatus: CareerSourceLifecycleStatus
+  updatedAt: string
+}
+
+export interface SourceSchedulesListResponse {
+  pagination: SourceIngestionPagination
+  schedules: SourceScheduleBrowseRow[]
 }
 
 export interface SourceRunRequestInput {
@@ -214,12 +339,27 @@ export interface SourceRunDetail extends SourceRunSummary {
   evidenceBundleId: string | null
 }
 
+export type SourceRunsListSort =
+  | 'completed_asc'
+  | 'completed_desc'
+  | 'created_asc'
+  | 'created_desc'
+  | 'started_asc'
+  | 'started_desc'
+  | 'status_asc'
+  | 'status_desc'
+
 export interface SourceRunsListQuery {
-  sourceId?: string
   limit?: number
+  offset?: number
+  outcome?: SourceRunStatus
+  sourceId?: string
+  sort?: SourceRunsListSort
+  status?: SourceRunStatus
 }
 
 export interface SourceRunsListResponse {
+  pagination: SourceIngestionPagination
   runs: SourceRunSummary[]
 }
 

@@ -1,9 +1,13 @@
 import { ValedictorianHttpError } from './http-client.js'
 import type {
   CareerSourceRegistrationResponse,
+  CareerSourceLifecycleInput,
+  CareerSourceLifecycleResponse,
   CareerSourcesListQuery,
   CareerSourcesListResponse,
   CreateCareerSourceInput,
+  SourceCompaniesListQuery,
+  SourceCompaniesListResponse,
   SourceJobsListQuery,
   SourceJobsListResponse,
   SourceProbeResponse,
@@ -15,6 +19,8 @@ import type {
   SourceRunsListResponse,
   SourceScheduleInput,
   SourceScheduleResponse,
+  SourceSchedulesListQuery,
+  SourceSchedulesListResponse,
 } from './source-ingestion.js'
 
 export interface ValedictorianSourceHttpClientOptions {
@@ -23,14 +29,66 @@ export interface ValedictorianSourceHttpClientOptions {
   fetch?: typeof fetch
 }
 
-const sourceJobsListQueryParamKeys = ['limit', 'offset'] as const
-const sourceRunsListQueryParamKeys = ['sourceId', 'limit'] as const
-const careerSourcesListQueryParamKeys = ['limit', 'offset'] as const
+const sourceJobsListQueryParamKeys = [
+  'limit',
+  'offset',
+  'active',
+  'companyId',
+  'sourceId',
+  'search',
+  'staleBefore',
+  'sort',
+] as const
+const sourceCompaniesListQueryParamKeys = ['limit', 'offset', 'search', 'sort'] as const
+const sourceRunsListQueryParamKeys = [
+  'sourceId',
+  'limit',
+  'offset',
+  'status',
+  'outcome',
+  'sort',
+] as const
+const careerSourcesListQueryParamKeys = [
+  'limit',
+  'offset',
+  'search',
+  'status',
+  'observedProvider',
+  'sourceType',
+  'scheduleEnabled',
+  'sort',
+] as const
+const sourceSchedulesListQueryParamKeys = [
+  'limit',
+  'offset',
+  'search',
+  'enabled',
+  'cadence',
+  'companyId',
+  'sourceId',
+  'sort',
+] as const
 
 export function sourceJobsListQueryToSearchParams(query: SourceJobsListQuery = {}) {
   const params = new URLSearchParams()
 
   for (const key of sourceJobsListQueryParamKeys) {
+    const value = query[key]
+
+    if (value !== undefined) {
+      params.set(key, String(value))
+    }
+  }
+
+  return params
+}
+
+export function sourceCompaniesListQueryToSearchParams(
+  query: SourceCompaniesListQuery = {},
+) {
+  const params = new URLSearchParams()
+
+  for (const key of sourceCompaniesListQueryParamKeys) {
     const value = query[key]
 
     if (value !== undefined) {
@@ -69,6 +127,22 @@ export function careerSourcesListQueryToSearchParams(query: CareerSourcesListQue
   return params
 }
 
+export function sourceSchedulesListQueryToSearchParams(
+  query: SourceSchedulesListQuery = {},
+) {
+  const params = new URLSearchParams()
+
+  for (const key of sourceSchedulesListQueryParamKeys) {
+    const value = query[key]
+
+    if (value !== undefined) {
+      params.set(key, String(value))
+    }
+  }
+
+  return params
+}
+
 export class ValedictorianSourceHttpClient {
   private readonly baseUrl: string
   private readonly fetchImplementation: typeof fetch
@@ -90,6 +164,12 @@ export class ValedictorianSourceHttpClient {
     })
   }
 
+  listCompanies(query?: SourceCompaniesListQuery): Promise<SourceCompaniesListResponse> {
+    return this.request('/companies', {
+      query: sourceCompaniesListQueryToSearchParams(query),
+    })
+  }
+
   listRuns(query?: SourceRunsListQuery): Promise<SourceRunsListResponse> {
     return this.request('/runs', {
       query: sourceRunsListQueryToSearchParams(query),
@@ -103,6 +183,12 @@ export class ValedictorianSourceHttpClient {
   listSources(query?: CareerSourcesListQuery): Promise<CareerSourcesListResponse> {
     return this.request('/sources', {
       query: careerSourcesListQueryToSearchParams(query),
+    })
+  }
+
+  listSchedules(query?: SourceSchedulesListQuery): Promise<SourceSchedulesListResponse> {
+    return this.request('/schedules', {
+      query: sourceSchedulesListQueryToSearchParams(query),
     })
   }
 
@@ -123,6 +209,24 @@ export class ValedictorianSourceHttpClient {
       body: {},
       method: 'POST',
     })
+  }
+
+  updateSourceLifecycle(
+    id: string,
+    input: CareerSourceLifecycleInput,
+  ): Promise<CareerSourceLifecycleResponse> {
+    return this.request(`/sources/${encodeURIComponent(id)}/lifecycle`, {
+      body: input,
+      method: 'POST',
+    })
+  }
+
+  pauseSource(id: string): Promise<CareerSourceLifecycleResponse> {
+    return this.updateSourceLifecycle(id, { status: 'paused' })
+  }
+
+  resumeSource(id: string): Promise<CareerSourceLifecycleResponse> {
+    return this.updateSourceLifecycle(id, { status: 'active' })
   }
 
   getSchedule(id: string): Promise<SourceScheduleResponse> {

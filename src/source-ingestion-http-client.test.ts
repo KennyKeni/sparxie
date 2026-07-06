@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ValedictorianHttpError, ValedictorianSourceHttpClient } from './index'
+import {
+  careerSourcesListQueryToSearchParams,
+  sourceCompaniesListQueryToSearchParams,
+  sourceJobsListQueryToSearchParams,
+  sourceRunsListQueryToSearchParams,
+  sourceSchedulesListQueryToSearchParams,
+  ValedictorianHttpError,
+  ValedictorianSourceHttpClient,
+} from './index'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -44,9 +52,61 @@ describe('Valedictorian source HTTP client', () => {
       token: 'reader-token',
     })
 
-    await expect(client.listJobs({ limit: 25, offset: 10 })).resolves.toEqual(payload)
+    await expect(
+      client.listJobs({
+        active: false,
+        limit: 25,
+        offset: 10,
+        search: 'designer',
+        sort: 'title_asc',
+      }),
+    ).resolves.toEqual(payload)
 
-    expect(fetchMock).toHaveBeenCalledWith('https://source.test/jobs?limit=25&offset=10', {
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://source.test/jobs?limit=25&offset=10&active=false&search=designer&sort=title_asc',
+      {
+        headers: {
+          accept: 'application/json',
+          authorization: 'Bearer reader-token',
+        },
+        method: 'GET',
+      },
+    )
+  })
+
+  it('lists Companies with query params and bearer auth', async () => {
+    const payload = {
+      companies: [
+        {
+          activeJobCount: 2,
+          careerSourceCount: 1,
+          createdAt: '2026-07-05T12:00:00.000Z',
+          companyId: 'com_1',
+          companyName: 'Figma',
+          updatedAt: '2026-07-05T12:30:00.000Z',
+        },
+      ],
+      pagination: {
+        limit: 25,
+        nextOffset: null,
+        offset: 0,
+      },
+      summary: {
+        totalActiveJobs: 2,
+        totalCompanies: 1,
+      },
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValue(jsonResponse(payload))
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/api/',
+      fetch: fetchMock,
+      token: 'reader-token',
+    })
+
+    await expect(client.listCompanies({ limit: 25, offset: 0 })).resolves.toEqual(payload)
+
+    expect(fetchMock).toHaveBeenCalledWith('https://source.test/companies?limit=25&offset=0', {
       headers: {
         accept: 'application/json',
         authorization: 'Bearer reader-token',
@@ -55,8 +115,24 @@ describe('Valedictorian source HTTP client', () => {
     })
   })
 
+  it('serializes Company dashboard browse query params', () => {
+    expect(
+      sourceCompaniesListQueryToSearchParams({
+        limit: 25,
+        offset: 50,
+        search: 'figma',
+        sort: 'updated_desc',
+      }).toString(),
+    ).toBe('limit=25&offset=50&search=figma&sort=updated_desc')
+  })
+
   it('lists source runs with sourceId and limit query params', async () => {
     const payload = {
+      pagination: {
+        limit: 5,
+        nextOffset: null,
+        offset: 10,
+      },
       runs: [
         {
           completedAt: '2026-07-05T12:31:00.000Z',
@@ -85,12 +161,19 @@ describe('Valedictorian source HTTP client', () => {
       token: 'reader-token',
     })
 
-    await expect(client.listRuns({ sourceId: 'src_greenhouse', limit: 5 })).resolves.toEqual(
-      payload,
-    )
+    await expect(
+      client.listRuns({
+        limit: 5,
+        offset: 10,
+        outcome: 'failed',
+        sort: 'completed_desc',
+        sourceId: 'src_greenhouse',
+        status: 'failed',
+      }),
+    ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://source.test/runs?sourceId=src_greenhouse&limit=5',
+      'https://source.test/runs?sourceId=src_greenhouse&limit=5&offset=10&status=failed&outcome=failed&sort=completed_desc',
       {
         headers: {
           accept: 'application/json',
@@ -194,9 +277,137 @@ describe('Valedictorian source HTTP client', () => {
     })
   })
 
+  it('lists SourceSchedules with scheduler query params and bearer auth', async () => {
+    const payload = {
+      pagination: {
+        limit: 25,
+        nextOffset: null,
+        offset: 0,
+      },
+      schedules: [
+        {
+          cadence: 'hourly',
+          canonicalHost: 'boards.greenhouse.io',
+          companyId: 'com_1',
+          companyName: 'Figma',
+          createdAt: '2026-07-05T12:00:00.000Z',
+          cronExpression: null,
+          enabled: true,
+          entryUrl: 'https://boards.greenhouse.io/figma',
+          id: 'sch_1',
+          intervalMinutes: null,
+          jitterSeconds: 0,
+          nextDueAt: '2026-07-05T13:00:00.000Z',
+          priority: 0,
+          sourceId: 'src_greenhouse',
+          sourceStatus: 'active',
+          timezone: 'UTC',
+          updatedAt: '2026-07-05T12:30:00.000Z',
+        },
+      ],
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValue(jsonResponse(payload))
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/api/',
+      fetch: fetchMock,
+      token: 'reader-token',
+    })
+
+    await expect(
+      client.listSchedules({
+        cadence: 'hourly',
+        companyId: 'com_1',
+        enabled: true,
+        limit: 25,
+        offset: 0,
+        search: 'figma',
+        sort: 'next_due_asc',
+        sourceId: 'src_greenhouse',
+      }),
+    ).resolves.toEqual(payload)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://source.test/schedules?limit=25&offset=0&search=figma&enabled=true&cadence=hourly&companyId=com_1&sourceId=src_greenhouse&sort=next_due_asc',
+      {
+        headers: {
+          accept: 'application/json',
+          authorization: 'Bearer reader-token',
+        },
+        method: 'GET',
+      },
+    )
+  })
+
+  it('serializes CareerSource dashboard browse query params', () => {
+    expect(
+      careerSourcesListQueryToSearchParams({
+        limit: 10,
+        observedProvider: 'greenhouse',
+        offset: 20,
+        scheduleEnabled: true,
+        search: 'figma',
+        sort: 'company_asc',
+        sourceType: 'provider_api',
+        status: 'active',
+      }).toString(),
+    ).toBe(
+      'limit=10&offset=20&search=figma&status=active&observedProvider=greenhouse&sourceType=provider_api&scheduleEnabled=true&sort=company_asc',
+    )
+  })
+
+  it('serializes CurrentJobIndex dashboard browse query params', () => {
+    expect(
+      sourceJobsListQueryToSearchParams({
+        active: false,
+        companyId: 'com_figma',
+        limit: 10,
+        offset: 20,
+        search: 'designer',
+        sourceId: 'src_figma',
+        sort: 'first_seen_asc',
+        staleBefore: '2026-07-02T00:00:00.000Z',
+      }).toString(),
+    ).toBe(
+      'limit=10&offset=20&active=false&companyId=com_figma&sourceId=src_figma&search=designer&staleBefore=2026-07-02T00%3A00%3A00.000Z&sort=first_seen_asc',
+    )
+  })
+
+  it('serializes SourceSchedule dashboard browse query params', () => {
+    expect(
+      sourceSchedulesListQueryToSearchParams({
+        cadence: 'weekly',
+        companyId: 'com_figma',
+        enabled: false,
+        limit: 10,
+        offset: 20,
+        search: 'figma',
+        sort: 'company_desc',
+        sourceId: 'src_figma',
+      }).toString(),
+    ).toBe(
+      'limit=10&offset=20&search=figma&enabled=false&cadence=weekly&companyId=com_figma&sourceId=src_figma&sort=company_desc',
+    )
+  })
+
+  it('serializes SourceRun dashboard browse query params', () => {
+    expect(
+      sourceRunsListQueryToSearchParams({
+        limit: 5,
+        offset: 10,
+        outcome: 'failed',
+        sort: 'completed_desc',
+        sourceId: 'src_greenhouse',
+        status: 'failed',
+      }).toString(),
+    ).toBe(
+      'sourceId=src_greenhouse&limit=5&offset=10&status=failed&outcome=failed&sort=completed_desc',
+    )
+  })
+
   it('maps operator-write methods to source API routes', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 8; index += 1) {
+    for (let index = 0; index < 11; index += 1) {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
     const client = new ValedictorianSourceHttpClient({
@@ -212,6 +423,9 @@ describe('Valedictorian source HTTP client', () => {
       templateKey: 'greenhouse_board_api',
     })
     await client.probeSource('src green')
+    await client.updateSourceLifecycle('src green', { status: 'paused' })
+    await client.pauseSource('src green')
+    await client.resumeSource('src green')
     await client.getSchedule('src green')
     await client.setSchedule('src green', {
       cadence: 'hourly',
@@ -249,11 +463,35 @@ describe('Valedictorian source HTTP client', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
+      'https://source.test/sources/src%20green/lifecycle',
+      expect.objectContaining({
+        body: JSON.stringify({ status: 'paused' }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'https://source.test/sources/src%20green/lifecycle',
+      expect.objectContaining({
+        body: JSON.stringify({ status: 'paused' }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      'https://source.test/sources/src%20green/lifecycle',
+      expect.objectContaining({
+        body: JSON.stringify({ status: 'active' }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
       'https://source.test/sources/src%20green/schedule',
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      7,
       'https://source.test/sources/src%20green/schedule',
       expect.objectContaining({
         body: JSON.stringify({
@@ -266,17 +504,17 @@ describe('Valedictorian source HTTP client', () => {
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      8,
       'https://source.test/sources/src%20green/schedule',
       expect.objectContaining({ method: 'DELETE' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      6,
+      9,
       'https://source.test/sources/src%20green/run-requests',
       expect.objectContaining({ body: '{}', method: 'POST' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      7,
+      10,
       'https://source.test/runs/run%20suspect/accept-baseline',
       expect.objectContaining({
         body: JSON.stringify({ reason: 'operator verified the baseline' }),
@@ -284,7 +522,7 @@ describe('Valedictorian source HTTP client', () => {
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      8,
+      11,
       'https://source.test/runs/run%20suspect/force-publish',
       expect.objectContaining({
         body: JSON.stringify({ reason: 'operator reviewed the evidence' }),
