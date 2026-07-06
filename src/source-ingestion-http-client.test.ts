@@ -97,4 +97,51 @@ describe('Valedictorian source HTTP client', () => {
       },
     )
   })
+
+  it('gets a source run by id', async () => {
+    const payload = {
+      run: {
+        confidenceResults: [
+          {
+            message: 'Sharp drop from the previous snapshot.',
+            outcome: 'failed',
+            ruleKey: 'sharp_drop_guard',
+            severity: 'block_publish',
+          },
+        ],
+        diff: {
+          addedCount: 0,
+          changedCount: 0,
+          previousSnapshotId: 'snp_previous',
+          removedCount: 10,
+        },
+        evidenceArtifacts: ['response-summary.json', 'snapshot-diff.json'],
+        evidenceBundleId: 'evb_1',
+        evidencePath: 'evidence/sources/src_greenhouse/runs/run_1',
+        normalizedJobCount: 12,
+        outcome: 'suspect',
+        rawJobCount: 12,
+        sourceId: 'src_greenhouse',
+        sourceRunId: 'run 1',
+        status: 'suspect',
+      },
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValue(jsonResponse(payload))
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/api/',
+      fetch: fetchMock,
+      token: 'reader-token',
+    })
+
+    await expect(client.getRun('run 1')).resolves.toEqual(payload)
+
+    expect(fetchMock).toHaveBeenCalledWith('https://source.test/runs/run%201', {
+      headers: {
+        accept: 'application/json',
+        authorization: 'Bearer reader-token',
+      },
+      method: 'GET',
+    })
+  })
 })
