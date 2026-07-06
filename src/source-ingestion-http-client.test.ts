@@ -53,4 +53,48 @@ describe('Valedictorian source HTTP client', () => {
       method: 'GET',
     })
   })
+
+  it('lists source runs with sourceId and limit query params', async () => {
+    const payload = {
+      runs: [
+        {
+          diff: {
+            addedCount: 1,
+            changedCount: 0,
+            previousSnapshotId: null,
+            removedCount: 0,
+          },
+          evidencePath: 'evidence/sources/src_greenhouse/runs/run_1',
+          normalizedJobCount: 12,
+          outcome: 'published',
+          rawJobCount: 12,
+          sourceId: 'src_greenhouse',
+          sourceRunId: 'run_1',
+          status: 'published',
+        },
+      ],
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValue(jsonResponse(payload))
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/api/',
+      fetch: fetchMock,
+      token: 'reader-token',
+    })
+
+    await expect(client.listRuns({ sourceId: 'src_greenhouse', limit: 5 })).resolves.toEqual(
+      payload,
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://source.test/runs?sourceId=src_greenhouse&limit=5',
+      {
+        headers: {
+          accept: 'application/json',
+          authorization: 'Bearer reader-token',
+        },
+        method: 'GET',
+      },
+    )
+  })
 })
