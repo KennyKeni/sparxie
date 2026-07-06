@@ -49,6 +49,7 @@ export interface SourcedJobPosting {
   active: boolean
   applyUrl: string | null
   companyId: string
+  companyName: string
   contentHash: string | null
   detailUrl: string | null
   firstSeenAt: string
@@ -74,6 +75,7 @@ export interface SourceJobsListResponse {
 export interface CareerSourceSummary {
   id: string
   companyId: string
+  companyName: string
   entryUrl: string
   canonicalHost: string
   sourceType: string
@@ -86,6 +88,99 @@ export interface CareerSourceSummary {
   updatedAt: string
 }
 
+export interface CareerSourcesListQuery {
+  limit?: number
+  offset?: number
+}
+
+export interface CareerSourcesListResponse {
+  sources: CareerSourceSummary[]
+  pagination: SourceIngestionPagination
+}
+
+export interface CreateCareerSourceInput {
+  companyName: string
+  careerUrl: string
+  templateKey?: string
+  config?: Record<string, unknown>
+  allowDuplicate?: boolean
+}
+
+export interface CareerSourceRegistrationResponse {
+  source: {
+    sourceId: string
+    strategyVersionId: string
+  }
+}
+
+export interface SourceProbeResult {
+  candidateTemplate: string | null
+  config: Record<string, unknown>
+  evidence: Record<string, unknown>
+  failedRequirement: string | null
+  listingCount: number | null
+  observedProvider: string
+  readiness: 'not-ready' | 'ready'
+  sampleStableJobKey: string | null
+}
+
+export interface SourceProbeResponse {
+  probe: SourceProbeResult
+}
+
+export type SourceScheduleCadence = 'hourly' | 'daily' | 'weekly'
+
+export interface SourceSchedule {
+  cadence: SourceScheduleCadence
+  cronExpression: string | null
+  enabled: boolean
+  id: string
+  intervalMinutes: number | null
+  jitterSeconds: number
+  nextDueAt: string
+  priority: number
+  sourceId: string
+  timezone: string
+}
+
+export interface SourceScheduleInput {
+  cadence: SourceScheduleCadence
+  timezone?: string
+  nextDueAt?: string
+  priority?: number
+  jitterSeconds?: number
+}
+
+export interface SourceScheduleResponse {
+  schedule: SourceSchedule | null
+}
+
+export interface SourceRunRequestInput {
+  admit?: boolean
+}
+
+export interface SourceRunAdmission {
+  admitted: boolean
+  [key: string]: unknown
+}
+
+export interface SourceRunRequestResponse {
+  requestId: string
+  admission?: SourceRunAdmission
+}
+
+export interface SourceRunOverrideResult {
+  kind: 'accept_baseline' | 'force_publish'
+  overriddenRuleKeys: string[]
+  publishedJobCount: number
+  snapshotId: string
+  sourceRunId: string
+}
+
+export interface SourceRunOverrideResponse {
+  override: SourceRunOverrideResult
+}
+
 export interface SourceRunDiff {
   addedCount: number
   changedCount: number
@@ -94,6 +189,7 @@ export interface SourceRunDiff {
 }
 
 export interface SourceRunSummary {
+  completedAt: string | null
   diff: SourceRunDiff
   evidencePath: string | null
   normalizedJobCount: number | null
@@ -101,6 +197,7 @@ export interface SourceRunSummary {
   rawJobCount: number | null
   sourceId: string | null
   sourceRunId: string
+  startedAt: string | null
   status: SourceRunStatus
 }
 

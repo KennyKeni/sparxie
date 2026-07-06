@@ -17,6 +17,7 @@ describe('Valedictorian source HTTP client', () => {
           active: true,
           applyUrl: 'https://jobs.example.com/apply/1',
           companyId: 'com_1',
+          companyName: 'Figma',
           contentHash: 'hash:one',
           detailUrl: 'https://jobs.example.com/roles/1',
           firstSeenAt: '2026-07-05T12:00:00.000Z',
@@ -58,6 +59,7 @@ describe('Valedictorian source HTTP client', () => {
     const payload = {
       runs: [
         {
+          completedAt: '2026-07-05T12:31:00.000Z',
           diff: {
             addedCount: 1,
             changedCount: 0,
@@ -70,6 +72,7 @@ describe('Valedictorian source HTTP client', () => {
           rawJobCount: 12,
           sourceId: 'src_greenhouse',
           sourceRunId: 'run_1',
+          startedAt: '2026-07-05T12:30:00.000Z',
           status: 'published',
         },
       ],
@@ -109,6 +112,7 @@ describe('Valedictorian source HTTP client', () => {
             severity: 'block_publish',
           },
         ],
+        completedAt: '2026-07-05T12:31:00.000Z',
         diff: {
           addedCount: 0,
           changedCount: 0,
@@ -123,6 +127,7 @@ describe('Valedictorian source HTTP client', () => {
         rawJobCount: 12,
         sourceId: 'src_greenhouse',
         sourceRunId: 'run 1',
+        startedAt: '2026-07-05T12:30:00.000Z',
         status: 'suspect',
       },
     }
@@ -143,6 +148,149 @@ describe('Valedictorian source HTTP client', () => {
       },
       method: 'GET',
     })
+  })
+
+  it('lists registered CareerSources with pagination', async () => {
+    const payload = {
+      pagination: {
+        limit: 10,
+        nextOffset: 20,
+        offset: 10,
+      },
+      sources: [
+        {
+          activeStrategyVersionId: 'str_1',
+          canonicalHost: 'boards.greenhouse.io',
+          companyId: 'com_1',
+          companyName: 'Figma',
+          createdAt: '2026-07-05T12:00:00.000Z',
+          entryUrl: 'https://boards.greenhouse.io/figma',
+          id: 'src_greenhouse',
+          latestSnapshotId: null,
+          observedProvider: 'greenhouse',
+          politenessPolicy: {},
+          sourceType: 'provider_api',
+          status: 'active',
+          updatedAt: '2026-07-05T12:30:00.000Z',
+        },
+      ],
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValue(jsonResponse(payload))
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/api/',
+      fetch: fetchMock,
+      token: 'reader-token',
+    })
+
+    await expect(client.listSources({ limit: 10, offset: 10 })).resolves.toEqual(payload)
+
+    expect(fetchMock).toHaveBeenCalledWith('https://source.test/sources?limit=10&offset=10', {
+      headers: {
+        accept: 'application/json',
+        authorization: 'Bearer reader-token',
+      },
+      method: 'GET',
+    })
+  })
+
+  it('maps operator-write methods to source API routes', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    for (let index = 0; index < 8; index += 1) {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    }
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/api/',
+      fetch: fetchMock,
+      token: 'writer-token',
+    })
+
+    await client.createSource({
+      companyName: 'Figma',
+      careerUrl: 'https://boards.greenhouse.io/figma',
+      config: { boardToken: 'figma' },
+      templateKey: 'greenhouse_board_api',
+    })
+    await client.probeSource('src green')
+    await client.getSchedule('src green')
+    await client.setSchedule('src green', {
+      cadence: 'hourly',
+      nextDueAt: '2026-07-05T13:00:00.000Z',
+      priority: 4,
+      timezone: 'UTC',
+    })
+    await client.disableSchedule('src green')
+    await client.requestRun('src green')
+    await client.acceptBaseline('run suspect', 'operator verified the baseline')
+    await client.forcePublish('run suspect', 'operator reviewed the evidence')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://source.test/sources',
+      expect.objectContaining({
+        body: JSON.stringify({
+          companyName: 'Figma',
+          careerUrl: 'https://boards.greenhouse.io/figma',
+          config: { boardToken: 'figma' },
+          template: 'greenhouse_board_api',
+        }),
+        headers: {
+          accept: 'application/json',
+          authorization: 'Bearer writer-token',
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://source.test/sources/src%20green/probe',
+      expect.objectContaining({ body: '{}', method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://source.test/sources/src%20green/schedule',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'https://source.test/sources/src%20green/schedule',
+      expect.objectContaining({
+        body: JSON.stringify({
+          cadence: 'hourly',
+          nextDueAt: '2026-07-05T13:00:00.000Z',
+          priority: 4,
+          timezone: 'UTC',
+        }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      'https://source.test/sources/src%20green/schedule',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
+      'https://source.test/sources/src%20green/run-requests',
+      expect.objectContaining({ body: '{}', method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      7,
+      'https://source.test/runs/run%20suspect/accept-baseline',
+      expect.objectContaining({
+        body: JSON.stringify({ reason: 'operator verified the baseline' }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      8,
+      'https://source.test/runs/run%20suspect/force-publish',
+      expect.objectContaining({
+        body: JSON.stringify({ reason: 'operator reviewed the evidence' }),
+        method: 'POST',
+      }),
+    )
   })
 
   it('maps source API errors to the shared HTTP error type', async () => {

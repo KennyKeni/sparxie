@@ -8,8 +8,12 @@ import {
 import type {
   CareerSourceSummary,
   SourceJobsListResponse,
+  SourceProbeResponse,
   SourceRunDetail,
+  SourceRunOverrideResponse,
+  SourceRunRequestResponse,
   SourceRunsListResponse,
+  SourceScheduleResponse,
   SourcedJobPosting,
 } from './index'
 
@@ -52,6 +56,7 @@ describe('source ingestion contract', () => {
       active: true,
       applyUrl: 'https://jobs.example.com/apply/1',
       companyId: 'com_1',
+      companyName: 'Figma',
       contentHash: 'hash:one',
       detailUrl: 'https://jobs.example.com/roles/1',
       firstSeenAt: '2026-07-05T12:00:00.000Z',
@@ -67,6 +72,7 @@ describe('source ingestion contract', () => {
       activeStrategyVersionId: 'str_1',
       canonicalHost: 'boards.greenhouse.io',
       companyId: 'com_1',
+      companyName: 'Figma',
       createdAt: '2026-07-05T12:00:00.000Z',
       entryUrl: 'https://boards.greenhouse.io/figma',
       id: 'src_greenhouse',
@@ -79,6 +85,7 @@ describe('source ingestion contract', () => {
     }
     const run: SourceRunDetail = {
       confidenceResults: [],
+      completedAt: '2026-07-05T12:31:00.000Z',
       diff: {
         addedCount: 1,
         changedCount: 0,
@@ -93,7 +100,46 @@ describe('source ingestion contract', () => {
       rawJobCount: 12,
       sourceId: 'src_greenhouse',
       sourceRunId: 'run_1',
+      startedAt: '2026-07-05T12:30:00.000Z',
       status: 'published',
+    }
+    const probeResponse: SourceProbeResponse = {
+      probe: {
+        candidateTemplate: 'greenhouse_board_api',
+        config: { boardToken: 'figma' },
+        evidence: { sourceRunId: 'run_probe' },
+        failedRequirement: null,
+        listingCount: 12,
+        observedProvider: 'greenhouse',
+        readiness: 'ready',
+        sampleStableJobKey: '123',
+      },
+    }
+    const scheduleResponse: SourceScheduleResponse = {
+      schedule: {
+        cadence: 'hourly',
+        cronExpression: null,
+        enabled: true,
+        id: 'sch_1',
+        intervalMinutes: null,
+        jitterSeconds: 0,
+        nextDueAt: '2026-07-05T13:00:00.000Z',
+        priority: 0,
+        sourceId: 'src_greenhouse',
+        timezone: 'UTC',
+      },
+    }
+    const requestResponse: SourceRunRequestResponse = {
+      requestId: 'srr_1',
+    }
+    const overrideResponse: SourceRunOverrideResponse = {
+      override: {
+        kind: 'force_publish',
+        overriddenRuleKeys: ['detail_url_sample'],
+        publishedJobCount: 12,
+        snapshotId: 'snp_1',
+        sourceRunId: 'run_1',
+      },
     }
     const jobsResponse: SourceJobsListResponse = {
       jobs: [job],
@@ -108,6 +154,10 @@ describe('source ingestion contract', () => {
     }
 
     expect(source.status).toBe('active')
+    expect(probeResponse.probe.readiness).toBe('ready')
+    expect(scheduleResponse.schedule?.enabled).toBe(true)
+    expect(requestResponse.requestId).toBe('srr_1')
+    expect(overrideResponse.override.kind).toBe('force_publish')
     expect(jobsResponse.pagination.nextOffset).toBeNull()
     expect(runsResponse).not.toHaveProperty('pagination')
   })
