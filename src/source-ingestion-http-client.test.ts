@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ValedictorianSourceHttpClient } from './index'
+import { ValedictorianHttpError, ValedictorianSourceHttpClient } from './index'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -143,5 +143,24 @@ describe('Valedictorian source HTTP client', () => {
       },
       method: 'GET',
     })
+  })
+
+  it('maps source API errors to the shared HTTP error type', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: 'source_run_not_found' }, { status: 404, statusText: 'Not Found' }),
+    )
+    const client = new ValedictorianSourceHttpClient({
+      baseUrl: 'https://source.test/',
+      fetch: fetchMock,
+      token: 'reader-token',
+    })
+
+    await expect(client.getRun('missing')).rejects.toMatchObject({
+      body: { error: 'source_run_not_found' },
+      message: 'source_run_not_found',
+      status: 404,
+    })
+    await expect(client.getRun('missing')).rejects.toBeInstanceOf(ValedictorianHttpError)
   })
 })
