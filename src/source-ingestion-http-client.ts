@@ -2,6 +2,7 @@ import { ValedictorianHttpError } from './http-client.js'
 import type {
   SourceJobsListQuery,
   SourceJobsListResponse,
+  SourceRunResponse,
   SourceRunsListQuery,
   SourceRunsListResponse,
 } from './source-ingestion.js'
@@ -68,6 +69,10 @@ export class ValedictorianSourceHttpClient {
     return this.request('/runs', {
       query: sourceRunsListQueryToSearchParams(query),
     })
+  }
+
+  getRun(id: string): Promise<SourceRunResponse> {
+    return this.request(`/runs/${encodeURIComponent(id)}`)
   }
 
   private async request<T>(

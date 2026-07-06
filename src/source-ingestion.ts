@@ -89,6 +89,19 @@ export interface SourceRunSummary {
   status: SourceRunStatus
 }
 
+export interface SourceRunConfidenceResult {
+  message: string | null
+  outcome: string
+  ruleKey: string
+  severity: string
+}
+
+export interface SourceRunDetail extends SourceRunSummary {
+  confidenceResults: SourceRunConfidenceResult[]
+  evidenceArtifacts: string[]
+  evidenceBundleId: string | null
+}
+
 export interface SourceRunsListQuery {
   sourceId?: string
   limit?: number
@@ -96,4 +109,8 @@ export interface SourceRunsListQuery {
 
 export interface SourceRunsListResponse {
   runs: SourceRunSummary[]
+}
+
+export interface SourceRunResponse {
+  run: SourceRunDetail
 }
