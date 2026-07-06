@@ -1,5 +1,10 @@
 import { ValedictorianHttpError } from './http-client.js'
-import type { SourceJobsListQuery, SourceJobsListResponse } from './source-ingestion.js'
+import type {
+  SourceJobsListQuery,
+  SourceJobsListResponse,
+  SourceRunsListQuery,
+  SourceRunsListResponse,
+} from './source-ingestion.js'
 
 export interface ValedictorianSourceHttpClientOptions {
   baseUrl: string
@@ -8,11 +13,26 @@ export interface ValedictorianSourceHttpClientOptions {
 }
 
 const sourceJobsListQueryParamKeys = ['limit', 'offset'] as const
+const sourceRunsListQueryParamKeys = ['sourceId', 'limit'] as const
 
 export function sourceJobsListQueryToSearchParams(query: SourceJobsListQuery = {}) {
   const params = new URLSearchParams()
 
   for (const key of sourceJobsListQueryParamKeys) {
+    const value = query[key]
+
+    if (value !== undefined) {
+      params.set(key, String(value))
+    }
+  }
+
+  return params
+}
+
+export function sourceRunsListQueryToSearchParams(query: SourceRunsListQuery = {}) {
+  const params = new URLSearchParams()
+
+  for (const key of sourceRunsListQueryParamKeys) {
     const value = query[key]
 
     if (value !== undefined) {
@@ -41,6 +61,12 @@ export class ValedictorianSourceHttpClient {
   listJobs(query?: SourceJobsListQuery): Promise<SourceJobsListResponse> {
     return this.request('/jobs', {
       query: sourceJobsListQueryToSearchParams(query),
+    })
+  }
+
+  listRuns(query?: SourceRunsListQuery): Promise<SourceRunsListResponse> {
+    return this.request('/runs', {
+      query: sourceRunsListQueryToSearchParams(query),
     })
   }
 

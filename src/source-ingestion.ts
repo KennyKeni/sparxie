@@ -70,3 +70,30 @@ export interface SourceJobsListResponse {
   jobs: SourcedJobPosting[]
   pagination: SourceIngestionPagination
 }
+
+export interface SourceRunDiff {
+  addedCount: number
+  changedCount: number
+  previousSnapshotId: string | null
+  removedCount: number
+}
+
+export interface SourceRunSummary {
+  diff: SourceRunDiff
+  evidencePath: string | null
+  normalizedJobCount: number | null
+  outcome: SourceRunStatus | string
+  rawJobCount: number | null
+  sourceId: string | null
+  sourceRunId: string
+  status: SourceRunStatus
+}
+
+export interface SourceRunsListQuery {
+  sourceId?: string
+  limit?: number
+}
+
+export interface SourceRunsListResponse {
+  runs: SourceRunSummary[]
+}
