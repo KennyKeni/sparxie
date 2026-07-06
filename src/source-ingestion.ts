@@ -38,3 +38,35 @@ export function isCareerSourceLifecycleStatus(
 ): value is CareerSourceLifecycleStatus {
   return (careerSourceLifecycleStatuses as readonly string[]).includes(value)
 }
+
+export interface SourceIngestionPagination {
+  limit: number
+  offset: number
+  nextOffset: number | null
+}
+
+export interface SourcedJobPosting {
+  active: boolean
+  applyUrl: string | null
+  companyId: string
+  contentHash: string | null
+  detailUrl: string | null
+  firstSeenAt: string
+  lastSeenAt: string
+  lastVerifiedAt: string
+  latestSnapshotId: string
+  locations: unknown
+  sourceId: string
+  stableJobKey: string
+  title: string
+}
+
+export interface SourceJobsListQuery {
+  limit?: number
+  offset?: number
+}
+
+export interface SourceJobsListResponse {
+  jobs: SourcedJobPosting[]
+  pagination: SourceIngestionPagination
+}
