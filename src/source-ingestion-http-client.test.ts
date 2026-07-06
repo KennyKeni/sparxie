@@ -156,11 +156,19 @@ describe('Valedictorian source HTTP client', () => {
       token: 'reader-token',
     })
 
-    await expect(client.getRun('missing')).rejects.toMatchObject({
+    let error: unknown
+
+    try {
+      await client.getRun('missing')
+    } catch (caught) {
+      error = caught
+    }
+
+    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).toMatchObject({
       body: { error: 'source_run_not_found' },
       message: 'source_run_not_found',
       status: 404,
     })
-    await expect(client.getRun('missing')).rejects.toBeInstanceOf(ValedictorianHttpError)
   })
 })

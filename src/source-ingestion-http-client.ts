@@ -127,5 +127,9 @@ function responseMessage(body: unknown, fallback: string) {
     return body.message
   }
 
+  if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') {
+    return body.error
+  }
+
   return fallback || 'Valedictorian source request failed'
 }
