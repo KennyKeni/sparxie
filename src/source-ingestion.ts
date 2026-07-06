@@ -71,6 +71,21 @@ export interface SourceJobsListResponse {
   pagination: SourceIngestionPagination
 }
 
+export interface CareerSourceSummary {
+  id: string
+  companyId: string
+  entryUrl: string
+  canonicalHost: string
+  sourceType: string
+  observedProvider: string | null
+  activeStrategyVersionId: string | null
+  latestSnapshotId: string | null
+  status: CareerSourceLifecycleStatus
+  politenessPolicy: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
 export interface SourceRunDiff {
   addedCount: number
   changedCount: number
