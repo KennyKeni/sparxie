@@ -1,6 +1,54 @@
 version: '3'
 
 tasks:
+  release:bump-tag-push:
+    desc: Bump the package version, commit it, then create and push the release tag.
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+
+        if ! git diff --quiet || ! git diff --cached --quiet; then
+          echo "Refusing to bump release version with uncommitted changes."
+          git status --short
+          exit 1
+        fi
+
+        next_version="$(node --input-type=module <<'NODE'
+        import fs from 'node:fs'
+
+        const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+        const current = packageJson.version
+        const prereleaseMatch = current.match(/^(\d+)\.(\d+)\.(\d+)-([0-9A-Za-z-]+)\.(\d+)$/)
+        const stableMatch = current.match(/^(\d+)\.(\d+)\.(\d+)$/)
+
+        if (process.env.RELEASE_VERSION) {
+          process.stdout.write(process.env.RELEASE_VERSION)
+        } else if (prereleaseMatch) {
+          const [, major, minor, patch, label, number] = prereleaseMatch
+          process.stdout.write(`${major}.${minor}.${patch}-${label}.${Number(number) + 1}`)
+        } else if (stableMatch) {
+          const [, major, minor, patch] = stableMatch
+          process.stdout.write(`${major}.${minor}.${Number(patch) + 1}`)
+        } else {
+          throw new Error(`Unsupported package version: ${current}`)
+        }
+        NODE
+        )"
+
+        RELEASE_NEXT_VERSION="$next_version" node --input-type=module <<'NODE'
+        import fs from 'node:fs'
+
+        const path = 'package.json'
+        const packageJson = JSON.parse(fs.readFileSync(path, 'utf8'))
+        packageJson.version = process.env.RELEASE_NEXT_VERSION
+        fs.writeFileSync(path, `${JSON.stringify(packageJson, null, 2)}\n`)
+        NODE
+
+        git add package.json
+        git commit -m "Release v$next_version"
+        task release:tag-push
+
   release:tag-push:
     desc: Create the package version tag, then push the current branch and tag.
     silent: true
