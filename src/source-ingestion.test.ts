@@ -114,12 +114,15 @@ describe('source ingestion contract', () => {
       probe: {
         candidateTemplate: 'greenhouse_board_api',
         config: { boardToken: 'figma' },
+        discoveryMethod: 'direct_provider_url',
         evidence: { sourceRunId: 'run_probe' },
         failedRequirement: null,
         listingCount: 12,
         observedProvider: 'greenhouse',
+        probedCareerUrl: 'https://boards.greenhouse.io/figma',
         readiness: 'ready',
         sampleStableJobKey: '123',
+        submittedCareerUrl: 'https://boards.greenhouse.io/figma',
       },
     }
     const scheduleResponse: SourceScheduleResponse = {

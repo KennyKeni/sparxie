@@ -198,12 +198,15 @@ export interface CareerSourceRegistrationResponse {
 export interface SourceProbeResult {
   candidateTemplate: string | null
   config: Record<string, unknown>
+  discoveryMethod?: 'direct_provider_url' | 'static_provider_link'
   evidence: Record<string, unknown>
   failedRequirement: string | null
   listingCount: number | null
   observedProvider: string
+  probedCareerUrl?: string
   readiness: 'not-ready' | 'ready'
   sampleStableJobKey: string | null
+  submittedCareerUrl?: string
 }
 
 export interface SourceProbeResponse {
