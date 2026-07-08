@@ -195,10 +195,30 @@ export interface CareerSourceRegistrationResponse {
   }
 }
 
+export type SourceProbeDiscoveryMethod =
+  | 'browser_render_provider_link'
+  | 'direct_provider_url'
+  | 'static_provider_link'
+
+export type BrowserProxyInput =
+  | {
+      mode: 'managed'
+      countryCode: 'us'
+    }
+  | {
+      mode: 'none'
+    }
+
+export interface SourceProbeUrlInput {
+  browserFallback?: boolean
+  browserProxy?: BrowserProxyInput
+  url: string
+}
+
 export interface SourceProbeResult {
   candidateTemplate: string | null
   config: Record<string, unknown>
-  discoveryMethod?: 'direct_provider_url' | 'static_provider_link'
+  discoveryMethod?: SourceProbeDiscoveryMethod
   evidence: Record<string, unknown>
   failedRequirement: string | null
   listingCount: number | null

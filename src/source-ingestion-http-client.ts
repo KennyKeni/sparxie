@@ -6,6 +6,7 @@ import type {
   CareerSourcesListQuery,
   CareerSourcesListResponse,
   CreateCareerSourceInput,
+  SourceProbeUrlInput,
   SourceCompaniesListQuery,
   SourceCompaniesListResponse,
   SourceJobsListQuery,
@@ -207,6 +208,13 @@ export class ValedictorianSourceHttpClient {
   probeSource(id: string): Promise<SourceProbeResponse> {
     return this.request(`/sources/${encodeURIComponent(id)}/probe`, {
       body: {},
+      method: 'POST',
+    })
+  }
+
+  probeCareerUrl(input: SourceProbeUrlInput): Promise<SourceProbeResponse> {
+    return this.request('/source-probes', {
+      body: input,
       method: 'POST',
     })
   }
