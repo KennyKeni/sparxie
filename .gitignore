@@ -12,6 +12,7 @@ pnpm-debug.log*
 
 # Local/editor files
 .DS_Store
+!AGENTS.md
 .env
 .env.*
 !.env.example

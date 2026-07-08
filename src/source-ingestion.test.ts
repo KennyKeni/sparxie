@@ -9,6 +9,7 @@ import type {
   CareerSourceSummary,
   SourceCompaniesListResponse,
   SourceJobsListResponse,
+  SourceProbeUrlInput,
   SourceProbeResponse,
   SourceRunDetail,
   SourceRunOverrideResponse,
@@ -114,13 +115,21 @@ describe('source ingestion contract', () => {
       probe: {
         candidateTemplate: 'greenhouse_board_api',
         config: { boardToken: 'figma' },
+        discoveryMethod: 'browser_render_provider_link',
         evidence: { sourceRunId: 'run_probe' },
         failedRequirement: null,
         listingCount: 12,
         observedProvider: 'greenhouse',
+        probedCareerUrl: 'https://boards.greenhouse.io/figma',
         readiness: 'ready',
         sampleStableJobKey: '123',
+        submittedCareerUrl: 'https://boards.greenhouse.io/figma',
       },
+    }
+    const probeInput: SourceProbeUrlInput = {
+      browserFallback: true,
+      browserProxy: { mode: 'managed', countryCode: 'us' },
+      url: 'https://figma.com/careers',
     }
     const scheduleResponse: SourceScheduleResponse = {
       schedule: {
@@ -189,6 +198,7 @@ describe('source ingestion contract', () => {
     expect(source.status).toBe('active')
     expect(source.schedule?.cadence).toBe('daily')
     expect(probeResponse.probe.readiness).toBe('ready')
+    expect(probeInput.browserFallback).toBe(true)
     expect(scheduleResponse.schedule?.enabled).toBe(true)
     expect(requestResponse.requestId).toBe('srr_1')
     expect(overrideResponse.override.kind).toBe('force_publish')

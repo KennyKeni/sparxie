@@ -407,7 +407,7 @@ describe('Valedictorian source HTTP client', () => {
 
   it('maps operator-write methods to source API routes', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 11; index += 1) {
+    for (let index = 0; index < 12; index += 1) {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
     const client = new ValedictorianSourceHttpClient({
@@ -423,6 +423,11 @@ describe('Valedictorian source HTTP client', () => {
       templateKey: 'greenhouse_board_api',
     })
     await client.probeSource('src green')
+    await client.probeCareerUrl({
+      browserFallback: true,
+      browserProxy: { mode: 'none' },
+      url: 'https://figma.com/careers',
+    })
     await client.updateSourceLifecycle('src green', { status: 'paused' })
     await client.pauseSource('src green')
     await client.resumeSource('src green')
@@ -463,9 +468,13 @@ describe('Valedictorian source HTTP client', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      'https://source.test/sources/src%20green/lifecycle',
+      'https://source.test/source-probes',
       expect.objectContaining({
-        body: JSON.stringify({ status: 'paused' }),
+        body: JSON.stringify({
+          browserFallback: true,
+          browserProxy: { mode: 'none' },
+          url: 'https://figma.com/careers',
+        }),
         method: 'POST',
       }),
     )
@@ -481,17 +490,25 @@ describe('Valedictorian source HTTP client', () => {
       5,
       'https://source.test/sources/src%20green/lifecycle',
       expect.objectContaining({
-        body: JSON.stringify({ status: 'active' }),
+        body: JSON.stringify({ status: 'paused' }),
         method: 'POST',
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       6,
+      'https://source.test/sources/src%20green/lifecycle',
+      expect.objectContaining({
+        body: JSON.stringify({ status: 'active' }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      7,
       'https://source.test/sources/src%20green/schedule',
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      7,
+      8,
       'https://source.test/sources/src%20green/schedule',
       expect.objectContaining({
         body: JSON.stringify({
@@ -504,17 +521,17 @@ describe('Valedictorian source HTTP client', () => {
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      8,
+      9,
       'https://source.test/sources/src%20green/schedule',
       expect.objectContaining({ method: 'DELETE' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      9,
+      10,
       'https://source.test/sources/src%20green/run-requests',
       expect.objectContaining({ body: '{}', method: 'POST' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      10,
+      11,
       'https://source.test/runs/run%20suspect/accept-baseline',
       expect.objectContaining({
         body: JSON.stringify({ reason: 'operator verified the baseline' }),
@@ -522,7 +539,7 @@ describe('Valedictorian source HTTP client', () => {
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      11,
+      12,
       'https://source.test/runs/run%20suspect/force-publish',
       expect.objectContaining({
         body: JSON.stringify({ reason: 'operator reviewed the evidence' }),
