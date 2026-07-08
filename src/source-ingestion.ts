@@ -50,6 +50,7 @@ export interface SourcedJobPosting {
   applyUrl: string | null
   companyId: string
   companyName: string
+  companySlug: string
   contentHash: string | null
   detailUrl: string | null
   firstSeenAt: string
@@ -58,6 +59,7 @@ export interface SourcedJobPosting {
   latestSnapshotId: string
   locations: unknown
   sourceId: string
+  sourceSlug: string
   stableJobKey: string
   title: string
 }
@@ -77,10 +79,12 @@ export type SourceJobsListSort =
 export interface SourceJobsListQuery {
   active?: boolean
   companyId?: string
+  companyRef?: string
   limit?: number
   offset?: number
   search?: string
   sourceId?: string
+  sourceRef?: string
   sort?: SourceJobsListSort
   staleBefore?: string
 }
@@ -113,6 +117,7 @@ export interface SourceCompanySummary {
   createdAt: string
   companyId: string
   companyName: string
+  companySlug: string
   updatedAt: string
 }
 
@@ -129,12 +134,14 @@ export interface CareerSourceSummary {
   id: string
   companyId: string
   companyName: string
+  companySlug: string
   entryUrl: string
   canonicalHost: string
   sourceType: string
   observedProvider: string | null
   activeStrategyVersionId: string | null
   latestSnapshotId: string | null
+  slug: string
   status: CareerSourceLifecycleStatus
   politenessPolicy: Record<string, unknown>
   schedule?: SourceScheduleSummary | null
@@ -175,6 +182,7 @@ export interface CareerSourceLifecycleInput {
 export interface CareerSourceLifecycleResponse {
   source: {
     id: string
+    slug: string
     status: CareerSourceLifecycleStatus
     updatedAt: string
   }
@@ -190,7 +198,10 @@ export interface CreateCareerSourceInput {
 
 export interface CareerSourceRegistrationResponse {
   source: {
+    companyId: string
+    companySlug: string
     sourceId: string
+    sourceSlug: string
     strategyVersionId: string
   }
 }
@@ -252,6 +263,7 @@ export interface SourceSchedule {
   nextDueAt: string
   priority: number
   sourceId: string
+  sourceSlug: string
   timezone: string
 }
 
@@ -280,18 +292,21 @@ export type SourceSchedulesListSort =
 export interface SourceSchedulesListQuery {
   cadence?: SourceScheduleCadence
   companyId?: string
+  companyRef?: string
   enabled?: boolean
   limit?: number
   offset?: number
   search?: string
   sort?: SourceSchedulesListSort
   sourceId?: string
+  sourceRef?: string
 }
 
 export interface SourceScheduleBrowseRow extends SourceSchedule {
   canonicalHost: string
   companyId: string
   companyName: string
+  companySlug: string
   createdAt: string
   entryUrl: string
   sourceStatus: CareerSourceLifecycleStatus
@@ -344,6 +359,7 @@ export interface SourceRunSummary {
   outcome: SourceRunStatus | string
   rawJobCount: number | null
   sourceId: string | null
+  sourceSlug: string | null
   sourceRunId: string
   startedAt: string | null
   status: SourceRunStatus
@@ -377,6 +393,7 @@ export interface SourceRunsListQuery {
   offset?: number
   outcome?: SourceRunStatus
   sourceId?: string
+  sourceRef?: string
   sort?: SourceRunsListSort
   status?: SourceRunStatus
 }

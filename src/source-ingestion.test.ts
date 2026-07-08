@@ -57,27 +57,30 @@ describe('source ingestion contract', () => {
     const job: SourcedJobPosting = {
       active: true,
       applyUrl: 'https://jobs.example.com/apply/1',
-      companyId: 'com_1',
+      companyId: '11111111-1111-4111-8111-111111111111',
       companyName: 'Figma',
+      companySlug: 'figma',
       contentHash: 'hash:one',
       detailUrl: 'https://jobs.example.com/roles/1',
       firstSeenAt: '2026-07-05T12:00:00.000Z',
       lastSeenAt: '2026-07-05T12:00:00.000Z',
       lastVerifiedAt: '2026-07-05T12:30:00.000Z',
-      latestSnapshotId: 'snp_1',
+      latestSnapshotId: '33333333-3333-4333-8333-333333333333',
       locations: [{ rawText: 'New York, NY' }],
-      sourceId: 'src_greenhouse',
+      sourceId: '22222222-2222-4222-8222-222222222222',
+      sourceSlug: 'figma-greenhouse',
       stableJobKey: 'job-1',
       title: 'Software Engineer Intern',
     }
     const source: CareerSourceSummary = {
-      activeStrategyVersionId: 'str_1',
+      activeStrategyVersionId: '44444444-4444-4444-8444-444444444444',
       canonicalHost: 'boards.greenhouse.io',
-      companyId: 'com_1',
+      companyId: '11111111-1111-4111-8111-111111111111',
       companyName: 'Figma',
+      companySlug: 'figma',
       createdAt: '2026-07-05T12:00:00.000Z',
       entryUrl: 'https://boards.greenhouse.io/figma',
-      id: 'src_greenhouse',
+      id: '22222222-2222-4222-8222-222222222222',
       latestSnapshotId: null,
       observedProvider: 'greenhouse',
       politenessPolicy: { crawlDelayMs: 1000 },
@@ -88,6 +91,7 @@ describe('source ingestion contract', () => {
         timezone: 'UTC',
       },
       sourceType: 'provider_api',
+      slug: 'figma-greenhouse',
       status: 'active',
       updatedAt: '2026-07-05T12:30:00.000Z',
     }
@@ -101,13 +105,14 @@ describe('source ingestion contract', () => {
         removedCount: 0,
       },
       evidenceArtifacts: ['response-summary.json'],
-      evidenceBundleId: 'evb_1',
+      evidenceBundleId: '55555555-5555-4555-8555-555555555555',
       evidencePath: 'evidence/sources/src_greenhouse/runs/run_1',
       normalizedJobCount: 12,
       outcome: 'published',
       rawJobCount: 12,
-      sourceId: 'src_greenhouse',
-      sourceRunId: 'run_1',
+      sourceId: '22222222-2222-4222-8222-222222222222',
+      sourceSlug: 'figma-greenhouse',
+      sourceRunId: '66666666-6666-4666-8666-666666666666',
       startedAt: '2026-07-05T12:30:00.000Z',
       status: 'published',
     }
@@ -136,25 +141,26 @@ describe('source ingestion contract', () => {
         cadence: 'hourly',
         cronExpression: null,
         enabled: true,
-        id: 'sch_1',
+        id: '77777777-7777-4777-8777-777777777777',
         intervalMinutes: null,
         jitterSeconds: 0,
         nextDueAt: '2026-07-05T13:00:00.000Z',
         priority: 0,
-        sourceId: 'src_greenhouse',
+        sourceId: '22222222-2222-4222-8222-222222222222',
+        sourceSlug: 'figma-greenhouse',
         timezone: 'UTC',
       },
     }
     const requestResponse: SourceRunRequestResponse = {
-      requestId: 'srr_1',
+      requestId: '88888888-8888-4888-8888-888888888888',
     }
     const overrideResponse: SourceRunOverrideResponse = {
       override: {
         kind: 'force_publish',
         overriddenRuleKeys: ['detail_url_sample'],
         publishedJobCount: 12,
-        snapshotId: 'snp_1',
-        sourceRunId: 'run_1',
+        snapshotId: '33333333-3333-4333-8333-333333333333',
+        sourceRunId: '66666666-6666-4666-8666-666666666666',
       },
     }
     const jobsResponse: SourceJobsListResponse = {
@@ -171,8 +177,9 @@ describe('source ingestion contract', () => {
           activeJobCount: 2,
           careerSourceCount: 1,
           createdAt: '2026-07-05T12:00:00.000Z',
-          companyId: 'com_1',
+          companyId: '11111111-1111-4111-8111-111111111111',
           companyName: 'Figma',
+          companySlug: 'figma',
           updatedAt: '2026-07-05T12:30:00.000Z',
         },
       ],
@@ -200,7 +207,7 @@ describe('source ingestion contract', () => {
     expect(probeResponse.probe.readiness).toBe('ready')
     expect(probeInput.browserFallback).toBe(true)
     expect(scheduleResponse.schedule?.enabled).toBe(true)
-    expect(requestResponse.requestId).toBe('srr_1')
+    expect(requestResponse.requestId).toBe('88888888-8888-4888-8888-888888888888')
     expect(overrideResponse.override.kind).toBe('force_publish')
     expect(jobsResponse.pagination.nextOffset).toBeNull()
     expect(companiesResponse.companies[0]?.careerSourceCount).toBe(1)

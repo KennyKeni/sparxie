@@ -35,7 +35,9 @@ const sourceJobsListQueryParamKeys = [
   'offset',
   'active',
   'companyId',
+  'companyRef',
   'sourceId',
+  'sourceRef',
   'search',
   'staleBefore',
   'sort',
@@ -43,6 +45,7 @@ const sourceJobsListQueryParamKeys = [
 const sourceCompaniesListQueryParamKeys = ['limit', 'offset', 'search', 'sort'] as const
 const sourceRunsListQueryParamKeys = [
   'sourceId',
+  'sourceRef',
   'limit',
   'offset',
   'status',
@@ -66,7 +69,9 @@ const sourceSchedulesListQueryParamKeys = [
   'enabled',
   'cadence',
   'companyId',
+  'companyRef',
   'sourceId',
+  'sourceRef',
   'sort',
 ] as const
 

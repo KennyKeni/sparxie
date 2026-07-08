@@ -24,16 +24,18 @@ describe('Valedictorian source HTTP client', () => {
         {
           active: true,
           applyUrl: 'https://jobs.example.com/apply/1',
-          companyId: 'com_1',
+          companyId: '11111111-1111-4111-8111-111111111111',
           companyName: 'Figma',
+          companySlug: 'figma',
           contentHash: 'hash:one',
           detailUrl: 'https://jobs.example.com/roles/1',
           firstSeenAt: '2026-07-05T12:00:00.000Z',
           lastSeenAt: '2026-07-05T12:00:00.000Z',
           lastVerifiedAt: '2026-07-05T12:30:00.000Z',
-          latestSnapshotId: 'snp_1',
+          latestSnapshotId: '33333333-3333-4333-8333-333333333333',
           locations: [{ rawText: 'New York, NY' }],
-          sourceId: 'src_greenhouse',
+          sourceId: '22222222-2222-4222-8222-222222222222',
+          sourceSlug: 'figma-greenhouse',
           stableJobKey: 'job-1',
           title: 'Software Engineer Intern',
         },
@@ -81,8 +83,9 @@ describe('Valedictorian source HTTP client', () => {
           activeJobCount: 2,
           careerSourceCount: 1,
           createdAt: '2026-07-05T12:00:00.000Z',
-          companyId: 'com_1',
+          companyId: '11111111-1111-4111-8111-111111111111',
           companyName: 'Figma',
+          companySlug: 'figma',
           updatedAt: '2026-07-05T12:30:00.000Z',
         },
       ],
@@ -146,8 +149,9 @@ describe('Valedictorian source HTTP client', () => {
           normalizedJobCount: 12,
           outcome: 'published',
           rawJobCount: 12,
-          sourceId: 'src_greenhouse',
-          sourceRunId: 'run_1',
+          sourceId: '22222222-2222-4222-8222-222222222222',
+          sourceSlug: 'figma-greenhouse',
+          sourceRunId: '66666666-6666-4666-8666-666666666666',
           startedAt: '2026-07-05T12:30:00.000Z',
           status: 'published',
         },
@@ -167,13 +171,13 @@ describe('Valedictorian source HTTP client', () => {
         offset: 10,
         outcome: 'failed',
         sort: 'completed_desc',
-        sourceId: 'src_greenhouse',
+        sourceRef: 'figma-greenhouse',
         status: 'failed',
       }),
     ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://source.test/runs?sourceId=src_greenhouse&limit=5&offset=10&status=failed&outcome=failed&sort=completed_desc',
+      'https://source.test/runs?sourceRef=figma-greenhouse&limit=5&offset=10&status=failed&outcome=failed&sort=completed_desc',
       {
         headers: {
           accept: 'application/json',
@@ -203,12 +207,13 @@ describe('Valedictorian source HTTP client', () => {
           removedCount: 10,
         },
         evidenceArtifacts: ['response-summary.json', 'snapshot-diff.json'],
-        evidenceBundleId: 'evb_1',
+        evidenceBundleId: '55555555-5555-4555-8555-555555555555',
         evidencePath: 'evidence/sources/src_greenhouse/runs/run_1',
         normalizedJobCount: 12,
         outcome: 'suspect',
         rawJobCount: 12,
-        sourceId: 'src_greenhouse',
+        sourceId: '22222222-2222-4222-8222-222222222222',
+        sourceSlug: 'figma-greenhouse',
         sourceRunId: 'run 1',
         startedAt: '2026-07-05T12:30:00.000Z',
         status: 'suspect',
@@ -242,17 +247,19 @@ describe('Valedictorian source HTTP client', () => {
       },
       sources: [
         {
-          activeStrategyVersionId: 'str_1',
+          activeStrategyVersionId: '44444444-4444-4444-8444-444444444444',
           canonicalHost: 'boards.greenhouse.io',
-          companyId: 'com_1',
+          companyId: '11111111-1111-4111-8111-111111111111',
           companyName: 'Figma',
+          companySlug: 'figma',
           createdAt: '2026-07-05T12:00:00.000Z',
           entryUrl: 'https://boards.greenhouse.io/figma',
-          id: 'src_greenhouse',
+          id: '22222222-2222-4222-8222-222222222222',
           latestSnapshotId: null,
           observedProvider: 'greenhouse',
           politenessPolicy: {},
           sourceType: 'provider_api',
+          slug: 'figma-greenhouse',
           status: 'active',
           updatedAt: '2026-07-05T12:30:00.000Z',
         },
@@ -288,18 +295,20 @@ describe('Valedictorian source HTTP client', () => {
         {
           cadence: 'hourly',
           canonicalHost: 'boards.greenhouse.io',
-          companyId: 'com_1',
+          companyId: '11111111-1111-4111-8111-111111111111',
           companyName: 'Figma',
+          companySlug: 'figma',
           createdAt: '2026-07-05T12:00:00.000Z',
           cronExpression: null,
           enabled: true,
           entryUrl: 'https://boards.greenhouse.io/figma',
-          id: 'sch_1',
+          id: '77777777-7777-4777-8777-777777777777',
           intervalMinutes: null,
           jitterSeconds: 0,
           nextDueAt: '2026-07-05T13:00:00.000Z',
           priority: 0,
-          sourceId: 'src_greenhouse',
+          sourceId: '22222222-2222-4222-8222-222222222222',
+          sourceSlug: 'figma-greenhouse',
           sourceStatus: 'active',
           timezone: 'UTC',
           updatedAt: '2026-07-05T12:30:00.000Z',
@@ -317,18 +326,18 @@ describe('Valedictorian source HTTP client', () => {
     await expect(
       client.listSchedules({
         cadence: 'hourly',
-        companyId: 'com_1',
+        companyRef: 'figma',
         enabled: true,
         limit: 25,
         offset: 0,
         search: 'figma',
         sort: 'next_due_asc',
-        sourceId: 'src_greenhouse',
+        sourceRef: 'figma-greenhouse',
       }),
     ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://source.test/schedules?limit=25&offset=0&search=figma&enabled=true&cadence=hourly&companyId=com_1&sourceId=src_greenhouse&sort=next_due_asc',
+      'https://source.test/schedules?limit=25&offset=0&search=figma&enabled=true&cadence=hourly&companyRef=figma&sourceRef=figma-greenhouse&sort=next_due_asc',
       {
         headers: {
           accept: 'application/json',
@@ -360,16 +369,16 @@ describe('Valedictorian source HTTP client', () => {
     expect(
       sourceJobsListQueryToSearchParams({
         active: false,
-        companyId: 'com_figma',
+        companyRef: 'figma',
         limit: 10,
         offset: 20,
         search: 'designer',
-        sourceId: 'src_figma',
+        sourceRef: 'figma-greenhouse',
         sort: 'first_seen_asc',
         staleBefore: '2026-07-02T00:00:00.000Z',
       }).toString(),
     ).toBe(
-      'limit=10&offset=20&active=false&companyId=com_figma&sourceId=src_figma&search=designer&staleBefore=2026-07-02T00%3A00%3A00.000Z&sort=first_seen_asc',
+      'limit=10&offset=20&active=false&companyRef=figma&sourceRef=figma-greenhouse&search=designer&staleBefore=2026-07-02T00%3A00%3A00.000Z&sort=first_seen_asc',
     )
   })
 
@@ -377,16 +386,16 @@ describe('Valedictorian source HTTP client', () => {
     expect(
       sourceSchedulesListQueryToSearchParams({
         cadence: 'weekly',
-        companyId: 'com_figma',
+        companyRef: 'figma',
         enabled: false,
         limit: 10,
         offset: 20,
         search: 'figma',
         sort: 'company_desc',
-        sourceId: 'src_figma',
+        sourceRef: 'figma-greenhouse',
       }).toString(),
     ).toBe(
-      'limit=10&offset=20&search=figma&enabled=false&cadence=weekly&companyId=com_figma&sourceId=src_figma&sort=company_desc',
+      'limit=10&offset=20&search=figma&enabled=false&cadence=weekly&companyRef=figma&sourceRef=figma-greenhouse&sort=company_desc',
     )
   })
 
@@ -397,11 +406,11 @@ describe('Valedictorian source HTTP client', () => {
         offset: 10,
         outcome: 'failed',
         sort: 'completed_desc',
-        sourceId: 'src_greenhouse',
+        sourceRef: 'figma-greenhouse',
         status: 'failed',
       }).toString(),
     ).toBe(
-      'sourceId=src_greenhouse&limit=5&offset=10&status=failed&outcome=failed&sort=completed_desc',
+      'sourceRef=figma-greenhouse&limit=5&offset=10&status=failed&outcome=failed&sort=completed_desc',
     )
   })
 
