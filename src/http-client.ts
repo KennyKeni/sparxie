@@ -464,6 +464,20 @@ export function createHttpValedictorianClient({
       list() {
         return request(pathFor(valedictorianApiPaths.connectors))
       },
+      create(input) {
+        return request(pathFor(valedictorianApiPaths.connectors), {
+          body: input,
+          method: 'POST',
+        })
+      },
+      update(input) {
+        const { connectorInstanceId, ...body } = input
+
+        return request(pathFor(valedictorianApiPaths.connector(connectorInstanceId)), {
+          body,
+          method: 'PATCH',
+        })
+      },
       inspect(connectorInstanceId) {
         return request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId)))
       },

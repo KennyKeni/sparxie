@@ -65,6 +65,9 @@ export const valedictorianApiPaths = {
   connectorStatus(connectorInstanceId: string) {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/status`
   },
+  connector(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}`
+  },
   connectorRuns(connectorInstanceId: string) {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/runs`
   },
