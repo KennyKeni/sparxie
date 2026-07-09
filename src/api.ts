@@ -22,6 +22,7 @@ export const valedictorianApiPaths = {
   policyEvaluateRunWindow: '/v1/policy/evaluate/run-window',
   actionQueue: '/v1/action-queue',
   runs: '/v1/runs',
+  connectors: '/v1/connectors',
   application(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}`
   },
@@ -60,6 +61,18 @@ export const valedictorianApiPaths = {
   },
   runComplete(workflowRunId: string) {
     return `/v1/runs/${encodeURIComponent(workflowRunId)}/complete`
+  },
+  connectorStatus(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/status`
+  },
+  connectorRuns(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/runs`
+  },
+  connectorCheckpoints(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/checkpoints`
+  },
+  connectorObservations(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/observations`
   },
   sourcingCandidatesProcess: '/v1/sourcing/candidates/process',
   sourcingFindings: '/v1/sourcing/findings',

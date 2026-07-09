@@ -25,6 +25,18 @@ import type {
 } from './application.js'
 import type { ActionQueueListQuery, ActionQueueListResult } from './action-queue.js'
 import type {
+  ConnectorCheckpointsListInput,
+  ConnectorCheckpointsListResult,
+  ConnectorInstancesListResult,
+  ConnectorObservationsListInput,
+  ConnectorObservationsListResult,
+  ConnectorRunsListInput,
+  ConnectorRunsListResult,
+  ConnectorRunSummary,
+  ConnectorStatusSummary,
+  TriggerConnectorRunInput,
+} from './connector.js'
+import type {
   EvaluateApplicationPolicyInput,
   EvaluateRunWindowPolicyInput,
   EvaluateSourcingCandidatePolicyInput,
@@ -127,6 +139,20 @@ export interface ValedictorianWorkspaceClient {
   }
   actionQueue: {
     list(query?: ActionQueueListQuery): Promise<ActionQueueListResult>
+  }
+  connectors: {
+    list(): Promise<ConnectorInstancesListResult>
+    inspect(connectorInstanceId: string): Promise<ConnectorStatusSummary>
+    runs: {
+      list(input: ConnectorRunsListInput): Promise<ConnectorRunsListResult>
+      trigger(input: TriggerConnectorRunInput): Promise<ConnectorRunSummary>
+    }
+    checkpoints: {
+      list(input: ConnectorCheckpointsListInput): Promise<ConnectorCheckpointsListResult>
+    }
+    observations: {
+      list(input: ConnectorObservationsListInput): Promise<ConnectorObservationsListResult>
+    }
   }
   policy: {
     config: {
