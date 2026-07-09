@@ -87,8 +87,75 @@ describe('HTTP Valedictorian client', () => {
 
     expect(client).not.toHaveProperty('applications')
     expect(client).not.toHaveProperty('actionQueue')
+    expect(client).not.toHaveProperty('connectors')
     expect(client).not.toHaveProperty('profile')
     expect(client).not.toHaveProperty('secrets')
+  })
+
+  it('maps connector methods to workspace-scoped HTTP endpoints', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    for (let index = 0; index < 5; index += 1) {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    }
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const workspace = client.forWorkspace('workspace 1')
+
+    await workspace.connectors.list()
+    await workspace.connectors.inspect('jobright/session 1')
+    await workspace.connectors.runs.trigger({
+      connectorInstanceId: 'jobright/session 1',
+      coverageStartedAt: '2026-07-01T00:00:00.000Z',
+      coverageEndedAt: '2026-07-08T00:00:00.000Z',
+      filterSignature: 'internships',
+      mode: 'manual',
+    })
+    await workspace.connectors.runs.list({
+      connectorInstanceId: 'jobright/session 1',
+      limit: 25,
+      mode: 'manual',
+      offset: 5,
+      status: 'completed',
+    })
+    await workspace.connectors.observations.list({
+      connectorInstanceId: 'jobright/session 1',
+      connectorRunId: 'run-1',
+      limit: 50,
+    })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/status',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/runs',
+      expect.objectContaining({
+        body: JSON.stringify({
+          coverageStartedAt: '2026-07-01T00:00:00.000Z',
+          coverageEndedAt: '2026-07-08T00:00:00.000Z',
+          filterSignature: 'internships',
+          mode: 'manual',
+        }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/runs?status=completed&mode=manual&limit=25&offset=5',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/observations?connectorRunId=run-1&limit=50',
+      expect.objectContaining({ method: 'GET' }),
+    )
   })
 
   it('maps root health and capabilities endpoints', async () => {

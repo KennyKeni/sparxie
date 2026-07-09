@@ -7,6 +7,11 @@ import type {
   StatusUpdateInput,
 } from './application.js'
 import type { ValedictorianClient, ValedictorianWorkspaceClient } from './client.js'
+import type {
+  ConnectorCheckpointsListInput,
+  ConnectorObservationsListInput,
+  ConnectorRunsListInput,
+} from './connector.js'
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { ActionQueueListQuery } from './action-queue.js'
 import type { ScoreInput } from './scoring.js'
@@ -73,6 +78,9 @@ const applicationEventsListQueryParamKeys = ['limit', 'offset'] as const
 const applicationAttemptsListQueryParamKeys = ['limit', 'offset'] as const
 const applicationLinksListQueryParamKeys = ['limit', 'offset'] as const
 const policyEvidenceListQueryParamKeys = ['subjectType', 'subjectId', 'tag', 'limit', 'offset'] as const
+const connectorRunListQueryParamKeys = ['status', 'mode', 'limit', 'offset'] as const
+const connectorCheckpointListQueryParamKeys = ['filterSignature'] as const
+const connectorObservationListQueryParamKeys = ['connectorRunId', 'limit', 'offset'] as const
 
 export function applicationListQueryToSearchParams(query: ApplicationListQuery = {}) {
   const params = new URLSearchParams()
@@ -184,6 +192,54 @@ export function policyEvidenceListQueryToSearchParams(query: PolicyEvidenceListI
   const params = new URLSearchParams()
 
   for (const key of policyEvidenceListQueryParamKeys) {
+    const value = query[key]
+
+    if (value !== undefined) {
+      params.set(key, String(value))
+    }
+  }
+
+  return params
+}
+
+export function connectorRunListQueryToSearchParams(
+  query: Omit<ConnectorRunsListInput, 'connectorInstanceId'> = {},
+) {
+  const params = new URLSearchParams()
+
+  for (const key of connectorRunListQueryParamKeys) {
+    const value = query[key]
+
+    if (value !== undefined) {
+      params.set(key, String(value))
+    }
+  }
+
+  return params
+}
+
+export function connectorCheckpointListQueryToSearchParams(
+  query: Omit<ConnectorCheckpointsListInput, 'connectorInstanceId'> = {},
+) {
+  const params = new URLSearchParams()
+
+  for (const key of connectorCheckpointListQueryParamKeys) {
+    const value = query[key]
+
+    if (value !== undefined) {
+      params.set(key, String(value))
+    }
+  }
+
+  return params
+}
+
+export function connectorObservationListQueryToSearchParams(
+  query: Omit<ConnectorObservationsListInput, 'connectorInstanceId'> = {},
+) {
+  const params = new URLSearchParams()
+
+  for (const key of connectorObservationListQueryParamKeys) {
     const value = query[key]
 
     if (value !== undefined) {
@@ -402,6 +458,49 @@ export function createHttpValedictorianClient({
         return request(pathFor(valedictorianApiPaths.actionQueue), {
           query: actionQueueListQueryToSearchParams(query),
         })
+      },
+    },
+    connectors: {
+      list() {
+        return request(pathFor(valedictorianApiPaths.connectors))
+      },
+      inspect(connectorInstanceId) {
+        return request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId)))
+      },
+      runs: {
+        list(input) {
+          const { connectorInstanceId, ...query } = input
+
+          return request(pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)), {
+            query: connectorRunListQueryToSearchParams(query),
+          })
+        },
+        trigger(input) {
+          const { connectorInstanceId, ...body } = input
+
+          return request(pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)), {
+            body,
+            method: 'POST',
+          })
+        },
+      },
+      checkpoints: {
+        list(input) {
+          const { connectorInstanceId, ...query } = input
+
+          return request(pathFor(valedictorianApiPaths.connectorCheckpoints(connectorInstanceId)), {
+            query: connectorCheckpointListQueryToSearchParams(query),
+          })
+        },
+      },
+      observations: {
+        list(input) {
+          const { connectorInstanceId, ...query } = input
+
+          return request(pathFor(valedictorianApiPaths.connectorObservations(connectorInstanceId)), {
+            query: connectorObservationListQueryToSearchParams(query),
+          })
+        },
       },
     },
     policy: {

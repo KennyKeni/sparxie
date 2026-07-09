@@ -8,6 +8,12 @@ import {
   applicationStatuses,
   actionQueueBuckets,
   canonicalizeApplicationUrl,
+  connectorActionRequiredKinds,
+  connectorAuthModes,
+  connectorRunModes,
+  connectorRunStatuses,
+  connectorStatusSeverities,
+  connectorStatusStates,
   defaultValedictorianApiBaseUrl,
   defaultPolicyConfig,
   defaultLocalCapabilities,
@@ -166,6 +172,48 @@ describe('SDK public contract', () => {
     ])
   })
 
+  it('exports connector status, run, auth, and action contracts', () => {
+    expect(connectorAuthModes).toEqual([
+      'none',
+      'api_key',
+      'bearer_token',
+      'oauth',
+      'cookie_jar',
+      'browser_session',
+    ])
+    expect(connectorRunModes).toEqual(['manual', 'scheduled', 'catch_up'])
+    expect(connectorRunStatuses).toEqual([
+      'queued',
+      'running',
+      'completed',
+      'partial_success',
+      'failed',
+      'cancelled',
+      'skipped',
+    ])
+    expect(connectorStatusSeverities).toEqual(['healthy', 'warning', 'blocked'])
+    expect(connectorStatusStates).toEqual([
+      'auth_required',
+      'blocked',
+      'cancelled',
+      'failed',
+      'healthy',
+      'never_run',
+      'no_jobs',
+      'partial_success',
+      'queued',
+      'running',
+      'skipped',
+    ])
+    expect(connectorActionRequiredKinds).toEqual([
+      'auth',
+      'captcha',
+      'configuration',
+      'manual_review',
+      'rate_limit',
+    ])
+  })
+
   it('canonicalizes mutation URLs and flexible link kinds', () => {
     expect(
       canonicalizeApplicationUrl(
@@ -218,6 +266,19 @@ describe('SDK public contract', () => {
     expect(valedictorianApiPaths.runs).toBe('/v1/runs')
     expect(valedictorianApiPaths.runSteps('run 1')).toBe('/v1/runs/run%201/steps')
     expect(valedictorianApiPaths.runComplete('run 1')).toBe('/v1/runs/run%201/complete')
+    expect(valedictorianApiPaths.connectors).toBe('/v1/connectors')
+    expect(valedictorianApiPaths.connectorStatus('jobright/session 1')).toBe(
+      '/v1/connectors/jobright%2Fsession%201/status',
+    )
+    expect(valedictorianApiPaths.connectorRuns('jobright/session 1')).toBe(
+      '/v1/connectors/jobright%2Fsession%201/runs',
+    )
+    expect(valedictorianApiPaths.connectorCheckpoints('jobright/session 1')).toBe(
+      '/v1/connectors/jobright%2Fsession%201/checkpoints',
+    )
+    expect(valedictorianApiPaths.connectorObservations('jobright/session 1')).toBe(
+      '/v1/connectors/jobright%2Fsession%201/observations',
+    )
     expect(valedictorianApiPaths.sourcingFindings).toBe('/v1/sourcing/findings')
     expect(valedictorianApiPaths.sourcingCandidatesProcess).toBe(
       '/v1/sourcing/candidates/process',
@@ -254,6 +315,7 @@ describe('SDK public contract', () => {
       workflowRuns: true,
       applicationAttempts: true,
       sourcing: true,
+      connectors: true,
       hostedSync: false,
       multiWorkspace: true,
       billing: false,
