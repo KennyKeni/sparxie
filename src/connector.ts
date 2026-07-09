@@ -62,6 +62,14 @@ export interface ConnectorAuthSummary {
   configured: boolean
 }
 
+export interface ConnectorAuthReferenceInput {
+  id: string
+  mode: ConnectorAuthMode
+  label?: string | null
+  secretKey?: string
+  sessionKey?: string
+}
+
 export interface ConnectorActionRequired {
   id: string
   kind: ConnectorActionRequiredKind
@@ -187,6 +195,27 @@ export interface ConnectorObservation {
 
 export interface ConnectorInstancesListResult {
   items: ConnectorInstanceSummary[]
+}
+
+export interface CreateConnectorInstanceInput {
+  id: string
+  connectorId: string
+  connectorVersion: string
+  displayName: string
+  enabled: boolean
+  auth?: ConnectorAuthReferenceInput[]
+  config?: Record<string, unknown>
+  filters?: Record<string, unknown>
+}
+
+export interface UpdateConnectorInstanceInput {
+  connectorInstanceId: string
+  connectorVersion?: string
+  displayName?: string
+  enabled?: boolean
+  auth?: ConnectorAuthReferenceInput[]
+  config?: Record<string, unknown>
+  filters?: Record<string, unknown>
 }
 
 export interface ConnectorRunsListInput {

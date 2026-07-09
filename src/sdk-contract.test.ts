@@ -267,6 +267,9 @@ describe('SDK public contract', () => {
     expect(valedictorianApiPaths.runSteps('run 1')).toBe('/v1/runs/run%201/steps')
     expect(valedictorianApiPaths.runComplete('run 1')).toBe('/v1/runs/run%201/complete')
     expect(valedictorianApiPaths.connectors).toBe('/v1/connectors')
+    expect(valedictorianApiPaths.connector('jobright/session 1')).toBe(
+      '/v1/connectors/jobright%2Fsession%201',
+    )
     expect(valedictorianApiPaths.connectorStatus('jobright/session 1')).toBe(
       '/v1/connectors/jobright%2Fsession%201/status',
     )

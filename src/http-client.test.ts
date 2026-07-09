@@ -94,7 +94,7 @@ describe('HTTP Valedictorian client', () => {
 
   it('maps connector methods to workspace-scoped HTTP endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 7; index += 1) {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
     vi.stubGlobal('fetch', fetchMock)
@@ -102,6 +102,35 @@ describe('HTTP Valedictorian client', () => {
     const workspace = client.forWorkspace('workspace 1')
 
     await workspace.connectors.list()
+    await workspace.connectors.create({
+      id: 'jobright/session 1',
+      connectorId: 'jobright.resolver',
+      connectorVersion: '0.1.0',
+      displayName: 'Jobright',
+      enabled: true,
+      auth: [
+        {
+          id: 'jobright-session',
+          label: 'Jobright session',
+          mode: 'browser_session',
+          sessionKey: 'workspace-session',
+        },
+      ],
+      config: {
+        publicFeedUrl: 'https://jobright.test/feed.json',
+      },
+      filters: {
+        roleKeywords: ['intern'],
+      },
+    })
+    await workspace.connectors.update({
+      connectorInstanceId: 'jobright/session 1',
+      displayName: 'Jobright Internships',
+      enabled: false,
+      filters: {
+        roleKeywords: ['new grad'],
+      },
+    })
     await workspace.connectors.inspect('jobright/session 1')
     await workspace.connectors.runs.trigger({
       connectorInstanceId: 'jobright/session 1',
@@ -130,11 +159,53 @@ describe('HTTP Valedictorian client', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors',
+      expect.objectContaining({
+        body: JSON.stringify({
+          id: 'jobright/session 1',
+          connectorId: 'jobright.resolver',
+          connectorVersion: '0.1.0',
+          displayName: 'Jobright',
+          enabled: true,
+          auth: [
+            {
+              id: 'jobright-session',
+              label: 'Jobright session',
+              mode: 'browser_session',
+              sessionKey: 'workspace-session',
+            },
+          ],
+          config: {
+            publicFeedUrl: 'https://jobright.test/feed.json',
+          },
+          filters: {
+            roleKeywords: ['intern'],
+          },
+        }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201',
+      expect.objectContaining({
+        body: JSON.stringify({
+          displayName: 'Jobright Internships',
+          enabled: false,
+          filters: {
+            roleKeywords: ['new grad'],
+          },
+        }),
+        method: 'PATCH',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
       'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/status',
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+      5,
       'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/runs',
       expect.objectContaining({
         body: JSON.stringify({
@@ -147,12 +218,12 @@ describe('HTTP Valedictorian client', () => {
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      6,
       'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/runs?status=completed&mode=manual&limit=25&offset=5',
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      7,
       'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/observations?connectorRunId=run-1&limit=50',
       expect.objectContaining({ method: 'GET' }),
     )
