@@ -71,8 +71,16 @@ const sourcingFindingListQueryParamKeys = [
   'sourceId',
   'source',
   'mergeStatus',
+  'destinationClass',
+  'usability',
   'limit',
   'offset',
+] as const
+const sourcingProjectionOwnedFieldKeys = [
+  'destinationClass',
+  'destinationUrl',
+  'intermediaryUrl',
+  'usability',
 ] as const
 const applicationEventsListQueryParamKeys = ['limit', 'offset'] as const
 const applicationAttemptsListQueryParamKeys = ['limit', 'offset'] as const
@@ -138,6 +146,16 @@ export function sourcingFindingListQueryToSearchParams(
   }
 
   return params
+}
+
+function sourcingMutationBody(input: object) {
+  const body = { ...input } as Record<string, unknown>
+
+  for (const key of sourcingProjectionOwnedFieldKeys) {
+    delete body[key]
+  }
+
+  return body
 }
 
 export function applicationEventsListQueryToSearchParams(
@@ -647,7 +665,7 @@ export function createHttpValedictorianClient({
       candidates: {
         process(input) {
           return request(pathFor(valedictorianApiPaths.sourcingCandidatesProcess), {
-            body: input,
+            body: sourcingMutationBody(input),
             method: 'POST',
           })
         },
@@ -660,7 +678,7 @@ export function createHttpValedictorianClient({
         },
         create(input) {
           return request(pathFor(valedictorianApiPaths.sourcingFindings), {
-            body: input,
+            body: sourcingMutationBody(input),
             method: 'POST',
           })
         },
@@ -668,7 +686,7 @@ export function createHttpValedictorianClient({
           const { findingId, ...body } = input
 
           return request(pathFor(valedictorianApiPaths.sourcingFinding(findingId)), {
-            body,
+            body: sourcingMutationBody(body),
             method: 'PATCH',
           })
         },
@@ -676,7 +694,7 @@ export function createHttpValedictorianClient({
           const { findingId, ...body } = input
 
           return request(pathFor(valedictorianApiPaths.sourcingFindingDecide(findingId)), {
-            body,
+            body: sourcingMutationBody(body),
             method: 'POST',
           })
         },

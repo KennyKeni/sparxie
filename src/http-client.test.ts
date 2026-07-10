@@ -617,6 +617,8 @@ describe('HTTP Valedictorian client', () => {
       workflowRunId: 'run-1',
       sourceId: 'source-linkedin',
       mergeStatus: 'new',
+      destinationClass: 'third_party_job_posting',
+      usability: 'usable',
       limit: 25,
     })
     await workspace.sourcing.findings.create({
@@ -628,16 +630,43 @@ describe('HTTP Valedictorian client', () => {
       country: 'US',
       workMode: 'remote',
       officialUrl: 'https://jobs.example.com/delta',
+      destinationClass: 'third_party_job_posting',
+      destinationUrl: 'https://linkedin.com/jobs/view/123',
+      intermediaryUrl: 'https://jobright.test/jobs/123',
+      usability: 'usable',
+    } as Parameters<typeof workspace.sourcing.findings.create>[0] & {
+      destinationClass: string
+      destinationUrl: string
+      intermediaryUrl: string
+      usability: string
     })
     await workspace.sourcing.findings.update({
       findingId: 'finding-1',
       priorityScore: 4,
       priorityBand: 'skip',
+      destinationClass: 'employer_or_ats',
+      destinationUrl: 'https://jobs.example.com/delta',
+      intermediaryUrl: 'https://jobright.test/jobs/123',
+      usability: 'usable',
+    } as Parameters<typeof workspace.sourcing.findings.update>[0] & {
+      destinationClass: string
+      destinationUrl: string
+      intermediaryUrl: string
+      usability: string
     })
     await workspace.sourcing.findings.decide({
       findingId: 'finding-1',
       mergeStatus: 'not_fit',
       mergeNotes: 'Requires a non-student schedule.',
+      destinationClass: null,
+      destinationUrl: null,
+      intermediaryUrl: 'https://jobright.test/jobs/123',
+      usability: 'review_only',
+    } as Parameters<typeof workspace.sourcing.findings.decide>[0] & {
+      destinationClass: null
+      destinationUrl: null
+      intermediaryUrl: string
+      usability: string
     })
     await workspace.sourcing.findings.promote({ findingId: 'finding-1' })
     await workspace.sourcing.candidates.process({
@@ -661,6 +690,15 @@ describe('HTTP Valedictorian client', () => {
         rubricVersion: 'test',
       },
       cutoffScore: 7,
+      destinationClass: 'employer_or_ats',
+      destinationUrl: 'https://jobs.example.com/delta',
+      intermediaryUrl: 'https://jobright.test/jobs/123',
+      usability: 'usable',
+    } as Parameters<typeof workspace.sourcing.candidates.process>[0] & {
+      destinationClass: string
+      destinationUrl: string
+      intermediaryUrl: string
+      usability: string
     })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -685,7 +723,7 @@ describe('HTTP Valedictorian client', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings?workflowRunId=run-1&sourceId=source-linkedin&mergeStatus=new&limit=25',
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings?workflowRunId=run-1&sourceId=source-linkedin&mergeStatus=new&destinationClass=third_party_job_posting&usability=usable&limit=25',
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -716,6 +754,18 @@ describe('HTTP Valedictorian client', () => {
         method: 'POST',
       }),
     )
+
+    for (const callIndex of [5, 6, 7, 9]) {
+      const body = JSON.parse(String(fetchMock.mock.calls[callIndex]?.[1]?.body)) as Record<
+        string,
+        unknown
+      >
+
+      expect(body).not.toHaveProperty('destinationClass')
+      expect(body).not.toHaveProperty('destinationUrl')
+      expect(body).not.toHaveProperty('intermediaryUrl')
+      expect(body).not.toHaveProperty('usability')
+    }
   })
 
   it('updates status and records scores with JSON bodies', async () => {
