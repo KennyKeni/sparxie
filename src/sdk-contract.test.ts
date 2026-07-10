@@ -24,7 +24,9 @@ import {
   isRoleKind,
   isRunStatus,
   isRunType,
+  isSourcingDestinationClass,
   isSourcingMergeStatus,
+  isSourcingUsability,
   isWritableSourcingMergeStatus,
   isWorkMode,
   manualSourcingDecisionStatuses,
@@ -39,6 +41,8 @@ import {
   runStatuses,
   runTypes,
   sourcingMergeStatuses,
+  sourcingDestinationClasses,
+  sourcingUsabilities,
   writableSourcingMergeStatuses,
   workModes,
 } from './index'
@@ -152,12 +156,21 @@ describe('SDK public contract', () => {
       'not_pursued',
       'archived',
     ])
+    expect(sourcingDestinationClasses).toEqual([
+      'employer_or_ats',
+      'third_party_job_posting',
+    ])
+    expect(sourcingUsabilities).toEqual(['usable', 'review_only'])
     expect(isRunType('sourcing')).toBe(true)
     expect(isRunType('application')).toBe(false)
     expect(isRunStatus('completed')).toBe(true)
     expect(isRunStatus('done')).toBe(false)
     expect(isSourcingMergeStatus('below_cutoff')).toBe(true)
     expect(isSourcingMergeStatus('skipped')).toBe(false)
+    expect(isSourcingDestinationClass('employer_or_ats')).toBe(true)
+    expect(isSourcingDestinationClass('official')).toBe(false)
+    expect(isSourcingUsability('review_only')).toBe(true)
+    expect(isSourcingUsability('unresolved')).toBe(false)
     expect(isWritableSourcingMergeStatus('merged')).toBe(false)
     expect(isWritableSourcingMergeStatus('blocked')).toBe(true)
     expect(defaultPolicyConfig.scoring.applyCutoff).toBe(6)

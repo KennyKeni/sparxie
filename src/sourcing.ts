@@ -36,6 +36,17 @@ export const manualSourcingDecisionStatuses = [
 
 export type ManualSourcingDecisionStatus = (typeof manualSourcingDecisionStatuses)[number]
 
+export const sourcingDestinationClasses = [
+  'employer_or_ats',
+  'third_party_job_posting',
+] as const
+
+export type SourcingDestinationClass = (typeof sourcingDestinationClasses)[number]
+
+export const sourcingUsabilities = ['usable', 'review_only'] as const
+
+export type SourcingUsability = (typeof sourcingUsabilities)[number]
+
 export function isSourcingMergeStatus(value: string): value is SourcingMergeStatus {
   return (sourcingMergeStatuses as readonly string[]).includes(value)
 }
@@ -50,6 +61,14 @@ export function isManualSourcingDecisionStatus(
   value: string,
 ): value is ManualSourcingDecisionStatus {
   return (manualSourcingDecisionStatuses as readonly string[]).includes(value)
+}
+
+export function isSourcingDestinationClass(value: string): value is SourcingDestinationClass {
+  return (sourcingDestinationClasses as readonly string[]).includes(value)
+}
+
+export function isSourcingUsability(value: string): value is SourcingUsability {
+  return (sourcingUsabilities as readonly string[]).includes(value)
 }
 
 export interface SourcingFinding {
@@ -72,6 +91,10 @@ export interface SourcingFinding {
   locationRaw: string | null
   officialUrl: string | null
   sourceUrl: string | null
+  destinationClass?: SourcingDestinationClass | null
+  destinationUrl?: string | null
+  intermediaryUrl?: string | null
+  usability?: SourcingUsability
   postedAge: string | null
   priorityScore: number | null
   priorityBand: string | null
@@ -95,6 +118,8 @@ export interface SourcingFindingsListInput {
   sourceId?: string
   source?: string
   mergeStatus?: SourcingMergeStatus
+  destinationClass?: SourcingDestinationClass
+  usability?: SourcingUsability
   limit?: number
   offset?: number
 }

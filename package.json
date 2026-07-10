@@ -1,6 +1,6 @@
 {
   "name": "sparxie",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Shared Valedictorian contracts and HTTP client.",
   "author": "Keni",
   "license": "MIT",
@@ -40,7 +40,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm lint && pnpm test && pnpm build",
     "test": "vitest run",
