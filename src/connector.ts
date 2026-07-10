@@ -5,6 +5,7 @@ export const connectorAuthModes = [
   'oauth',
   'cookie_jar',
   'browser_session',
+  'username_password',
 ] as const
 
 export type ConnectorAuthMode = (typeof connectorAuthModes)[number]

@@ -180,6 +180,7 @@ describe('SDK public contract', () => {
       'oauth',
       'cookie_jar',
       'browser_session',
+      'username_password',
     ])
     expect(connectorRunModes).toEqual(['manual', 'scheduled', 'catch_up'])
     expect(connectorRunStatuses).toEqual([
@@ -212,6 +213,28 @@ describe('SDK public contract', () => {
       'manual_review',
       'rate_limit',
     ])
+  })
+
+  it('keeps connector auth DTOs reference-only without plaintext credentials', () => {
+    const connectorSource = fs.readFileSync(path.resolve('src/connector.ts'), 'utf8')
+    const readme = fs.readFileSync(path.resolve('README.md'), 'utf8')
+    const authReferenceBlock =
+      connectorSource.match(/export interface ConnectorAuthReferenceInput \{[\s\S]*?\n\}/)?.[0] ??
+      ''
+    const authSummaryBlock =
+      connectorSource.match(/export interface ConnectorAuthSummary \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+    expect(authReferenceBlock).toContain('secretKey?: string')
+    expect(authReferenceBlock).not.toMatch(
+      /\b(password|username|email|value|cookie|sessionId|account)\??\s*:/,
+    )
+    expect(authSummaryBlock).not.toMatch(
+      /\b(password|username|email|value|cookie|sessionId|account|secretKey)\??\s*:/,
+    )
+    expect(readme).toMatch(/Connector authentication/i)
+    expect(readme).toMatch(/secret references/i)
+    expect(readme).not.toMatch(/\bpassword\s*:/)
+    expect(readme).not.toMatch(/\busername\s*:/)
   })
 
   it('canonicalizes mutation URLs and flexible link kinds', () => {

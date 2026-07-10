@@ -27,6 +27,10 @@ const applications = await workspace.applications.list()
 console.log(applications.items)
 ```
 
+## Connector authentication
+
+Connector create, update, and status DTOs carry secret references and auth metadata only. Plaintext credential values stay behind workspace write-only secret endpoints and are not returned by normal connector reads.
+
 ## Development
 
 ```sh
