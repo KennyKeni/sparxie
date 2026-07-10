@@ -229,6 +229,95 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
+  it('serializes username_password connector auth references with secretKey only', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const workspace = client.forWorkspace('workspace 1')
+
+    await workspace.connectors.create({
+      id: 'jobright/session 1',
+      connectorId: 'jobright.resolver',
+      connectorVersion: '0.4.1',
+      displayName: 'Jobright',
+      enabled: true,
+      auth: [
+        {
+          id: 'jobright-login',
+          label: 'Jobright login',
+          mode: 'username_password',
+          secretKey: 'jobright_credentials',
+        },
+      ],
+    })
+    await workspace.connectors.update({
+      connectorInstanceId: 'jobright/session 1',
+      auth: [
+        {
+          id: 'jobright-login',
+          mode: 'username_password',
+          secretKey: 'jobright_credentials',
+        },
+      ],
+    })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors',
+      expect.objectContaining({
+        body: JSON.stringify({
+          id: 'jobright/session 1',
+          connectorId: 'jobright.resolver',
+          connectorVersion: '0.4.1',
+          displayName: 'Jobright',
+          enabled: true,
+          auth: [
+            {
+              id: 'jobright-login',
+              label: 'Jobright login',
+              mode: 'username_password',
+              secretKey: 'jobright_credentials',
+            },
+          ],
+        }),
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201',
+      expect.objectContaining({
+        body: JSON.stringify({
+          auth: [
+            {
+              id: 'jobright-login',
+              mode: 'username_password',
+              secretKey: 'jobright_credentials',
+            },
+          ],
+        }),
+        method: 'PATCH',
+      }),
+    )
+
+    const createBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      auth: Array<Record<string, unknown>>
+    }
+    const updateBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as {
+      auth: Array<Record<string, unknown>>
+    }
+    for (const auth of [...createBody.auth, ...updateBody.auth]) {
+      expect(auth).not.toHaveProperty('password')
+      expect(auth).not.toHaveProperty('username')
+      expect(auth).not.toHaveProperty('email')
+      expect(auth).not.toHaveProperty('value')
+      expect(auth).not.toHaveProperty('cookie')
+      expect(auth).not.toHaveProperty('sessionId')
+    }
+  })
+
   it('maps root health and capabilities endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
