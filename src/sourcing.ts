@@ -156,7 +156,7 @@ interface SourcingFindingBase {
   endDate: string | null
   city: string | null
   region: string | null
-  country: string
+  country: string | null
   workMode: WorkMode
   locationRaw: string | null
   officialUrl: string | null
@@ -230,7 +230,7 @@ interface CreateSourcingFindingInputBase {
   endDate?: string | null
   city?: string | null
   region?: string | null
-  country?: string
+  country?: string | null
   workMode: WorkMode
   locationRaw?: string | null
   officialUrl?: string | null
@@ -284,7 +284,7 @@ const createSourcingFindingInputBaseSchema = z
     endDate: z.string().nullable().optional(),
     city: z.string().nullable().optional(),
     region: z.string().nullable().optional(),
-    country: z.string().optional(),
+    country: z.string().nullable().optional(),
     workMode: z.enum(workModes),
     locationRaw: z.string().nullable().optional(),
     officialUrl: z.string().nullable().optional(),
@@ -333,7 +333,7 @@ export interface UpdateSourcingFindingInput {
   endDate?: string | null
   city?: string | null
   region?: string | null
-  country?: string
+  country?: string | null
   workMode?: WorkMode
   locationRaw?: string | null
   officialUrl?: string | null

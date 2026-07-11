@@ -902,6 +902,106 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
+  it('round-trips an explicitly unknown sourcing country without a sentinel', async () => {
+    const canonicalProjection = {
+      rawRevisionId: 'raw-revision-1',
+      canonicalCandidateId: 'candidate-1',
+      destination: null,
+      employmentType: 'unknown' as const,
+      seniority: 'unknown' as const,
+      location: { raw: 'Remote', city: null, region: null, country: null },
+      compensation: null,
+      postedAt: { value: null, precision: 'unknown' as const, raw: null },
+    }
+    const finding = {
+      id: 'finding-1',
+      workflowRunId: 'workflow-run-1',
+      sourceId: 'source-1',
+      sourceName: 'Example',
+      companyName: 'Example Corp',
+      roleTitle: 'Software Engineer',
+      roleKind: 'full_time' as const,
+      term: null,
+      terms: [],
+      timingMode: 'unknown' as const,
+      startDate: null,
+      endDate: null,
+      city: null,
+      region: null,
+      country: null,
+      workMode: 'remote' as const,
+      locationRaw: 'Remote',
+      officialUrl: null,
+      sourceUrl: null,
+      postedAge: null,
+      priorityScore: null,
+      priorityBand: null,
+      fitNotes: null,
+      duplicateNotes: null,
+      blocker: null,
+      policyBlocker: null,
+      dispositionReason: null,
+      mergeStatus: 'new' as const,
+      mergedApplicationId: null,
+      mergedApplicationCompanyName: null,
+      mergedApplicationRoleTitle: null,
+      mergeNotes: null,
+      discoveredAt: '2026-07-11T14:00:00.000Z',
+      createdAt: '2026-07-11T14:00:00.000Z',
+      updatedAt: '2026-07-11T14:00:00.000Z',
+      ...canonicalProjection,
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace-1')
+
+    await expect(
+      workspace.sourcing.findings.create({
+        workflowRunId: 'workflow-run-1',
+        companyName: 'Example Corp',
+        roleTitle: 'Software Engineer',
+        roleKind: 'full_time',
+        country: null,
+        workMode: 'remote',
+        ...canonicalProjection,
+      }),
+    ).resolves.toEqual(finding)
+    await expect(
+      workspace.sourcing.findings.update({ findingId: 'finding-1', country: null }),
+    ).resolves.toEqual(finding)
+
+    const createBody = JSON.parse(
+      String(fetchMock.mock.calls[0]?.[1]?.body),
+    ) as Record<string, unknown>
+    expect(createBody.country).toBeNull()
+    expect(createBody.location).toEqual({
+      raw: 'Remote',
+      city: null,
+      region: null,
+      country: null,
+    })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings/finding-1',
+      expect.objectContaining({
+        body: JSON.stringify({ country: null }),
+        method: 'PATCH',
+      }),
+    )
+  })
+
   it('reads raw records and normalization results through encoded workspace paths', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ rawRecordId: 'raw/record 1' }))

@@ -5,6 +5,33 @@ import {
 } from './index.js'
 
 describe('sourcing finding canonical projection contract', () => {
+  it('accepts explicit unknown countries in legacy and canonical finding creation', () => {
+    const base = {
+      workflowRunId: 'workflow-run-1',
+      companyName: 'Example Corp',
+      roleTitle: 'Software Engineer',
+      roleKind: 'full_time' as const,
+      country: null,
+      workMode: 'remote' as const,
+    }
+
+    expect(createSourcingFindingInputSchema.parse(base)).toEqual(base)
+
+    const canonical = {
+      ...base,
+      rawRevisionId: 'raw-revision-1',
+      canonicalCandidateId: 'candidate-1',
+      destination: null,
+      employmentType: 'unknown' as const,
+      seniority: 'unknown' as const,
+      location: { raw: null, city: null, region: null, country: null },
+      compensation: null,
+      postedAt: { value: null, precision: 'unknown' as const, raw: null },
+    }
+
+    expect(createSourcingFindingInputSchema.parse(canonical)).toEqual(canonical)
+  })
+
   it('accepts complete canonical lineage and explicit unknown job facts', () => {
     const projection = {
       rawRevisionId: 'raw-revision-1',
