@@ -1,5 +1,12 @@
 import { z } from 'zod'
 import { workModes, type WorkMode } from './application.js'
+import {
+  retryAdviceSchema,
+  type CancelledRetryAdvice,
+  type ExhaustedRetryAdvice,
+  type NotDueRetryAdvice,
+  type ScheduledRetryAdvice,
+} from './retry.js'
 import type { SourcingDestinationClass } from './sourcing.js'
 
 /** JSON-safe values accepted by the raw sourcing transport contract. */
@@ -31,6 +38,8 @@ export const fieldResolutionStatuses = [
   'abstained',
   'blocked',
   'retry',
+  'exhausted',
+  'cancelled',
   'rejected',
   'conflict',
   'failed',
@@ -377,8 +386,15 @@ export type FieldResolutionOutcome =
     })
   | (FieldResolutionOutcomeBase & {
       status: 'retry'
-      reason: string
-      retryAfter?: string | null
+      retry: ScheduledRetryAdvice | NotDueRetryAdvice
+    })
+  | (FieldResolutionOutcomeBase & {
+      status: 'exhausted'
+      retry: ExhaustedRetryAdvice
+    })
+  | (FieldResolutionOutcomeBase & {
+      status: 'cancelled'
+      retry: CancelledRetryAdvice
     })
   | (FieldResolutionOutcomeBase & {
       status: 'conflict'
@@ -655,6 +671,24 @@ const fieldResolutionOutcomeBaseShape = {
   evidence: z.array(resolutionEvidenceSchema).optional(),
 } as const
 
+const schedulableRetryAdviceSchema = retryAdviceSchema.refine(
+  (
+    advice,
+  ): advice is ScheduledRetryAdvice | NotDueRetryAdvice =>
+    advice.state === 'scheduled' || advice.state === 'not_due',
+  { message: 'retry outcomes require schedulable retry advice' },
+)
+
+const exhaustedRetryAdviceSchema = retryAdviceSchema.refine(
+  (advice): advice is ExhaustedRetryAdvice => advice.state === 'exhausted',
+  { message: 'exhausted outcomes require exhausted retry advice' },
+)
+
+const cancelledRetryAdviceSchema = retryAdviceSchema.refine(
+  (advice): advice is CancelledRetryAdvice => advice.state === 'cancelled',
+  { message: 'cancelled outcomes require cancelled retry advice' },
+)
+
 const fieldResolutionOutcomeSchema = z.union([
   z
     .object({
@@ -676,8 +710,21 @@ const fieldResolutionOutcomeSchema = z.union([
     .object({
       ...fieldResolutionOutcomeBaseShape,
       status: z.literal('retry'),
-      reason: z.string(),
-      retryAfter: z.iso.datetime({ offset: true }).nullable().optional(),
+      retry: schedulableRetryAdviceSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...fieldResolutionOutcomeBaseShape,
+      status: z.literal('exhausted'),
+      retry: exhaustedRetryAdviceSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...fieldResolutionOutcomeBaseShape,
+      status: z.literal('cancelled'),
+      retry: cancelledRetryAdviceSchema,
     })
     .strict(),
   z
