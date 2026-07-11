@@ -94,4 +94,38 @@ describe('connector retry contract', () => {
       ).toBe(false)
     }
   })
+
+  it('rejects sub-millisecond timestamps that can bypass timing invariants', () => {
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...skippedNotDueRun,
+        retryHints: {
+          ...skippedNotDueRun.retryHints,
+          state: 'scheduled',
+          lastAttemptAt: '2026-07-11T14:00:00.0009Z',
+          computedDelayMs: 1,
+          nextAttemptAt: '2026-07-11T14:00:00.0011Z',
+          horizonAt: '2026-07-11T14:00:00.100Z',
+        },
+      }).success,
+    ).toBe(false)
+
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...skippedNotDueRun,
+        status: 'failed',
+        retryHints: {
+          ...skippedNotDueRun.retryHints,
+          state: 'exhausted',
+          attempt: 5,
+          maxAttempts: 5,
+          lastAttemptAt: '2026-07-11T14:00:00.0009Z',
+          computedDelayMs: null,
+          serverMinimumDelayMs: null,
+          nextAttemptAt: null,
+          horizonAt: '2026-07-11T14:00:00.0001Z',
+        },
+      }).success,
+    ).toBe(false)
+  })
 })

@@ -60,12 +60,14 @@ export type RetryAdvice =
   | ExhaustedRetryAdvice
   | CancelledRetryAdvice
 
+const retryTimestampSchema = z.iso.datetime({ offset: true, precision: 3 })
+
 const retryAdviceBaseShape = {
   reason: z.enum(transientRetryReasons),
   attempt: z.number().int().positive(),
   maxAttempts: z.number().int().positive(),
-  lastAttemptAt: z.iso.datetime({ offset: true }),
-  horizonAt: z.iso.datetime({ offset: true }),
+  lastAttemptAt: retryTimestampSchema,
+  horizonAt: retryTimestampSchema,
 }
 
 const delayShape = {
@@ -81,7 +83,7 @@ export const retryAdviceSchema: z.ZodType<RetryAdvice> = z
         ...retryAdviceBaseShape,
         ...delayShape,
         computedDelayMs: z.number().int().positive(),
-        nextAttemptAt: z.iso.datetime({ offset: true }),
+        nextAttemptAt: retryTimestampSchema,
       })
       .strict(),
     z
@@ -90,7 +92,7 @@ export const retryAdviceSchema: z.ZodType<RetryAdvice> = z
         ...retryAdviceBaseShape,
         ...delayShape,
         computedDelayMs: z.number().int().positive(),
-        nextAttemptAt: z.iso.datetime({ offset: true }),
+        nextAttemptAt: retryTimestampSchema,
       })
       .strict(),
     z
