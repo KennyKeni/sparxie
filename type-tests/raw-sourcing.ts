@@ -14,12 +14,17 @@ import type {
   SourceAdapterProvenance,
   ValedictorianClient,
 } from '../src/index.js'
+import { rawSourceNormalizationResultSchema } from '../src/index.js'
 
 type IsExact<Actual, Expected> =
   (<Value>() => Value extends Actual ? 1 : 2) extends <Value>() =>
     Value extends Expected ? 1 : 2
     ? true
     : false
+
+declare const unknownNormalizationResult: unknown
+const runtimeValidatedNormalization: RawSourceNormalizationResult =
+  rawSourceNormalizationResultSchema.parse(unknownNormalizationResult)
 
 const receiptCarriesSourceEntity: IsExact<
   RawSourceIntakeReceipt['sourceEntityId'],
@@ -624,5 +629,6 @@ void impossibleFailedCandidate
 void completedReplay
 void failedReplay
 void impossibleCompletedReplay
+void runtimeValidatedNormalization
 void impossibleFailedItem
 void inspectWorkspaceReplay

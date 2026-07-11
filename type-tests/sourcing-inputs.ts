@@ -7,6 +7,7 @@ import type {
   SourcingFindingsListInput,
   UpdateSourcingFindingInput,
 } from '../src/index.js'
+import { createSourcingFindingInputSchema } from '../src/index.js'
 
 type ProjectionOwnedFields = {
   destinationClass: 'employer_or_ats' | 'third_party_job_posting' | null
@@ -108,6 +109,21 @@ const validCreate: CreateSourcingFindingInput = {
   workMode: 'remote',
 }
 
+const runtimeValidatedCreate: CreateSourcingFindingInput =
+  createSourcingFindingInputSchema.parse(validCreate)
+
+const invalidMergeStatusCreate: CreateSourcingFindingInput = {
+  ...validCreate,
+  // @ts-expect-error Finding merge status is a closed public contract.
+  mergeStatus: 'totally-invalid',
+}
+
+const workspaceSpoofCreate: CreateSourcingFindingInput = {
+  ...validCreate,
+  // @ts-expect-error Workspace binding comes only from the explicit HTTP route.
+  workspaceId: 'workspace-2',
+}
+
 const canonicalCreate: CreateSourcingFindingInput = {
   ...validCreate,
   rawRevisionId: 'raw-revision-1',
@@ -195,6 +211,9 @@ void destinationClassFilterIsExact
 void usabilityFilterIsExact
 void spoofedCreate
 void canonicalCreate
+void runtimeValidatedCreate
+void invalidMergeStatusCreate
+void workspaceSpoofCreate
 void impossiblePartialLineage
 void impossibleUnknownPostedAt
 void spoofedUpdate

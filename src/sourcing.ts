@@ -1,11 +1,16 @@
 import { z } from 'zod'
 import { roleKinds, workModes, type RoleKind, type WorkMode } from './application.js'
-import type { JobTerm, JobTimingMode } from './job-timing.js'
+import {
+  jobSeasons,
+  jobTimingModes,
+  type JobTerm,
+  type JobTimingMode,
+} from './job-timing.js'
 import type { ScoreInput } from './scoring.js'
 import {
   canonicalCompensationIntervals,
   canonicalEmploymentTypes,
-  canonicalPostedAtPrecisions,
+  canonicalPostedAtSchema,
   canonicalSeniorities,
   type CanonicalCandidateDestination,
   type CanonicalCompensation,
@@ -108,18 +113,7 @@ export const sourcingFindingCanonicalProjectionSchema = z
     workMode: z.enum(workModes),
     location: canonicalLocationSchema.nullable(),
     compensation: canonicalCompensationSchema.nullable(),
-    postedAt: z
-      .object({
-        value: z.string().nullable(),
-        precision: z.enum(canonicalPostedAtPrecisions),
-        raw: z.string().nullable(),
-      })
-      .strict()
-      .refine(
-        (postedAt) =>
-          (postedAt.precision === 'unknown') === (postedAt.value === null),
-        { message: 'unknown posted time must not carry a canonical value' },
-      ),
+    postedAt: canonicalPostedAtSchema,
   })
   .strict()
 
@@ -265,45 +259,65 @@ type LegacySourcingFindingCreateFields = {
 export type CreateSourcingFindingInput = CreateSourcingFindingInputBase &
   (SourcingFindingCanonicalCreateFields | LegacySourcingFindingCreateFields)
 
-const canonicalFindingCreateKeys = [
-  'rawRevisionId',
-  'canonicalCandidateId',
-  'destination',
-  'employmentType',
-  'seniority',
-  'location',
-  'compensation',
-  'postedAt',
-] as const
-
-export const createSourcingFindingInputSchema = z
+const createSourcingFindingInputBaseSchema = z
   .object({
     workflowRunId: z.string().min(1),
+    sourceId: z.string().nullable().optional(),
+    sourceName: z.string().nullable().optional(),
     companyName: z.string().min(1),
     roleTitle: z.string().min(1),
     roleKind: z.enum(roleKinds),
+    term: z.string().nullable().optional(),
+    terms: z
+      .array(
+        z
+          .object({
+            season: z.enum(jobSeasons),
+            year: z.number(),
+          })
+          .strict(),
+      )
+      .nullable()
+      .optional(),
+    timingMode: z.enum(jobTimingModes).optional(),
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    region: z.string().nullable().optional(),
+    country: z.string().optional(),
     workMode: z.enum(workModes),
+    locationRaw: z.string().nullable().optional(),
+    officialUrl: z.string().nullable().optional(),
+    sourceUrl: z.string().nullable().optional(),
+    postedAge: z.string().nullable().optional(),
+    priorityScore: z.number().nullable().optional(),
+    priorityBand: z.string().nullable().optional(),
+    fitNotes: z.string().nullable().optional(),
+    duplicateNotes: z.string().nullable().optional(),
+    blocker: z.string().nullable().optional(),
+    policyBlocker: z.string().nullable().optional(),
+    dispositionReason: z.string().nullable().optional(),
+    mergeStatus: z.enum(writableSourcingMergeStatuses).optional(),
+    discoveredAt: z.string().nullable().optional(),
   })
-  .passthrough()
-  .superRefine((input, context) => {
-    if (!canonicalFindingCreateKeys.some((key) => key in input)) {
-      return
-    }
+  .strict()
 
-    const projection = sourcingFindingCanonicalProjectionSchema.safeParse({
-      ...Object.fromEntries(
-        canonicalFindingCreateKeys
-          .filter((key) => key in input)
-          .map((key) => [key, input[key]]),
-      ),
-      workMode: input.workMode,
-    })
-    if (!projection.success) {
-      for (const issue of projection.error.issues) {
-        context.addIssue({ ...issue })
-      }
-    }
-  })
+const canonicalCreateShape = {
+  rawRevisionId: sourcingFindingCanonicalProjectionSchema.shape.rawRevisionId,
+  canonicalCandidateId:
+    sourcingFindingCanonicalProjectionSchema.shape.canonicalCandidateId,
+  destination: sourcingFindingCanonicalProjectionSchema.shape.destination,
+  employmentType: sourcingFindingCanonicalProjectionSchema.shape.employmentType,
+  seniority: sourcingFindingCanonicalProjectionSchema.shape.seniority,
+  location: sourcingFindingCanonicalProjectionSchema.shape.location,
+  compensation: sourcingFindingCanonicalProjectionSchema.shape.compensation,
+  postedAt: sourcingFindingCanonicalProjectionSchema.shape.postedAt,
+} as const
+
+export const createSourcingFindingInputSchema: z.ZodType<CreateSourcingFindingInput> = z.union([
+  createSourcingFindingInputBaseSchema.extend(canonicalCreateShape).strict(),
+  createSourcingFindingInputBaseSchema,
+])
 
 export interface UpdateSourcingFindingInput {
   findingId: string
