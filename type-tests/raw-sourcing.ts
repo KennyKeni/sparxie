@@ -7,6 +7,7 @@ import type {
   RawSourceNormalizationResult,
   RawSourceIntakeReceipt,
   RawSourceRecord,
+  RawSourceOccurrenceReceipt,
   RawSourceRecordInput,
   RawSourceReplayReceipt,
   ResolverDeclaration,
@@ -27,6 +28,10 @@ const rawRecordCarriesSourceEntity: IsExact<
   RawSourceRecord['sourceEntityId'],
   string | null
 > = true
+const rawOccurrenceCarriesOptionalCapture: IsExact<
+  RawSourceOccurrenceReceipt['capture'],
+  import('../src/index.js').ConnectorCaptureReference | null | undefined
+> = true
 const candidateReferenceCarriesSourceEntity: IsExact<
   CanonicalSourceCandidateReference['sourceEntityId'],
   string
@@ -36,6 +41,40 @@ const sparseCliIntake: RawSourceRecordInput = {
   adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
   observedAt: '2026-07-10T14:00:00.000Z',
 }
+
+const connectorCaptureIntake: RawSourceRecordInput = {
+  adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+  capture: {
+    connectorInstanceId: 'connector-instance-1',
+    connectorRunId: 'connector-run-1',
+  },
+  observedAt: '2026-07-10T14:00:00.000Z',
+}
+
+// @ts-expect-error Only a registered connector adapter can claim connector capture references.
+const spoofedCaptureAdapter: RawSourceRecordInput = {
+  adapter: { id: 'manual-entry', kind: 'manual', version: '1.0.0' },
+  capture: {
+    connectorInstanceId: 'connector-instance-1',
+    connectorRunId: 'connector-run-1',
+  },
+  observedAt: '2026-07-10T14:00:00.000Z',
+}
+
+const spoofedCaptureWorkspace: RawSourceRecordInput = {
+  adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+  capture: {
+    connectorInstanceId: 'connector-instance-1',
+    connectorRunId: 'connector-run-1',
+    // @ts-expect-error Capture references are bound to the workspace route by the server.
+    workspaceId: 'workspace-2',
+  },
+  observedAt: '2026-07-10T14:00:00.000Z',
+}
+
+void connectorCaptureIntake
+void spoofedCaptureAdapter
+void spoofedCaptureWorkspace
 
 const completedReplay: RawSourceReplayReceipt = {
   replayId: 'replay-1',
@@ -373,6 +412,23 @@ const impossiblePassedGate: NormalizationGateOutcome = {
   status: 'passed',
 }
 
+const impossiblePassedGateWithMissingFacts: NormalizationGateOutcome = {
+  status: 'passed',
+  policyVersion: 'sourcing-gate/v4',
+  requiredFields: ['companyName'],
+  // @ts-expect-error A passed gate cannot report missing canonical facts.
+  missingFields: ['companyName'],
+  conflictingFields: [],
+  candidate: {
+    id: candidate.id,
+    sourceEntityId: candidate.sourceEntityId,
+    rawRecordId: candidate.rawRecordId,
+    rawRevisionId: candidate.rawRevisionId,
+    schemaVersion: candidate.schemaVersion,
+  },
+  evaluatedAt: '2026-07-10T14:01:01.000Z',
+}
+
 // @ts-expect-error A failed gate cannot carry a canonical candidate reference.
 const impossibleFailedGateCandidate: NormalizationGateOutcome = {
   ...failedGate,
@@ -534,11 +590,13 @@ void workModeIsNotNullable
 void explicitUnknownFacts
 void receiptCarriesSourceEntity
 void rawRecordCarriesSourceEntity
+void rawOccurrenceCarriesOptionalCapture
 void candidateReferenceCarriesSourceEntity
 void needsEnrichmentGate
 void failedGate
 void rejectedGate
 void impossiblePassedGate
+void impossiblePassedGateWithMissingFacts
 void impossibleFailedGateCandidate
 void pendingNormalization
 void inProgressNormalization

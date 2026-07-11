@@ -79,6 +79,11 @@ export interface SourceAdapterProvenance {
   version: string
 }
 
+export interface ConnectorCaptureReference {
+  connectorInstanceId: string
+  connectorRunId: string
+}
+
 export const reportedOriginKinds = [
   'employer',
   'ats',
@@ -107,8 +112,7 @@ export interface RawSourceEvidenceInput {
   value: JsonValue
 }
 
-export interface RawSourceRecordInput {
-  adapter: SourceAdapterProvenance
+interface RawSourceRecordInputBase {
   observedAt: string
   reportedOrigin?: ReportedSourceOrigin | null
   providerRecordId?: string | null
@@ -116,6 +120,117 @@ export interface RawSourceRecordInput {
   payload?: JsonObject | null
   evidence?: RawSourceEvidenceInput[]
 }
+
+export type RawSourceRecordInput = RawSourceRecordInputBase &
+  (
+    | {
+        adapter: SourceAdapterProvenance & { kind: 'connector' }
+        /**
+         * Server-bound connector references. The workspace and adapter identity
+         * are derived from the request route and registered connector instance.
+         */
+        capture?: ConnectorCaptureReference
+      }
+    | {
+        adapter: SourceAdapterProvenance & {
+          kind: Exclude<SourceAdapterKind, 'connector'>
+        }
+        capture?: never
+      }
+  )
+
+const rawIdentifierSchema = z.string().min(1)
+
+export const sourceAdapterProvenanceSchema = z
+  .object({
+    id: rawIdentifierSchema,
+    kind: z.enum(sourceAdapterKinds),
+    version: rawIdentifierSchema,
+  })
+  .strict()
+
+export const connectorCaptureReferenceSchema = z
+  .object({
+    connectorInstanceId: rawIdentifierSchema,
+    connectorRunId: rawIdentifierSchema,
+  })
+  .strict()
+
+const reportedSourceOriginSchema = z
+  .object({
+    kind: z.enum(reportedOriginKinds),
+    name: rawIdentifierSchema,
+    providerId: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
+  })
+  .strict()
+
+const rawSourceEvidenceInputSchema = z
+  .object({
+    kind: rawIdentifierSchema,
+    label: rawIdentifierSchema,
+    value: z.json(),
+  })
+  .strict()
+
+export const rawSourceRecordInputSchema = z
+  .object({
+    adapter: sourceAdapterProvenanceSchema,
+    capture: connectorCaptureReferenceSchema.optional(),
+    observedAt: z.iso.datetime({ offset: true }),
+    reportedOrigin: reportedSourceOriginSchema.nullable().optional(),
+    providerRecordId: z.string().nullable().optional(),
+    providerSchema: z.string().nullable().optional(),
+    payload: z.record(z.string(), z.json()).nullable().optional(),
+    evidence: z.array(rawSourceEvidenceInputSchema).optional(),
+  })
+  .strict()
+  .refine((record) => record.capture === undefined || record.adapter.kind === 'connector', {
+    message: 'capture references require a connector adapter',
+    path: ['capture'],
+  })
+
+export interface ConnectorCaptureBinding {
+  requestWorkspaceId: string
+  workspaceId: string
+  connectorInstanceId: string
+  connectorRunId: string
+  adapter: SourceAdapterProvenance & { kind: 'connector' }
+}
+
+/**
+ * Adds trusted route/registry correlation to raw intake validation. Servers
+ * supply this binding after resolving the referenced connector instance/run.
+ */
+export function createBoundRawSourceRecordInputSchema(
+  binding: ConnectorCaptureBinding,
+) {
+  return rawSourceRecordInputSchema.superRefine((record, context) => {
+    if (record.capture === undefined) {
+      return
+    }
+
+    const bound =
+      binding.requestWorkspaceId === binding.workspaceId &&
+      record.capture.connectorInstanceId === binding.connectorInstanceId &&
+      record.capture.connectorRunId === binding.connectorRunId &&
+      record.adapter.id === binding.adapter.id &&
+      record.adapter.kind === binding.adapter.kind &&
+      record.adapter.version === binding.adapter.version
+
+    if (!bound) {
+      context.addIssue({
+        code: 'custom',
+        message: 'capture must match the request workspace and registered connector lineage',
+        path: ['capture'],
+      })
+    }
+  })
+}
+
+export const batchRawSourceRecordsInputSchema = z
+  .object({ records: z.array(rawSourceRecordInputSchema).max(MAX_RAW_SOURCE_BATCH_RECORDS) })
+  .strict()
 
 export interface BatchRawSourceRecordsInput {
   records: RawSourceRecordInput[]
@@ -170,6 +285,7 @@ export interface RawSourceOccurrenceReceipt {
   readonly id: string
   readonly rawRecordId: string
   readonly rawRevisionId: string
+  readonly capture?: ConnectorCaptureReference | null
   readonly observedAt: string
   readonly receivedAt: string
 }
@@ -381,11 +497,17 @@ export const canonicalPostedAtPrecisions = [
 export type CanonicalPostedAtPrecision =
   (typeof canonicalPostedAtPrecisions)[number]
 
-export interface CanonicalPostedAt {
-  value: string | null
-  precision: CanonicalPostedAtPrecision
-  raw: string | null
-}
+export type CanonicalPostedAt =
+  | {
+      value: null
+      precision: 'unknown'
+      raw: string | null
+    }
+  | {
+      value: string
+      precision: Exclude<CanonicalPostedAtPrecision, 'unknown'>
+      raw: string | null
+    }
 
 export interface CanonicalSourceCandidateReference {
   id: string
@@ -423,6 +545,8 @@ interface NormalizationGateOutcomeBase {
 export interface PassedNormalizationGateOutcome
   extends NormalizationGateOutcomeBase {
   status: 'passed'
+  missingFields: []
+  conflictingFields: []
   candidate: CanonicalSourceCandidateReference
 }
 
@@ -482,6 +606,92 @@ export type RawSourceNormalizationResult =
       gate: FailedNormalizationGateOutcome | null
       canonicalCandidate: null
     })
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Runtime correlation guard for persisted normalization and gate outcomes. */
+export const rawSourceNormalizationResultSchema = z
+  .custom<RawSourceNormalizationResult>(isObjectRecord)
+  .superRefine((result, context) => {
+    const gate = isObjectRecord(result.gate) ? result.gate : null
+    const candidate = isObjectRecord(result.canonicalCandidate)
+      ? result.canonicalCandidate
+      : null
+
+    if (result.status === 'pending' || result.status === 'in_progress' || result.status === 'blocked') {
+      if (result.gate !== null || result.canonicalCandidate !== null) {
+        context.addIssue({
+          code: 'custom',
+          message: 'unfinished normalization cannot carry a gate or candidate',
+        })
+      }
+      return
+    }
+
+    if (result.status === 'failed') {
+      if (candidate !== null || (gate !== null && gate.status !== 'failed')) {
+        context.addIssue({
+          code: 'custom',
+          message: 'failed normalization can carry only a failed gate and no candidate',
+        })
+      }
+      return
+    }
+
+    if (result.status !== 'completed' || gate === null) {
+      context.addIssue({ code: 'custom', message: 'completed normalization requires a gate' })
+      return
+    }
+
+    if (gate.status !== 'passed') {
+      if (
+        (gate.status !== 'needs_enrichment' && gate.status !== 'rejected') ||
+        candidate !== null
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'non-passing completed gate cannot carry a canonical candidate',
+        })
+      }
+      return
+    }
+
+    if (
+      !Array.isArray(gate.missingFields) ||
+      gate.missingFields.length > 0 ||
+      !Array.isArray(gate.conflictingFields) ||
+      gate.conflictingFields.length > 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'passed gate cannot report missing or conflicting candidate facts',
+      })
+    }
+
+    const gateCandidate = isObjectRecord(gate.candidate) ? gate.candidate : null
+    if (candidate === null || gateCandidate === null) {
+      context.addIssue({ code: 'custom', message: 'passed gate requires its canonical candidate' })
+      return
+    }
+
+    const lineageKeys = ['id', 'sourceEntityId', 'rawRecordId', 'rawRevisionId', 'schemaVersion'] as const
+    const gateAndCandidateMatch = lineageKeys.every(
+      (key) => gateCandidate[key] === candidate[key],
+    )
+    const resultLineageMatches =
+      candidate.rawRecordId === result.rawRecordId &&
+      candidate.rawRevisionId === result.rawRevisionId &&
+      candidate.schemaVersion === result.canonicalSchemaVersion
+
+    if (!gateAndCandidateMatch || !resultLineageMatches) {
+      context.addIssue({
+        code: 'custom',
+        message: 'gate, candidate, and raw revision lineage must match exactly',
+      })
+    }
+  })
 
 export interface ResolverVersionRef {
   resolverId: string

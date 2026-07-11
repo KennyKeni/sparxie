@@ -44,6 +44,41 @@ const usabilityIsCompatibilityOptional: IsExact<
   SourcingFinding['usability'],
   ProjectionOwnedFields['usability'] | undefined
 > = true
+const rawRevisionLineageIsCompatibilityOptional: IsExact<
+  SourcingFinding['rawRevisionId'],
+  string | undefined
+> = true
+const candidateLineageIsCompatibilityOptional: IsExact<
+  SourcingFinding['canonicalCandidateId'],
+  string | undefined
+> = true
+const employmentTypeIsExplicitWhenProjected: IsExact<
+  SourcingFinding['employmentType'],
+  | 'full_time'
+  | 'part_time'
+  | 'contract'
+  | 'temporary'
+  | 'internship'
+  | 'apprenticeship'
+  | 'other'
+  | 'unknown'
+  | undefined
+> = true
+const seniorityIsExplicitWhenProjected: IsExact<
+  SourcingFinding['seniority'],
+  | 'internship'
+  | 'entry_level'
+  | 'associate'
+  | 'mid_level'
+  | 'senior'
+  | 'staff'
+  | 'principal'
+  | 'manager'
+  | 'director'
+  | 'executive'
+  | 'unknown'
+  | undefined
+> = true
 const destinationClassFilterIsExact: IsExact<
   SourcingFindingsListInput['destinationClass'],
   Exclude<ProjectionOwnedFields['destinationClass'], null> | undefined
@@ -59,6 +94,41 @@ const validCreate: CreateSourcingFindingInput = {
   roleTitle: 'Engineer',
   roleKind: 'internship',
   workMode: 'remote',
+}
+
+const canonicalCreate: CreateSourcingFindingInput = {
+  ...validCreate,
+  rawRevisionId: 'raw-revision-1',
+  canonicalCandidateId: 'candidate-1',
+  destination: null,
+  employmentType: 'unknown',
+  seniority: 'unknown',
+  location: null,
+  compensation: null,
+  postedAt: { value: null, precision: 'unknown', raw: null },
+}
+
+// @ts-expect-error Raw revision and canonical candidate lineage must travel together.
+const impossiblePartialLineage: CreateSourcingFindingInput = {
+  ...validCreate,
+  rawRevisionId: 'raw-revision-1',
+}
+
+const impossibleUnknownPostedAt: CreateSourcingFindingInput = {
+  ...validCreate,
+  rawRevisionId: 'raw-revision-1',
+  canonicalCandidateId: 'candidate-1',
+  destination: null,
+  employmentType: 'unknown',
+  seniority: 'unknown',
+  location: null,
+  compensation: null,
+  postedAt: {
+    value: '2026-07-11T14:00:00.000Z',
+    // @ts-expect-error A concrete canonical time cannot have unknown precision.
+    precision: 'unknown',
+    raw: null,
+  },
 }
 
 const spoofedCreate: CreateSourcingFindingInput = {
@@ -104,9 +174,16 @@ void destinationClassIsCompatibilityOptional
 void destinationUrlIsCompatibilityOptional
 void intermediaryUrlIsCompatibilityOptional
 void usabilityIsCompatibilityOptional
+void rawRevisionLineageIsCompatibilityOptional
+void candidateLineageIsCompatibilityOptional
+void employmentTypeIsExplicitWhenProjected
+void seniorityIsExplicitWhenProjected
 void destinationClassFilterIsExact
 void usabilityFilterIsExact
 void spoofedCreate
+void canonicalCreate
+void impossiblePartialLineage
+void impossibleUnknownPostedAt
 void spoofedUpdate
 void spoofedDecision
 void spoofedProcess

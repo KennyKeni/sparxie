@@ -5,17 +5,156 @@ import {
   canonicalIdentityKinds,
   canonicalPostedAtPrecisions,
   canonicalSeniorities,
+  createBoundRawSourceRecordInputSchema,
   fieldResolutionStatuses,
   isFieldResolutionStatus,
   isNormalizationGateStatus,
   isNormalizationStatus,
   normalizationGateStatuses,
   normalizationStatuses,
+  rawSourceRecordInputSchema,
+  rawSourceNormalizationResultSchema,
   rawSourceReplayFailureCodes,
   rawSourceReplayReceiptSchema,
 } from './index'
 
 describe('raw sourcing public contract', () => {
+  it('accepts connector capture references without producer-owned binding data', () => {
+    const record = {
+      adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+      capture: {
+        connectorInstanceId: 'connector-instance-1',
+        connectorRunId: 'connector-run-1',
+      },
+      observedAt: '2026-07-11T14:00:00.000Z',
+    }
+
+    expect(rawSourceRecordInputSchema.parse(record)).toEqual(record)
+  })
+
+  it('rejects connector capture references claimed by another adapter kind', () => {
+    expect(
+      rawSourceRecordInputSchema.safeParse({
+        adapter: { id: 'manual-entry', kind: 'manual', version: '1.0.0' },
+        capture: {
+          connectorInstanceId: 'connector-instance-1',
+          connectorRunId: 'connector-run-1',
+        },
+        observedAt: '2026-07-11T14:00:00.000Z',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a passed gate whose candidate contradicts raw lineage', () => {
+    expect(
+      rawSourceNormalizationResultSchema.safeParse({
+        rawRecordId: 'raw-1',
+        rawRevisionId: 'revision-1',
+        canonicalSchemaVersion: 'candidate/v1',
+        attempts: [],
+        fieldOutcomes: [],
+        updatedAt: '2026-07-11T14:00:00.000Z',
+        status: 'completed',
+        gate: {
+          status: 'passed',
+          policyVersion: 'gate/v1',
+          requiredFields: [],
+          missingFields: [],
+          conflictingFields: [],
+          evaluatedAt: '2026-07-11T14:00:00.000Z',
+          candidate: {
+            id: 'candidate-1',
+            sourceEntityId: 'source-entity-1',
+            rawRecordId: 'raw-1',
+            rawRevisionId: 'revision-2',
+            schemaVersion: 'candidate/v1',
+          },
+        },
+        canonicalCandidate: {
+          id: 'candidate-1',
+          sourceEntityId: 'source-entity-1',
+          rawRecordId: 'raw-1',
+          rawRevisionId: 'revision-2',
+          schemaVersion: 'candidate/v1',
+        },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a passed gate that still reports missing candidate facts', () => {
+    const candidate = {
+      id: 'candidate-1',
+      sourceEntityId: 'source-entity-1',
+      rawRecordId: 'raw-1',
+      rawRevisionId: 'revision-1',
+      schemaVersion: 'candidate/v1',
+    }
+
+    expect(
+      rawSourceNormalizationResultSchema.safeParse({
+        rawRecordId: 'raw-1',
+        rawRevisionId: 'revision-1',
+        canonicalSchemaVersion: 'candidate/v1',
+        attempts: [],
+        fieldOutcomes: [],
+        updatedAt: '2026-07-11T14:00:00.000Z',
+        status: 'completed',
+        gate: {
+          status: 'passed',
+          policyVersion: 'gate/v1',
+          requiredFields: ['companyName'],
+          missingFields: ['companyName'],
+          conflictingFields: [],
+          evaluatedAt: '2026-07-11T14:00:00.000Z',
+          candidate,
+        },
+        canonicalCandidate: candidate,
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects connector capture references resolved from another workspace', () => {
+    const schema = createBoundRawSourceRecordInputSchema({
+      requestWorkspaceId: 'workspace-1',
+      workspaceId: 'workspace-2',
+      connectorInstanceId: 'connector-instance-1',
+      connectorRunId: 'connector-run-1',
+      adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+    })
+
+    expect(
+      schema.safeParse({
+        adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+        capture: {
+          connectorInstanceId: 'connector-instance-1',
+          connectorRunId: 'connector-run-1',
+        },
+        observedAt: '2026-07-11T14:00:00.000Z',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a producer adapter that differs from the registered connector', () => {
+    const schema = createBoundRawSourceRecordInputSchema({
+      requestWorkspaceId: 'workspace-1',
+      workspaceId: 'workspace-1',
+      connectorInstanceId: 'connector-instance-1',
+      connectorRunId: 'connector-run-1',
+      adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+    })
+
+    expect(
+      schema.safeParse({
+        adapter: { id: 'another-connector', kind: 'connector', version: '9.0.0' },
+        capture: {
+          connectorInstanceId: 'connector-instance-1',
+          connectorRunId: 'connector-run-1',
+        },
+        observedAt: '2026-07-11T14:00:00.000Z',
+      }).success,
+    ).toBe(false)
+  })
+
   it('accepts a truthful completed replay receipt with exact persisted outcomes', () => {
     const receipt = {
       replayId: 'replay-1',
