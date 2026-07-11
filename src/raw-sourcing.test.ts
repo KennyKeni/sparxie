@@ -11,9 +11,188 @@ import {
   isNormalizationStatus,
   normalizationGateStatuses,
   normalizationStatuses,
+  rawSourceReplayFailureCodes,
+  rawSourceReplayReceiptSchema,
 } from './index'
 
 describe('raw sourcing public contract', () => {
+  it('accepts a truthful completed replay receipt with exact persisted outcomes', () => {
+    const receipt = {
+      replayId: 'replay-1',
+      status: 'completed',
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+      matchedRawRevisionIds: ['revision-1'],
+      items: [
+        {
+          status: 'completed',
+          rawRecordId: 'raw-1',
+          rawRevisionId: 'revision-1',
+          normalizationRunId: 'normalization-run-1',
+        },
+      ],
+    }
+
+    expect(rawSourceReplayReceiptSchema.parse(receipt)).toEqual(receipt)
+  })
+
+  it('accepts completed-with-failures receipts with bounded value-safe failures', () => {
+    const receipt = {
+      replayId: 'replay-2',
+      status: 'completed_with_failures',
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+      matchedRawRevisionIds: ['revision-1', 'revision-2'],
+      items: [
+        {
+          status: 'completed',
+          rawRecordId: 'raw-1',
+          rawRevisionId: 'revision-1',
+          normalizationRunId: 'normalization-run-1',
+        },
+        {
+          status: 'failed',
+          rawRecordId: 'raw-2',
+          rawRevisionId: 'revision-2',
+          failure: {
+            code: 'normalization_failed',
+            retryable: false,
+          },
+        },
+      ],
+    }
+
+    expect(rawSourceReplayFailureCodes).toEqual([
+      'normalization_failed',
+      'persistence_failed',
+      'internal_error',
+    ])
+    expect(rawSourceReplayReceiptSchema.parse(receipt)).toEqual(receipt)
+  })
+
+  it('accepts an unmatched replay as a completed no-op without an invented run', () => {
+    const receipt = {
+      replayId: 'replay-no-op',
+      status: 'completed',
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:00.000Z',
+      matchedRawRevisionIds: [],
+      items: [],
+    }
+
+    expect(rawSourceReplayReceiptSchema.parse(receipt)).toEqual(receipt)
+  })
+
+  it('rejects matched revisions without exactly one corresponding item', () => {
+    const base = {
+      replayId: 'replay-mismatch',
+      status: 'completed' as const,
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+    }
+
+    expect(
+      rawSourceReplayReceiptSchema.safeParse({
+        ...base,
+        matchedRawRevisionIds: ['revision-1'],
+        items: [],
+      }).success,
+    ).toBe(false)
+    expect(
+      rawSourceReplayReceiptSchema.safeParse({
+        ...base,
+        matchedRawRevisionIds: ['revision-1', 'revision-1'],
+        items: [
+          {
+            status: 'completed',
+            rawRecordId: 'raw-1',
+            rawRevisionId: 'revision-1',
+          },
+          {
+            status: 'completed',
+            rawRecordId: 'raw-1',
+            rawRevisionId: 'revision-1',
+          },
+        ],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects timestamps that claim completion before acceptance', () => {
+    expect(
+      rawSourceReplayReceiptSchema.safeParse({
+        replayId: 'replay-time-travel',
+        status: 'completed',
+        acceptedAt: '2026-07-11T14:00:01.000Z',
+        completedAt: '2026-07-11T14:00:00.000Z',
+        matchedRawRevisionIds: [],
+        items: [],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects free-form or secret-bearing failure values', () => {
+    const receipt = {
+      replayId: 'replay-secret',
+      status: 'completed_with_failures',
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+      matchedRawRevisionIds: ['revision-1'],
+      items: [
+        {
+          status: 'failed',
+          rawRecordId: 'raw-1',
+          rawRevisionId: 'revision-1',
+          failure: {
+            code: 'normalization_failed',
+            retryable: false,
+            message: 'request failed with token=secret-value',
+            thrown: { password: 'secret-value' },
+          },
+        },
+      ],
+    }
+
+    expect(rawSourceReplayReceiptSchema.safeParse(receipt).success).toBe(false)
+  })
+
+  it('rejects item payloads that contradict their discriminant', () => {
+    const base = {
+      replayId: 'replay-contradiction',
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+      matchedRawRevisionIds: ['revision-1'],
+    }
+
+    expect(
+      rawSourceReplayReceiptSchema.safeParse({
+        ...base,
+        status: 'completed',
+        items: [
+          {
+            status: 'completed',
+            rawRecordId: 'raw-1',
+            rawRevisionId: 'revision-1',
+            failure: { code: 'internal_error', retryable: false },
+          },
+        ],
+      }).success,
+    ).toBe(false)
+    expect(
+      rawSourceReplayReceiptSchema.safeParse({
+        ...base,
+        status: 'completed_with_failures',
+        items: [
+          {
+            status: 'failed',
+            rawRecordId: 'raw-1',
+            rawRevisionId: 'revision-1',
+          },
+        ],
+      }).success,
+    ).toBe(false)
+  })
+
   it('exports distinct resolver, normalization, and gate outcome vocabularies', () => {
     expect(fieldResolutionStatuses).toEqual([
       'resolved',
