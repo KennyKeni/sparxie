@@ -768,6 +768,137 @@ describe('HTTP Valedictorian client', () => {
     }
   })
 
+  it('batch-ingests sparse raw CLI records without conflating adapter and reported origin', async () => {
+    const payload = { receipts: [] }
+    const fetchMock = mockFetch(jsonResponse(payload))
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const workspace = client.forWorkspace('workspace/raw intake')
+
+    await expect(
+      workspace.sourcing.rawRecords.ingestBatch({
+        records: [
+          {
+            adapter: {
+              id: 'valedictorian-cli',
+              kind: 'cli',
+              version: '0.12.0',
+            },
+            observedAt: '2026-07-10T14:00:00.000Z',
+            reportedOrigin: {
+              kind: 'job_board',
+              name: 'LinkedIn',
+            },
+            payload: {
+              href: 'https://www.linkedin.com/jobs/view/123',
+            },
+          },
+        ],
+      }),
+    ).resolves.toEqual(payload)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:4317/v1/workspaces/workspace%2Fraw%20intake/sourcing/raw-records/batch',
+      expect.objectContaining({
+        body: JSON.stringify({
+          records: [
+            {
+              adapter: {
+                id: 'valedictorian-cli',
+                kind: 'cli',
+                version: '0.12.0',
+              },
+              observedAt: '2026-07-10T14:00:00.000Z',
+              reportedOrigin: {
+                kind: 'job_board',
+                name: 'LinkedIn',
+              },
+              payload: {
+                href: 'https://www.linkedin.com/jobs/view/123',
+              },
+            },
+          ],
+        }),
+        method: 'POST',
+      }),
+    )
+  })
+
+  it('reads raw records and normalization results through encoded workspace paths', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ rawRecordId: 'raw/record 1' }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ rawRecordId: 'raw/record 1', status: 'completed' }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace/one')
+
+    await workspace.sourcing.rawRecords.get('raw/record 1')
+    await workspace.sourcing.rawRecords.normalization.get('raw/record 1')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%2Fone/sourcing/raw-records/raw%2Frecord%201',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%2Fone/sourcing/raw-records/raw%2Frecord%201/normalization',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('replays precise invalidations with version selectors and field directives', async () => {
+    const fetchMock = mockFetch(jsonResponse({ replayId: 'replay-1', acceptedAt: 'now' }))
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace-1')
+    const input = {
+      selector: {
+        rawRevisionIds: ['revision-1'],
+        inputHashes: ['sha256:input-1'],
+      },
+      invalidate: {
+        resolverVersions: [{ resolverId: 'destination-url', version: '1.4.0' }],
+        canonicalSchemaVersions: ['job-candidate/v2'],
+        gatePolicyVersions: ['sourcing-gate/v3'],
+      },
+      targetVersions: {
+        resolvers: [{ resolverId: 'destination-url', version: '1.5.0' }],
+        canonicalSchemaVersion: 'job-candidate/v3',
+        gatePolicyVersion: 'sourcing-gate/v4',
+      },
+      fieldDirectives: [
+        {
+          action: 'lock' as const,
+          field: 'companyName',
+          value: 'Example Corp',
+          reason: 'user_accepted',
+          inputHash: 'sha256:company',
+          policyVersion: 'manual/v1',
+        },
+        {
+          action: 'suppress' as const,
+          field: 'destinationUrl',
+          reason: 'unsafe_intermediary',
+          inputHash: 'sha256:url',
+          policyVersion: 'destination/v2',
+        },
+      ],
+    }
+
+    await workspace.sourcing.rawRecords.replay(input)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/raw-records/replay',
+      expect.objectContaining({
+        body: JSON.stringify(input),
+        method: 'POST',
+      }),
+    )
+  })
+
   it('updates status and records scores with JSON bodies', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     const scoreRecord = {

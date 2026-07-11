@@ -63,6 +63,14 @@ import type {
   UpdateSourcingFindingInput,
 } from './sourcing.js'
 import type {
+  BatchRawSourceRecordsInput,
+  BatchRawSourceRecordsResult,
+  RawSourceNormalizationResult,
+  RawSourceRecord,
+  RawSourceReplayReceipt,
+  ReplayRawSourceRecordsInput,
+} from './raw-sourcing.js'
+import type {
   CompleteWorkflowRunInput,
   CreateWorkflowRunStepInput,
   StartWorkflowRunInput,
@@ -198,11 +206,27 @@ export interface ValedictorianWorkspaceClient {
     complete(input: CompleteWorkflowRunInput): Promise<WorkflowRun>
   }
   sourcing: {
+    rawRecords: {
+      ingestBatch(input: BatchRawSourceRecordsInput): Promise<BatchRawSourceRecordsResult>
+      get(rawRecordId: string): Promise<RawSourceRecord>
+      replay(input: ReplayRawSourceRecordsInput): Promise<RawSourceReplayReceipt>
+      normalization: {
+        get(rawRecordId: string): Promise<RawSourceNormalizationResult>
+      }
+    }
     candidates: {
+      /**
+       * @deprecated Compatibility entry point for already-canonical producers.
+       * New producers should submit source-neutral records through rawRecords.ingestBatch.
+       */
       process(input: ProcessSourcingCandidateInput): Promise<SourcingFinding>
     }
     findings: {
       list(query?: SourcingFindingsListInput): Promise<SourcingFindingsListResult>
+      /**
+       * @deprecated Compatibility entry point for direct canonical finding creation.
+       * New producers should submit source-neutral records through rawRecords.ingestBatch.
+       */
       create(input: CreateSourcingFindingInput): Promise<SourcingFinding>
       update(input: UpdateSourcingFindingInput): Promise<SourcingFinding>
       decide(input: SetSourcingFindingDecisionInput): Promise<SourcingFinding>

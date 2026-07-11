@@ -662,6 +662,30 @@ export function createHttpValedictorianClient({
       },
     },
     sourcing: {
+      rawRecords: {
+        ingestBatch(input) {
+          return request(pathFor(valedictorianApiPaths.sourcingRawRecordsBatch), {
+            body: input,
+            method: 'POST',
+          })
+        },
+        get(rawRecordId) {
+          return request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId)))
+        },
+        replay(input) {
+          return request(pathFor(valedictorianApiPaths.sourcingRawRecordsReplay), {
+            body: input,
+            method: 'POST',
+          })
+        },
+        normalization: {
+          get(rawRecordId) {
+            return request(
+              pathFor(valedictorianApiPaths.sourcingRawRecordNormalization(rawRecordId)),
+            )
+          },
+        },
+      },
       candidates: {
         process(input) {
           return request(pathFor(valedictorianApiPaths.sourcingCandidatesProcess), {

@@ -132,6 +132,10 @@ export interface SourcingFindingsListResult {
   hasMore: boolean
 }
 
+/**
+ * @deprecated Compatibility input for producers that already own canonical data.
+ * New sourcing producers should use BatchRawSourceRecordsInput.
+ */
 export interface CreateSourcingFindingInput {
   workflowRunId: string
   sourceId?: string | null
@@ -208,6 +212,10 @@ export interface SetSourcingFindingDecisionInput {
 
 export type SourcingCandidateScoreInput = Omit<ScoreInput, 'applicationId'>
 
+/**
+ * @deprecated Compatibility input for producers that already own canonical data.
+ * New sourcing producers should use BatchRawSourceRecordsInput.
+ */
 export interface ProcessSourcingCandidateInput {
   workflowRunId: string
   sourceId?: string | null

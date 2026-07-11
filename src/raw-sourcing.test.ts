@@ -1,0 +1,105 @@
+import { describe, expect, it } from 'vitest'
+import {
+  canonicalCompensationIntervals,
+  canonicalCandidateFields,
+  canonicalIdentityKinds,
+  canonicalPostedAtPrecisions,
+  canonicalSeniorities,
+  fieldResolutionStatuses,
+  isFieldResolutionStatus,
+  isNormalizationGateStatus,
+  isNormalizationStatus,
+  normalizationGateStatuses,
+  normalizationStatuses,
+} from './index'
+
+describe('raw sourcing public contract', () => {
+  it('exports distinct resolver, normalization, and gate outcome vocabularies', () => {
+    expect(fieldResolutionStatuses).toEqual([
+      'resolved',
+      'not_applicable',
+      'abstained',
+      'blocked',
+      'retry',
+      'rejected',
+      'conflict',
+      'failed',
+      'suppressed',
+      'locked',
+    ])
+    expect(normalizationStatuses).toEqual([
+      'pending',
+      'in_progress',
+      'completed',
+      'blocked',
+      'failed',
+    ])
+    expect(normalizationGateStatuses).toEqual([
+      'passed',
+      'needs_enrichment',
+      'rejected',
+      'failed',
+    ])
+
+    expect(isFieldResolutionStatus('not_applicable')).toBe(true)
+    expect(isFieldResolutionStatus('unknown')).toBe(false)
+    expect(isNormalizationStatus('in_progress')).toBe(true)
+    expect(isNormalizationStatus('running')).toBe(false)
+    expect(isNormalizationGateStatus('passed')).toBe(true)
+    expect(isNormalizationGateStatus('needs_enrichment')).toBe(true)
+    expect(isNormalizationGateStatus('failed')).toBe(true)
+    expect(isNormalizationGateStatus('blocked')).toBe(false)
+    expect(isNormalizationGateStatus('conflict')).toBe(false)
+    expect(isNormalizationGateStatus('admitted')).toBe(false)
+  })
+
+  it('exports bounded canonical identity and job-fact vocabularies', () => {
+    expect(canonicalCandidateFields).toEqual([
+      'canonicalIdentity',
+      'companyName',
+      'roleTitle',
+      'employmentType',
+      'seniority',
+      'workMode',
+      'location',
+      'destinationUrl',
+      'sourceUrl',
+      'providerJobId',
+      'postedAt',
+      'compensation',
+    ])
+    expect(canonicalIdentityKinds).toEqual([
+      'provider_job',
+      'destination_url',
+      'source_alias',
+    ])
+    expect(canonicalSeniorities).toEqual([
+      'internship',
+      'entry_level',
+      'associate',
+      'mid_level',
+      'senior',
+      'staff',
+      'principal',
+      'manager',
+      'director',
+      'executive',
+      'unknown',
+    ])
+    expect(canonicalCompensationIntervals).toEqual([
+      'hour',
+      'day',
+      'week',
+      'month',
+      'year',
+      'one_time',
+      'unknown',
+    ])
+    expect(canonicalPostedAtPrecisions).toEqual([
+      'instant',
+      'date',
+      'relative',
+      'unknown',
+    ])
+  })
+})

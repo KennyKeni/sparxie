@@ -78,6 +78,14 @@ export const valedictorianApiPaths = {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/observations`
   },
   sourcingCandidatesProcess: '/v1/sourcing/candidates/process',
+  sourcingRawRecordsBatch: '/v1/sourcing/raw-records/batch',
+  sourcingRawRecordsReplay: '/v1/sourcing/raw-records/replay',
+  sourcingRawRecord(rawRecordId: string) {
+    return `/v1/sourcing/raw-records/${encodeURIComponent(rawRecordId)}`
+  },
+  sourcingRawRecordNormalization(rawRecordId: string) {
+    return `/v1/sourcing/raw-records/${encodeURIComponent(rawRecordId)}/normalization`
+  },
   sourcingFindings: '/v1/sourcing/findings',
   sourcingFinding(findingId: string) {
     return `/v1/sourcing/findings/${encodeURIComponent(findingId)}`
