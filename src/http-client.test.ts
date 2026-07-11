@@ -850,7 +850,22 @@ describe('HTTP Valedictorian client', () => {
   })
 
   it('replays precise invalidations with version selectors and field directives', async () => {
-    const fetchMock = mockFetch(jsonResponse({ replayId: 'replay-1', acceptedAt: 'now' }))
+    const receipt = {
+      replayId: 'replay-1',
+      status: 'completed_with_failures',
+      acceptedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+      matchedRawRevisionIds: ['revision-1'],
+      items: [
+        {
+          status: 'failed',
+          rawRecordId: 'raw-1',
+          rawRevisionId: 'revision-1',
+          failure: { code: 'normalization_failed', retryable: false },
+        },
+      ],
+    }
+    const fetchMock = mockFetch(jsonResponse(receipt))
     const workspace = createHttpValedictorianClient({
       baseUrl: 'http://127.0.0.1:4317',
     }).forWorkspace('workspace-1')
@@ -888,7 +903,7 @@ describe('HTTP Valedictorian client', () => {
       ],
     }
 
-    await workspace.sourcing.rawRecords.replay(input)
+    await expect(workspace.sourcing.rawRecords.replay(input)).resolves.toEqual(receipt)
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/raw-records/replay',
@@ -897,6 +912,35 @@ describe('HTTP Valedictorian client', () => {
         method: 'POST',
       }),
     )
+  })
+
+  it('rejects replay responses whose status contradicts their item outcomes', async () => {
+    mockFetch(
+      jsonResponse({
+        replayId: 'replay-1',
+        status: 'completed_with_failures',
+        acceptedAt: '2026-07-11T14:00:00.000Z',
+        completedAt: '2026-07-11T14:00:01.000Z',
+        matchedRawRevisionIds: ['revision-1'],
+        items: [
+          {
+            status: 'completed',
+            rawRecordId: 'raw-1',
+            rawRevisionId: 'revision-1',
+          },
+        ],
+      }),
+    )
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace-1')
+
+    await expect(
+      workspace.sourcing.rawRecords.replay({
+        selector: { rawRevisionIds: ['revision-1'] },
+        invalidate: {},
+      }),
+    ).rejects.toThrow('completed_with_failures requires at least one failed item')
   })
 
   it('updates status and records scores with JSON bodies', async () => {

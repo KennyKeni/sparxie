@@ -8,7 +8,9 @@ import type {
   RawSourceIntakeReceipt,
   RawSourceRecord,
   RawSourceRecordInput,
+  RawSourceReplayReceipt,
   ResolverDeclaration,
+  ValedictorianClient,
 } from '../src/index.js'
 
 type IsExact<Actual, Expected> =
@@ -33,6 +35,100 @@ const candidateReferenceCarriesSourceEntity: IsExact<
 const sparseCliIntake: RawSourceRecordInput = {
   adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
   observedAt: '2026-07-10T14:00:00.000Z',
+}
+
+const completedReplay: RawSourceReplayReceipt = {
+  replayId: 'replay-1',
+  status: 'completed',
+  acceptedAt: '2026-07-11T14:00:00.000Z',
+  completedAt: '2026-07-11T14:00:01.000Z',
+  matchedRawRevisionIds: [],
+  items: [],
+}
+
+const failedReplay: RawSourceReplayReceipt = {
+  replayId: 'replay-2',
+  status: 'completed_with_failures',
+  acceptedAt: '2026-07-11T14:00:00.000Z',
+  completedAt: '2026-07-11T14:00:01.000Z',
+  matchedRawRevisionIds: ['revision-1'],
+  items: [
+    {
+      status: 'failed',
+      rawRecordId: 'raw-1',
+      rawRevisionId: 'revision-1',
+      failure: { code: 'normalization_failed', retryable: false },
+    },
+  ],
+}
+
+if (failedReplay.status === 'completed_with_failures') {
+  for (const item of failedReplay.items) {
+    if (item.status === 'failed') {
+      const failureCode: 'normalization_failed' | 'persistence_failed' | 'internal_error' =
+        item.failure.code
+      void failureCode
+    }
+  }
+}
+
+async function inspectWorkspaceReplay(client: ValedictorianClient) {
+  const receipt = await client.forWorkspace('workspace-1').sourcing.rawRecords.replay({
+    selector: { rawRevisionIds: ['revision-1'] },
+    invalidate: {},
+  })
+
+  if (receipt.status === 'completed_with_failures') {
+    const failedItems = receipt.items.filter((item) => item.status === 'failed')
+    const firstFailure = failedItems[0]?.failure.code
+    void firstFailure
+  } else {
+    for (const item of receipt.items) {
+      const completedStatus: 'completed' = item.status
+      void completedStatus
+      // @ts-expect-error Completed receipt items have no failure data.
+      void item.failure
+    }
+  }
+
+  // @ts-expect-error Raw replay remains workspace-scoped, not a root client API.
+  await client.sourcing.rawRecords.replay({
+    selector: { rawRevisionIds: ['revision-1'] },
+    invalidate: {},
+  })
+}
+
+const impossibleCompletedReplay: RawSourceReplayReceipt = {
+  replayId: 'replay-3',
+  status: 'completed',
+  acceptedAt: '2026-07-11T14:00:00.000Z',
+  completedAt: '2026-07-11T14:00:01.000Z',
+  matchedRawRevisionIds: ['revision-1'],
+  // @ts-expect-error Completed receipts cannot contain failed items.
+  items: [
+    {
+      status: 'failed',
+      rawRecordId: 'raw-1',
+      rawRevisionId: 'revision-1',
+      failure: { code: 'normalization_failed', retryable: false },
+    },
+  ],
+}
+
+const impossibleFailedItem: RawSourceReplayReceipt = {
+  replayId: 'replay-4',
+  status: 'completed_with_failures',
+  acceptedAt: '2026-07-11T14:00:00.000Z',
+  completedAt: '2026-07-11T14:00:01.000Z',
+  matchedRawRevisionIds: ['revision-1'],
+  items: [
+    // @ts-expect-error Failed items require bounded typed failure data.
+    {
+      status: 'failed',
+      rawRecordId: 'raw-1',
+      rawRevisionId: 'revision-1',
+    },
+  ],
 }
 
 // @ts-expect-error Adapter provenance is required even when all job fields are absent.
@@ -458,3 +554,8 @@ void impossibleInProgressNormalization
 void impossibleBlockedNormalization
 void impossibleCompletedFailure
 void impossibleFailedCandidate
+void completedReplay
+void failedReplay
+void impossibleCompletedReplay
+void impossibleFailedItem
+void inspectWorkspaceReplay

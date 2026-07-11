@@ -17,6 +17,7 @@ import type { ActionQueueListQuery } from './action-queue.js'
 import type { ScoreInput } from './scoring.js'
 import type { SourcingFindingsListInput } from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
+import { rawSourceReplayReceiptSchema } from './raw-sourcing.js'
 
 export interface HttpValedictorianClientOptions {
   baseUrl?: string
@@ -672,11 +673,16 @@ export function createHttpValedictorianClient({
         get(rawRecordId) {
           return request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId)))
         },
-        replay(input) {
-          return request(pathFor(valedictorianApiPaths.sourcingRawRecordsReplay), {
-            body: input,
-            method: 'POST',
-          })
+        async replay(input) {
+          const receipt = await request(
+            pathFor(valedictorianApiPaths.sourcingRawRecordsReplay),
+            {
+              body: input,
+              method: 'POST',
+            },
+          )
+
+          return rawSourceReplayReceiptSchema.parse(receipt)
         },
         normalization: {
           get(rawRecordId) {
