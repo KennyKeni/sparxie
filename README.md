@@ -79,12 +79,28 @@ job field. Payload and evidence values are JSON-safe and use the exported
 `rawRecords.normalization.get`, and request version-targeted reprocessing with
 `rawRecords.replay`.
 
+Connector adapters may add a `capture` containing only `connectorInstanceId`
+and `connectorRunId`. Compatible servers resolve those references inside the
+workspace named by the HTTP route and validate the producer's adapter against
+the registered connector with `createBoundRawSourceRecordInputSchema`. A
+producer cannot supply a workspace or override the registered adapter lineage.
+The accepted capture is returned on the intake occurrence, so repeated runs can
+share a deduplicated raw record without conflating their run provenance.
+
 Intake receipts and raw-record reads expose the nullable source-entity identity;
 promoted canonical-candidate references always identify their source entity.
 Gate outcomes are `passed`, `needs_enrichment`, `rejected`, or `failed`.
 Canonical candidates use explicit `unknown` employment/seniority and `unclear`
 work-mode values instead of nullable enums, while optional structured location
 and compensation facts may be `null`.
+
+Canonical finding creation carries `rawRevisionId` and `canonicalCandidateId`
+together with typed `destination`, employment type, seniority, location,
+compensation, work mode, and posted time. Finding reads expose the same fields
+as compatibility-optional properties so existing persisted findings remain
+readable. An omitted property identifies a legacy projection; newly projected
+facts use explicit `unknown`, `unclear`, or `null` values and must never be
+guessed from titles, URLs, or location defaults.
 
 The existing `sourcing.candidates.process` and `sourcing.findings.create`
 methods remain wire-compatible for consumers that already produce canonical

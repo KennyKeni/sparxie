@@ -823,6 +823,85 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
+  it('round-trips connector capture and canonical finding lineage on explicit workspace routes', async () => {
+    const canonicalProjection = {
+      rawRevisionId: 'raw-revision-1',
+      canonicalCandidateId: 'candidate-1',
+      destination: {
+        class: 'third_party_job_posting' as const,
+        url: 'https://job-board.example.test/jobs/1',
+        intermediaryUrl: 'https://aggregator.example.test/jobs/1',
+      },
+      employmentType: 'full_time' as const,
+      seniority: 'entry_level' as const,
+      location: { raw: 'New York, NY', city: 'New York', region: 'NY', country: 'US' },
+      compensation: {
+        minimum: 100_000,
+        maximum: 120_000,
+        currency: 'USD',
+        interval: 'year' as const,
+        raw: '$100k-$120k',
+      },
+      postedAt: {
+        value: '2026-07-11T00:00:00.000Z',
+        precision: 'date' as const,
+        raw: '2026-07-11',
+      },
+    }
+    const finding = {
+      id: 'finding-1',
+      ...canonicalProjection,
+      workMode: 'hybrid' as const,
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ receipts: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace/one')
+
+    await workspace.sourcing.rawRecords.ingestBatch({
+      records: [
+        {
+          adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+          capture: {
+            connectorInstanceId: 'connector-instance-1',
+            connectorRunId: 'connector-run-1',
+          },
+          observedAt: '2026-07-11T14:00:00.000Z',
+        },
+      ],
+    })
+    await expect(
+      workspace.sourcing.findings.create({
+        workflowRunId: 'workflow-run-1',
+        companyName: 'Example Corp',
+        roleTitle: 'Software Engineer',
+        roleKind: 'full_time',
+        workMode: 'hybrid',
+        ...canonicalProjection,
+      }),
+    ).resolves.toEqual(finding)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%2Fone/sourcing/raw-records/batch',
+      expect.objectContaining({
+        body: expect.stringContaining('"connectorRunId":"connector-run-1"') as string,
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace%2Fone/sourcing/findings',
+      expect.objectContaining({
+        body: expect.stringContaining('"canonicalCandidateId":"candidate-1"') as string,
+        method: 'POST',
+      }),
+    )
+  })
+
   it('reads raw records and normalization results through encoded workspace paths', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ rawRecordId: 'raw/record 1' }))
