@@ -84,6 +84,22 @@ const providerMapper: ResolverDeclaration = {
   precedence: 100,
 }
 
+const providerTitleResolver: ResolverDeclaration = {
+  id: 'linkedin-title',
+  version: '2.1.0',
+  supportedAdapters: {
+    kinds: ['connector'],
+    ids: ['linkedin'],
+    versions: ['3.2.0'],
+  },
+  supportedProviderSchemas: ['linkedin/job/v3'],
+  requiredInputs: ['payload.title'],
+  outputFields: ['roleTitle'],
+  capabilities: ['pure'],
+  costClass: 'none',
+  precedence: 100,
+}
+
 const authoritativeMapping: FieldResolutionOutcome = {
   status: 'resolved',
   resolverId: providerMapper.id,
@@ -100,7 +116,7 @@ const fallbackAfterAbstention: NormalizationAttempt[] = [
   {
     id: 'attempt-provider',
     rawRevisionId: 'revision-1',
-    resolver: providerMapper,
+    resolver: providerTitleResolver,
     inputHash: 'sha256:title',
     status: 'completed',
     startedAt: '2026-07-10T14:01:00.000Z',
@@ -108,8 +124,8 @@ const fallbackAfterAbstention: NormalizationAttempt[] = [
     outcomes: [
       {
         status: 'abstained',
-        resolverId: providerMapper.id,
-        resolverVersion: providerMapper.version,
+        resolverId: providerTitleResolver.id,
+        resolverVersion: providerTitleResolver.version,
         field: 'roleTitle',
         inputHash: 'sha256:title',
         reason: 'provider_mapping_missing',
@@ -244,6 +260,35 @@ const failedGate: NormalizationGateOutcome = {
   evaluatedAt: '2026-07-10T14:01:01.000Z',
 }
 
+const rejectedGate: NormalizationGateOutcome = {
+  status: 'rejected',
+  policyVersion: 'sourcing-gate/v4',
+  requiredFields: ['companyName', 'roleTitle', 'destinationUrl'],
+  missingFields: [],
+  conflictingFields: [],
+  candidate: null,
+  reason: 'destination_disallowed',
+  evaluatedAt: '2026-07-10T14:01:01.000Z',
+}
+
+// @ts-expect-error A passed gate must carry its canonical candidate reference.
+const impossiblePassedGate: NormalizationGateOutcome = {
+  ...needsEnrichmentGate,
+  status: 'passed',
+}
+
+// @ts-expect-error A failed gate cannot carry a canonical candidate reference.
+const impossibleFailedGateCandidate: NormalizationGateOutcome = {
+  ...failedGate,
+  candidate: {
+    id: candidate.id,
+    sourceEntityId: candidate.sourceEntityId,
+    rawRecordId: candidate.rawRecordId,
+    rawRevisionId: candidate.rawRevisionId,
+    schemaVersion: candidate.schemaVersion,
+  },
+}
+
 const normalization: RawSourceNormalizationResult = {
   rawRecordId: 'raw-1',
   rawRevisionId: 'revision-1',
@@ -270,6 +315,119 @@ const normalization: RawSourceNormalizationResult = {
   updatedAt: '2026-07-10T14:01:01.000Z',
 }
 
+const normalizationBase = {
+  rawRecordId: 'raw-1',
+  rawRevisionId: 'revision-1',
+  canonicalSchemaVersion: 'job-candidate/v3',
+  attempts: fallbackAfterAbstention,
+  fieldOutcomes: [authoritativeMapping, lockedValue],
+  updatedAt: '2026-07-10T14:01:01.000Z',
+}
+
+const pendingNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'pending',
+  gate: null,
+  canonicalCandidate: null,
+}
+
+const inProgressNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'in_progress',
+  gate: null,
+  canonicalCandidate: null,
+}
+
+const blockedNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'blocked',
+  gate: null,
+  canonicalCandidate: null,
+}
+
+const needsEnrichmentNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'completed',
+  gate: needsEnrichmentGate,
+  canonicalCandidate: null,
+}
+
+const rejectedNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'completed',
+  gate: rejectedGate,
+  canonicalCandidate: null,
+}
+
+const failedNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'failed',
+  gate: failedGate,
+  canonicalCandidate: null,
+}
+
+// @ts-expect-error A passed gate requires a full canonical candidate.
+const impossiblePassedNormalization: RawSourceNormalizationResult = {
+  ...normalization,
+  canonicalCandidate: null,
+}
+
+// @ts-expect-error Enrichment results cannot carry a canonical candidate.
+const impossibleEnrichmentNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'completed',
+  gate: needsEnrichmentGate,
+  canonicalCandidate: candidate,
+}
+
+// @ts-expect-error Rejected results cannot carry a canonical candidate.
+const impossibleRejectedNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'completed',
+  gate: rejectedGate,
+  canonicalCandidate: candidate,
+}
+
+// @ts-expect-error Pending normalization cannot carry a gate or candidate.
+const impossiblePendingNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'pending',
+  gate: normalization.gate,
+  canonicalCandidate: candidate,
+}
+
+// @ts-expect-error In-progress normalization cannot carry a gate or candidate.
+const impossibleInProgressNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'in_progress',
+  gate: normalization.gate,
+  canonicalCandidate: candidate,
+}
+
+// @ts-expect-error Blocked normalization cannot carry a gate or candidate.
+const impossibleBlockedNormalization: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'blocked',
+  gate: normalization.gate,
+  canonicalCandidate: candidate,
+}
+
+// @ts-expect-error A failed gate must correlate with failed normalization.
+const impossibleCompletedFailure: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'completed',
+  gate: failedGate,
+  canonicalCandidate: null,
+}
+
+// @ts-expect-error Failed normalization cannot carry a canonical candidate.
+const impossibleFailedCandidate: RawSourceNormalizationResult = {
+  ...normalizationBase,
+  status: 'failed',
+  gate: failedGate,
+  canonicalCandidate: candidate,
+}
+
 void naturalUrl
 void jobrightIntermediary
 void normalization
@@ -283,3 +441,20 @@ void rawRecordCarriesSourceEntity
 void candidateReferenceCarriesSourceEntity
 void needsEnrichmentGate
 void failedGate
+void rejectedGate
+void impossiblePassedGate
+void impossibleFailedGateCandidate
+void pendingNormalization
+void inProgressNormalization
+void blockedNormalization
+void needsEnrichmentNormalization
+void rejectedNormalization
+void failedNormalization
+void impossiblePassedNormalization
+void impossibleEnrichmentNormalization
+void impossibleRejectedNormalization
+void impossiblePendingNormalization
+void impossibleInProgressNormalization
+void impossibleBlockedNormalization
+void impossibleCompletedFailure
+void impossibleFailedCandidate

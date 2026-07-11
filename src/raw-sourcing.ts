@@ -410,28 +410,77 @@ export interface CanonicalSourceCandidate extends CanonicalSourceCandidateRefere
   observedAt: string
 }
 
-export interface NormalizationGateOutcome {
-  status: NormalizationGateStatus
+interface NormalizationGateOutcomeBase {
   policyVersion: string
   requiredFields: CanonicalCandidateField[]
   missingFields: CanonicalCandidateField[]
   conflictingFields: CanonicalCandidateField[]
-  candidate: CanonicalSourceCandidateReference | null
   reason?: string | null
   evaluatedAt: string
 }
 
-export interface RawSourceNormalizationResult {
+export interface PassedNormalizationGateOutcome
+  extends NormalizationGateOutcomeBase {
+  status: 'passed'
+  candidate: CanonicalSourceCandidateReference
+}
+
+export interface NeedsEnrichmentNormalizationGateOutcome
+  extends NormalizationGateOutcomeBase {
+  status: 'needs_enrichment'
+  candidate: null
+}
+
+export interface RejectedNormalizationGateOutcome
+  extends NormalizationGateOutcomeBase {
+  status: 'rejected'
+  candidate: null
+}
+
+export interface FailedNormalizationGateOutcome
+  extends NormalizationGateOutcomeBase {
+  status: 'failed'
+  candidate: null
+}
+
+export type NormalizationGateOutcome =
+  | PassedNormalizationGateOutcome
+  | NeedsEnrichmentNormalizationGateOutcome
+  | RejectedNormalizationGateOutcome
+  | FailedNormalizationGateOutcome
+
+interface RawSourceNormalizationResultBase {
   rawRecordId: string
   rawRevisionId: string
-  status: NormalizationStatus
   canonicalSchemaVersion: string
   attempts: NormalizationAttempt[]
   fieldOutcomes: FieldResolutionOutcome[]
-  gate: NormalizationGateOutcome | null
-  canonicalCandidate: CanonicalSourceCandidate | null
   updatedAt: string
 }
+
+export type RawSourceNormalizationResult =
+  | (RawSourceNormalizationResultBase & {
+      status: 'pending' | 'in_progress' | 'blocked'
+      gate: null
+      canonicalCandidate: null
+    })
+  | (RawSourceNormalizationResultBase & {
+      status: 'completed'
+      gate: PassedNormalizationGateOutcome
+      canonicalCandidate: CanonicalSourceCandidate
+    })
+  | (RawSourceNormalizationResultBase & {
+      status: 'completed'
+      gate:
+        | NeedsEnrichmentNormalizationGateOutcome
+        | RejectedNormalizationGateOutcome
+      canonicalCandidate: null
+    })
+  | (RawSourceNormalizationResultBase & {
+      status: 'failed'
+      gate: FailedNormalizationGateOutcome | null
+      canonicalCandidate: null
+    })
 
 export interface ResolverVersionRef {
   resolverId: string
