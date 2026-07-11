@@ -40,7 +40,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json",
+    "lint": "oxlint . && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm lint && pnpm test && pnpm build",
     "test": "vitest run",
@@ -50,6 +50,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "oxlint": "^1.68.0",
     "typescript": "^5.2.2",
     "vitest": "^2.1.9"
   }
