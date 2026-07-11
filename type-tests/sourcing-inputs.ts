@@ -5,9 +5,15 @@ import type {
   SourcingFinding,
   SourcingFindingCanonicalProjection,
   SourcingFindingsListInput,
+  SourcingFindingsListResult,
   UpdateSourcingFindingInput,
 } from '../src/index.js'
 import { createSourcingFindingInputSchema } from '../src/index.js'
+import {
+  sourcingFindingSchema,
+  sourcingFindingsListResultSchema,
+  updateSourcingFindingInputSchema,
+} from '../src/index.js'
 
 type ProjectionOwnedFields = {
   destinationClass: 'employer_or_ats' | 'third_party_job_posting' | null
@@ -81,6 +87,19 @@ const seniorityIsExplicitWhenProjected: IsExact<
   | 'unknown'
   | undefined
 > = true
+const findingCountryIsNullable: IsExact<SourcingFinding['country'], string | null> = true
+const createCountryIsOptionalNullable: IsExact<
+  CreateSourcingFindingInput['country'],
+  string | null | undefined
+> = true
+const updateCountryIsOptionalNullable: IsExact<
+  UpdateSourcingFindingInput['country'],
+  string | null | undefined
+> = true
+
+declare const findingWithPossiblyUnknownCountry: SourcingFinding
+// @ts-expect-error Consumers must handle an explicitly unknown sourcing country.
+const definitelyKnownCountry: string = findingWithPossiblyUnknownCountry.country
 
 declare const legacyFindingBase: Omit<
   SourcingFinding,
@@ -111,6 +130,19 @@ const validCreate: CreateSourcingFindingInput = {
 
 const runtimeValidatedCreate: CreateSourcingFindingInput =
   createSourcingFindingInputSchema.parse(validCreate)
+declare const findingForRuntimeValidation: SourcingFinding
+const runtimeValidatedFinding: SourcingFinding =
+  sourcingFindingSchema.parse(findingForRuntimeValidation)
+const runtimeValidatedListResult: SourcingFindingsListResult =
+  sourcingFindingsListResultSchema.parse({
+    items: [findingForRuntimeValidation],
+    total: 1,
+    limit: 25,
+    offset: 0,
+    hasMore: false,
+  })
+const runtimeValidatedUpdate: UpdateSourcingFindingInput =
+  updateSourcingFindingInputSchema.parse({ findingId: 'finding-1', country: null })
 
 const invalidMergeStatusCreate: CreateSourcingFindingInput = {
   ...validCreate,
@@ -134,6 +166,16 @@ const canonicalCreate: CreateSourcingFindingInput = {
   location: null,
   compensation: null,
   postedAt: { value: null, precision: 'unknown', raw: null },
+}
+
+const explicitUnknownCountryCreate: CreateSourcingFindingInput = {
+  ...validCreate,
+  country: null,
+}
+
+const explicitUnknownCountryUpdate: UpdateSourcingFindingInput = {
+  findingId: 'finding-1',
+  country: null,
 }
 
 // @ts-expect-error Raw revision and canonical candidate lineage must travel together.
@@ -206,12 +248,21 @@ void rawRevisionLineageIsCompatibilityOptional
 void candidateLineageIsCompatibilityOptional
 void employmentTypeIsExplicitWhenProjected
 void seniorityIsExplicitWhenProjected
+void findingCountryIsNullable
+void createCountryIsOptionalNullable
+void updateCountryIsOptionalNullable
+void definitelyKnownCountry
 void impossiblePartialFindingRead
 void destinationClassFilterIsExact
 void usabilityFilterIsExact
 void spoofedCreate
 void canonicalCreate
+void explicitUnknownCountryCreate
+void explicitUnknownCountryUpdate
 void runtimeValidatedCreate
+void runtimeValidatedFinding
+void runtimeValidatedListResult
+void runtimeValidatedUpdate
 void invalidMergeStatusCreate
 void workspaceSpoofCreate
 void impossiblePartialLineage

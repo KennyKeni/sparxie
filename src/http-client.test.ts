@@ -16,6 +16,46 @@ function mockFetch(response: Response) {
   return fetchMock
 }
 
+function sourcingFindingPayload(country: unknown = null) {
+  return {
+    id: 'finding-1',
+    workflowRunId: 'workflow-run-1',
+    sourceId: 'source-1',
+    sourceName: 'Example',
+    companyName: 'Example Corp',
+    roleTitle: 'Software Engineer',
+    roleKind: 'full_time',
+    term: null,
+    terms: [],
+    timingMode: 'unknown',
+    startDate: null,
+    endDate: null,
+    city: null,
+    region: null,
+    country,
+    workMode: 'remote',
+    locationRaw: 'Remote',
+    officialUrl: null,
+    sourceUrl: null,
+    postedAge: null,
+    priorityScore: null,
+    priorityBand: null,
+    fitNotes: null,
+    duplicateNotes: null,
+    blocker: null,
+    policyBlocker: null,
+    dispositionReason: null,
+    mergeStatus: 'new',
+    mergedApplicationId: null,
+    mergedApplicationCompanyName: null,
+    mergedApplicationRoleTitle: null,
+    mergeNotes: null,
+    discoveredAt: '2026-07-11T14:00:00.000Z',
+    createdAt: '2026-07-11T14:00:00.000Z',
+    updatedAt: '2026-07-11T14:00:00.000Z',
+  }
+}
+
 describe('HTTP Valedictorian client', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -586,9 +626,17 @@ describe('HTTP Valedictorian client', () => {
 
   it('maps workflow run and sourcing finding methods to HTTP endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 10; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
       fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     }
+    const finding = sourcingFindingPayload('US')
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ items: [finding], total: 1, limit: 25, offset: 0, hasMore: false }),
+    )
+    for (let index = 0; index < 4; index += 1) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
@@ -843,13 +891,13 @@ describe('HTTP Valedictorian client', () => {
         raw: '$100k-$120k',
       },
       postedAt: {
-        value: '2026-07-11T00:00:00.000Z',
+        value: '2026-07-11',
         precision: 'date' as const,
         raw: '2026-07-11',
       },
     }
     const finding = {
-      id: 'finding-1',
+      ...sourcingFindingPayload('US'),
       ...canonicalProjection,
       workMode: 'hybrid' as const,
     }
@@ -900,6 +948,151 @@ describe('HTTP Valedictorian client', () => {
         method: 'POST',
       }),
     )
+  })
+
+  it('round-trips an explicitly unknown sourcing country without a sentinel', async () => {
+    const canonicalProjection = {
+      rawRevisionId: 'raw-revision-1',
+      canonicalCandidateId: 'candidate-1',
+      destination: null,
+      employmentType: 'unknown' as const,
+      seniority: 'unknown' as const,
+      location: { raw: 'Remote', city: null, region: null, country: null },
+      compensation: null,
+      postedAt: { value: null, precision: 'unknown' as const, raw: null },
+    }
+    const finding = {
+      id: 'finding-1',
+      workflowRunId: 'workflow-run-1',
+      sourceId: 'source-1',
+      sourceName: 'Example',
+      companyName: 'Example Corp',
+      roleTitle: 'Software Engineer',
+      roleKind: 'full_time' as const,
+      term: null,
+      terms: [],
+      timingMode: 'unknown' as const,
+      startDate: null,
+      endDate: null,
+      city: null,
+      region: null,
+      country: null,
+      workMode: 'remote' as const,
+      locationRaw: 'Remote',
+      officialUrl: null,
+      sourceUrl: null,
+      postedAge: null,
+      priorityScore: null,
+      priorityBand: null,
+      fitNotes: null,
+      duplicateNotes: null,
+      blocker: null,
+      policyBlocker: null,
+      dispositionReason: null,
+      mergeStatus: 'new' as const,
+      mergedApplicationId: null,
+      mergedApplicationCompanyName: null,
+      mergedApplicationRoleTitle: null,
+      mergeNotes: null,
+      discoveredAt: '2026-07-11T14:00:00.000Z',
+      createdAt: '2026-07-11T14:00:00.000Z',
+      updatedAt: '2026-07-11T14:00:00.000Z',
+      ...canonicalProjection,
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace-1')
+
+    await expect(
+      workspace.sourcing.findings.create({
+        workflowRunId: 'workflow-run-1',
+        companyName: 'Example Corp',
+        roleTitle: 'Software Engineer',
+        roleKind: 'full_time',
+        country: null,
+        workMode: 'remote',
+        ...canonicalProjection,
+      }),
+    ).resolves.toEqual(finding)
+    await expect(
+      workspace.sourcing.findings.update({ findingId: 'finding-1', country: null }),
+    ).resolves.toEqual(finding)
+    await expect(
+      workspace.sourcing.findings.update({ findingId: 'finding-1', priorityScore: 4 }),
+    ).resolves.toEqual(finding)
+
+    const createBody = JSON.parse(
+      String(fetchMock.mock.calls[0]?.[1]?.body),
+    ) as Record<string, unknown>
+    expect(createBody.country).toBeNull()
+    expect(createBody.location).toEqual({
+      raw: 'Remote',
+      city: null,
+      region: null,
+      country: null,
+    })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings/finding-1',
+      expect.objectContaining({
+        body: JSON.stringify({ country: null }),
+        method: 'PATCH',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/sourcing/findings/finding-1',
+      expect.objectContaining({
+        body: JSON.stringify({ priorityScore: 4 }),
+        method: 'PATCH',
+      }),
+    )
+  })
+
+  it('rejects invalid finding payloads from every finding response method', async () => {
+    const { country: _country, ...missingCountry } = sourcingFindingPayload()
+    const invalidCountry = sourcingFindingPayload(42)
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ items: [missingCountry], total: 1, limit: 25, offset: 0, hasMore: false }),
+    )
+    for (let index = 0; index < 4; index += 1) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(invalidCountry))
+    }
+    vi.stubGlobal('fetch', fetchMock)
+    const findings = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace-1').sourcing.findings
+
+    await expect(findings.list()).rejects.toThrow()
+    await expect(
+      findings.create({
+        workflowRunId: 'workflow-run-1',
+        companyName: 'Example Corp',
+        roleTitle: 'Software Engineer',
+        roleKind: 'full_time',
+        country: null,
+        workMode: 'remote',
+      }),
+    ).rejects.toThrow()
+    await expect(findings.update({ findingId: 'finding-1', country: null })).rejects.toThrow()
+    await expect(
+      findings.decide({ findingId: 'finding-1', mergeStatus: 'not_fit' }),
+    ).rejects.toThrow()
+    await expect(findings.promote({ findingId: 'finding-1' })).rejects.toThrow()
   })
 
   it('reads raw records and normalization results through encoded workspace paths', async () => {

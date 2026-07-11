@@ -15,7 +15,11 @@ import type {
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { ActionQueueListQuery } from './action-queue.js'
 import type { ScoreInput } from './scoring.js'
-import type { SourcingFindingsListInput } from './sourcing.js'
+import {
+  sourcingFindingSchema,
+  sourcingFindingsListResultSchema,
+  type SourcingFindingsListInput,
+} from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
 import { rawSourceReplayReceiptSchema } from './raw-sourcing.js'
 
@@ -701,38 +705,51 @@ export function createHttpValedictorianClient({
         },
       },
       findings: {
-        list(query) {
-          return request(pathFor(valedictorianApiPaths.sourcingFindings), {
+        async list(query) {
+          const result = await request(pathFor(valedictorianApiPaths.sourcingFindings), {
             query: sourcingFindingListQueryToSearchParams(query),
           })
+
+          return sourcingFindingsListResultSchema.parse(result)
         },
-        create(input) {
-          return request(pathFor(valedictorianApiPaths.sourcingFindings), {
+        async create(input) {
+          const finding = await request(pathFor(valedictorianApiPaths.sourcingFindings), {
             body: sourcingMutationBody(input),
             method: 'POST',
           })
+
+          return sourcingFindingSchema.parse(finding)
         },
-        update(input) {
+        async update(input) {
           const { findingId, ...body } = input
 
-          return request(pathFor(valedictorianApiPaths.sourcingFinding(findingId)), {
+          const finding = await request(pathFor(valedictorianApiPaths.sourcingFinding(findingId)), {
             body: sourcingMutationBody(body),
             method: 'PATCH',
           })
+
+          return sourcingFindingSchema.parse(finding)
         },
-        decide(input) {
+        async decide(input) {
           const { findingId, ...body } = input
 
-          return request(pathFor(valedictorianApiPaths.sourcingFindingDecide(findingId)), {
+          const finding = await request(pathFor(valedictorianApiPaths.sourcingFindingDecide(findingId)), {
             body: sourcingMutationBody(body),
             method: 'POST',
           })
+
+          return sourcingFindingSchema.parse(finding)
         },
-        promote(input) {
-          return request(pathFor(valedictorianApiPaths.sourcingFindingPromote(input.findingId)), {
-            body: {},
-            method: 'POST',
-          })
+        async promote(input) {
+          const finding = await request(
+            pathFor(valedictorianApiPaths.sourcingFindingPromote(input.findingId)),
+            {
+              body: {},
+              method: 'POST',
+            },
+          )
+
+          return sourcingFindingSchema.parse(finding)
         },
       },
     },

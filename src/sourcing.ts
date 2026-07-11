@@ -156,7 +156,7 @@ interface SourcingFindingBase {
   endDate: string | null
   city: string | null
   region: string | null
-  country: string
+  country: string | null
   workMode: WorkMode
   locationRaw: string | null
   officialUrl: string | null
@@ -183,6 +183,57 @@ interface SourcingFindingBase {
   updatedAt: string
 }
 
+const jobTermSchema = z
+  .object({
+    season: z.enum(jobSeasons),
+    year: z.number(),
+  })
+  .strict()
+
+const sourcingFindingBaseSchema = z
+  .object({
+    id: z.string(),
+    workflowRunId: z.string(),
+    sourceId: z.string(),
+    sourceName: z.string(),
+    companyName: z.string(),
+    roleTitle: z.string(),
+    roleKind: z.enum(roleKinds),
+    term: z.string().nullable(),
+    terms: z.array(jobTermSchema),
+    timingMode: z.enum(jobTimingModes),
+    startDate: z.string().nullable(),
+    endDate: z.string().nullable(),
+    city: z.string().nullable(),
+    region: z.string().nullable(),
+    country: z.string().nullable(),
+    workMode: z.enum(workModes),
+    locationRaw: z.string().nullable(),
+    officialUrl: z.string().nullable(),
+    sourceUrl: z.string().nullable(),
+    destinationClass: z.enum(sourcingDestinationClasses).nullable().optional(),
+    destinationUrl: z.string().nullable().optional(),
+    intermediaryUrl: z.string().nullable().optional(),
+    usability: z.enum(sourcingUsabilities).optional(),
+    postedAge: z.string().nullable(),
+    priorityScore: z.number().nullable(),
+    priorityBand: z.string().nullable(),
+    fitNotes: z.string().nullable(),
+    duplicateNotes: z.string().nullable(),
+    blocker: z.string().nullable(),
+    policyBlocker: z.string().nullable(),
+    dispositionReason: z.string().nullable(),
+    mergeStatus: z.enum(sourcingMergeStatuses),
+    mergedApplicationId: z.string().nullable(),
+    mergedApplicationCompanyName: z.string().nullable(),
+    mergedApplicationRoleTitle: z.string().nullable(),
+    mergeNotes: z.string().nullable(),
+    discoveredAt: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .strict()
+
 type LegacySourcingFindingCanonicalProjection = {
   [Key in Exclude<keyof SourcingFindingCanonicalProjection, 'workMode'>]?: never
 }
@@ -192,6 +243,11 @@ export type SourcingFinding = SourcingFindingBase &
     | SourcingFindingCanonicalProjection
     | LegacySourcingFindingCanonicalProjection
   )
+
+export const sourcingFindingSchema: z.ZodType<SourcingFinding> = z.union([
+  sourcingFindingBaseSchema.extend(sourcingFindingCanonicalProjectionSchema.shape).strict(),
+  sourcingFindingBaseSchema,
+])
 
 export interface SourcingFindingsListInput {
   workflowRunId?: string
@@ -212,6 +268,16 @@ export interface SourcingFindingsListResult {
   hasMore: boolean
 }
 
+export const sourcingFindingsListResultSchema: z.ZodType<SourcingFindingsListResult> = z
+  .object({
+    items: z.array(sourcingFindingSchema),
+    total: z.number(),
+    limit: z.number(),
+    offset: z.number(),
+    hasMore: z.boolean(),
+  })
+  .strict()
+
 /**
  * @deprecated Compatibility input for producers that already own canonical data.
  * New sourcing producers should use BatchRawSourceRecordsInput.
@@ -230,7 +296,7 @@ interface CreateSourcingFindingInputBase {
   endDate?: string | null
   city?: string | null
   region?: string | null
-  country?: string
+  country?: string | null
   workMode: WorkMode
   locationRaw?: string | null
   officialUrl?: string | null
@@ -269,14 +335,7 @@ const createSourcingFindingInputBaseSchema = z
     roleKind: z.enum(roleKinds),
     term: z.string().nullable().optional(),
     terms: z
-      .array(
-        z
-          .object({
-            season: z.enum(jobSeasons),
-            year: z.number(),
-          })
-          .strict(),
-      )
+      .array(jobTermSchema)
       .nullable()
       .optional(),
     timingMode: z.enum(jobTimingModes).optional(),
@@ -284,7 +343,7 @@ const createSourcingFindingInputBaseSchema = z
     endDate: z.string().nullable().optional(),
     city: z.string().nullable().optional(),
     region: z.string().nullable().optional(),
-    country: z.string().optional(),
+    country: z.string().nullable().optional(),
     workMode: z.enum(workModes),
     locationRaw: z.string().nullable().optional(),
     officialUrl: z.string().nullable().optional(),
@@ -333,7 +392,7 @@ export interface UpdateSourcingFindingInput {
   endDate?: string | null
   city?: string | null
   region?: string | null
-  country?: string
+  country?: string | null
   workMode?: WorkMode
   locationRaw?: string | null
   officialUrl?: string | null
@@ -349,6 +408,39 @@ export interface UpdateSourcingFindingInput {
   mergeStatus?: WritableSourcingMergeStatus
   mergeNotes?: string | null
 }
+
+export const updateSourcingFindingInputSchema: z.ZodType<UpdateSourcingFindingInput> = z
+  .object({
+    findingId: z.string().min(1),
+    sourceId: z.string().nullable().optional(),
+    sourceName: z.string().nullable().optional(),
+    companyName: z.string().min(1).optional(),
+    roleTitle: z.string().min(1).optional(),
+    roleKind: z.enum(roleKinds).optional(),
+    term: z.string().nullable().optional(),
+    terms: z.array(jobTermSchema).nullable().optional(),
+    timingMode: z.enum(jobTimingModes).optional(),
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    region: z.string().nullable().optional(),
+    country: z.string().nullable().optional(),
+    workMode: z.enum(workModes).optional(),
+    locationRaw: z.string().nullable().optional(),
+    officialUrl: z.string().nullable().optional(),
+    sourceUrl: z.string().nullable().optional(),
+    postedAge: z.string().nullable().optional(),
+    priorityScore: z.number().nullable().optional(),
+    priorityBand: z.string().nullable().optional(),
+    fitNotes: z.string().nullable().optional(),
+    duplicateNotes: z.string().nullable().optional(),
+    blocker: z.string().nullable().optional(),
+    policyBlocker: z.string().nullable().optional(),
+    dispositionReason: z.string().nullable().optional(),
+    mergeStatus: z.enum(writableSourcingMergeStatuses).optional(),
+    mergeNotes: z.string().nullable().optional(),
+  })
+  .strict()
 
 export interface PromoteSourcingFindingInput {
   findingId: string
