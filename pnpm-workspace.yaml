@@ -1,5 +1,9 @@
 packages:
   - .
 
+minimumReleaseAgeExclude:
+  - sparxie
+  - '@sparxie/*'
+
 allowBuilds:
   esbuild: true
