@@ -147,7 +147,7 @@ export function isSourcingUsability(value: string): value is SourcingUsability {
   return (sourcingUsabilities as readonly string[]).includes(value)
 }
 
-export interface SourcingFinding extends Partial<SourcingFindingCanonicalProjection> {
+interface SourcingFindingBase {
   id: string
   workflowRunId: string
   sourceId: string
@@ -188,6 +188,16 @@ export interface SourcingFinding extends Partial<SourcingFindingCanonicalProject
   createdAt: string
   updatedAt: string
 }
+
+type LegacySourcingFindingCanonicalProjection = {
+  [Key in Exclude<keyof SourcingFindingCanonicalProjection, 'workMode'>]?: never
+}
+
+export type SourcingFinding = SourcingFindingBase &
+  (
+    | SourcingFindingCanonicalProjection
+    | LegacySourcingFindingCanonicalProjection
+  )
 
 export interface SourcingFindingsListInput {
   workflowRunId?: string

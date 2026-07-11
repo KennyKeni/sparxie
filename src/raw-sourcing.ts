@@ -129,12 +129,10 @@ export type RawSourceRecordInput = RawSourceRecordInputBase &
          * Server-bound connector references. The workspace and adapter identity
          * are derived from the request route and registered connector instance.
          */
-        capture?: ConnectorCaptureReference
+        capture: ConnectorCaptureReference
       }
     | {
-        adapter: SourceAdapterProvenance & {
-          kind: Exclude<SourceAdapterKind, 'connector'>
-        }
+        adapter: SourceAdapterProvenance
         capture?: never
       }
   )

@@ -3,6 +3,7 @@ import type {
   ProcessSourcingCandidateInput,
   SetSourcingFindingDecisionInput,
   SourcingFinding,
+  SourcingFindingCanonicalProjection,
   SourcingFindingsListInput,
   UpdateSourcingFindingInput,
 } from '../src/index.js'
@@ -79,6 +80,17 @@ const seniorityIsExplicitWhenProjected: IsExact<
   | 'unknown'
   | undefined
 > = true
+
+declare const legacyFindingBase: Omit<
+  SourcingFinding,
+  Exclude<keyof SourcingFindingCanonicalProjection, 'workMode'>
+>
+
+// @ts-expect-error Finding reads carry either no canonical projection or all of it.
+const impossiblePartialFindingRead: SourcingFinding = {
+  ...legacyFindingBase,
+  rawRevisionId: 'raw-revision-1',
+}
 const destinationClassFilterIsExact: IsExact<
   SourcingFindingsListInput['destinationClass'],
   Exclude<ProjectionOwnedFields['destinationClass'], null> | undefined
@@ -178,6 +190,7 @@ void rawRevisionLineageIsCompatibilityOptional
 void candidateLineageIsCompatibilityOptional
 void employmentTypeIsExplicitWhenProjected
 void seniorityIsExplicitWhenProjected
+void impossiblePartialFindingRead
 void destinationClassFilterIsExact
 void usabilityFilterIsExact
 void spoofedCreate

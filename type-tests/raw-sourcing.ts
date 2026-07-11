@@ -11,6 +11,7 @@ import type {
   RawSourceRecordInput,
   RawSourceReplayReceipt,
   ResolverDeclaration,
+  SourceAdapterProvenance,
   ValedictorianClient,
 } from '../src/index.js'
 
@@ -39,6 +40,13 @@ const candidateReferenceCarriesSourceEntity: IsExact<
 
 const sparseCliIntake: RawSourceRecordInput = {
   adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
+  observedAt: '2026-07-10T14:00:00.000Z',
+}
+
+declare const broadlyTypedLegacyAdapter: SourceAdapterProvenance
+
+const uncapturedLegacyIntake: RawSourceRecordInput = {
+  adapter: broadlyTypedLegacyAdapter,
   observedAt: '2026-07-10T14:00:00.000Z',
 }
 
@@ -73,6 +81,7 @@ const spoofedCaptureWorkspace: RawSourceRecordInput = {
 }
 
 void connectorCaptureIntake
+void uncapturedLegacyIntake
 void spoofedCaptureAdapter
 void spoofedCaptureWorkspace
 
