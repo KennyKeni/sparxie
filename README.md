@@ -53,6 +53,46 @@ finding create, update, decision, and candidate-processing inputs cannot set
 these projection-owned properties, and the HTTP client strips them from
 untyped mutation payloads.
 
+## Raw sourcing intake
+
+New sourcing producers submit sparse observations through the workspace-scoped
+raw intake contract:
+
+```ts
+await workspace.sourcing.rawRecords.ingestBatch({
+  records: [
+    {
+      adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
+      observedAt: new Date().toISOString(),
+      reportedOrigin: { kind: 'job_board', name: 'LinkedIn' },
+      payload: { url: 'https://www.linkedin.com/jobs/view/123' },
+    },
+  ],
+})
+```
+
+`adapter` records how data entered Valedictorian; `reportedOrigin` records where
+the job was observed. Raw records may omit provider identity and every canonical
+job field. Payload and evidence values are JSON-safe and use the exported
+`MAX_RAW_SOURCE_*` transport limits. Read the immutable record/receipt with
+`rawRecords.get`, read normalization and gate outcomes with
+`rawRecords.normalization.get`, and request version-targeted reprocessing with
+`rawRecords.replay`.
+
+Intake receipts and raw-record reads expose the nullable source-entity identity;
+promoted canonical-candidate references always identify their source entity.
+Gate outcomes are `passed`, `needs_enrichment`, `rejected`, or `failed`.
+Canonical candidates use explicit `unknown` employment/seniority and `unclear`
+work-mode values instead of nullable enums, while optional structured location
+and compensation facts may be `null`.
+
+The existing `sourcing.candidates.process` and `sourcing.findings.create`
+methods remain wire-compatible for consumers that already produce canonical
+data, but are deprecated as producer entry points. Finding reads and lifecycle
+operations remain supported. New CLI, connector, manual-entry, and import
+producers should use raw intake so normalization evidence and gate decisions are
+auditable.
+
 ## Development
 
 ```sh
