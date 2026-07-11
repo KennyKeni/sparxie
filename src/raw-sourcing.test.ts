@@ -43,7 +43,126 @@ const completeCanonicalCandidate = {
   observedAt: '2026-07-11T14:00:00.000Z',
 } as const
 
+const completeAttemptOutcome = {
+  resolverId: 'resolver-1',
+  resolverVersion: '1.0.0',
+  field: 'companyName',
+  inputHash: 'sha256:input',
+  status: 'resolved',
+  value: 'Example Corp',
+  confidence: 1,
+} as const
+
+const completeNormalizationAttempt = {
+  id: 'attempt-1',
+  rawRevisionId: 'revision-1',
+  resolver: {
+    id: 'resolver-1',
+    version: '1.0.0',
+    requiredInputs: [],
+    outputFields: ['companyName'],
+    capabilities: ['pure'],
+    costClass: 'none',
+    precedence: 1,
+  },
+  inputHash: 'sha256:input',
+  status: 'completed',
+  applicability: [
+    {
+      resolverId: 'resolver-1',
+      resolverVersion: '1.0.0',
+      field: 'companyName',
+      inputHash: 'sha256:input',
+      status: 'applicable',
+    },
+  ],
+  startedAt: '2026-07-11T14:00:00.000Z',
+  completedAt: '2026-07-11T14:00:01.000Z',
+  outcomes: [completeAttemptOutcome],
+} as const
+
+function normalizationResultWithAttempt(attempt: unknown) {
+  return {
+    rawRecordId: 'raw-1',
+    rawRevisionId: 'revision-1',
+    canonicalSchemaVersion: 'candidate/v1',
+    attempts: [attempt],
+    fieldOutcomes: [completeAttemptOutcome],
+    updatedAt: '2026-07-11T14:00:01.000Z',
+    status: 'pending',
+    gate: null,
+    canonicalCandidate: null,
+  }
+}
+
 describe('raw sourcing public contract', () => {
+  it('rejects applicability that mismatches its parent resolver or input lineage', () => {
+    for (const applicability of [
+      {
+        ...completeNormalizationAttempt.applicability[0],
+        resolverId: 'resolver-2',
+      },
+      {
+        ...completeNormalizationAttempt.applicability[0],
+        resolverVersion: '2.0.0',
+      },
+      {
+        ...completeNormalizationAttempt.applicability[0],
+        inputHash: 'sha256:other-input',
+      },
+    ]) {
+      expect(
+        rawSourceNormalizationResultSchema.safeParse(
+          normalizationResultWithAttempt({
+            ...completeNormalizationAttempt,
+            applicability: [applicability],
+          }),
+        ).success,
+      ).toBe(false)
+    }
+  })
+
+  it('rejects outcomes that mismatch their parent resolver or input lineage', () => {
+    for (const outcome of [
+      { ...completeAttemptOutcome, resolverId: 'resolver-2' },
+      { ...completeAttemptOutcome, resolverVersion: '2.0.0' },
+      { ...completeAttemptOutcome, inputHash: 'sha256:other-input' },
+    ]) {
+      expect(
+        rawSourceNormalizationResultSchema.safeParse(
+          normalizationResultWithAttempt({
+            ...completeNormalizationAttempt,
+            outcomes: [outcome],
+          }),
+        ).success,
+      ).toBe(false)
+    }
+  })
+
+  it('rejects applicability and outcomes for undeclared resolver output fields', () => {
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        normalizationResultWithAttempt({
+          ...completeNormalizationAttempt,
+          applicability: [
+            {
+              ...completeNormalizationAttempt.applicability[0],
+              field: 'roleTitle',
+            },
+          ],
+        }),
+      ).success,
+    ).toBe(false)
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        normalizationResultWithAttempt({
+          ...completeNormalizationAttempt,
+          outcomes: [{ ...completeAttemptOutcome, field: 'roleTitle' }],
+        }),
+      ).success,
+    ).toBe(false)
+  })
+
   it('rejects an incomplete failed normalization result', () => {
     expect(
       rawSourceNormalizationResultSchema.safeParse({
@@ -184,6 +303,12 @@ describe('raw sourcing public contract', () => {
   })
 
   it('validates complete attempt and field-outcome structures', () => {
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        normalizationResultWithAttempt(completeNormalizationAttempt),
+      ).success,
+    ).toBe(true)
+
     const outcome = {
       resolverId: 'resolver-1',
       resolverVersion: '1.0.0',

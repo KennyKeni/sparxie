@@ -916,12 +916,57 @@ export const rawSourceNormalizationResultSchema: z.ZodType<RawSourceNormalizatio
     nonPassingRawSourceNormalizationResultSchema,
   ])
   .superRefine((result, context) => {
-    if (result.attempts.some((attempt) => attempt.rawRevisionId !== result.rawRevisionId)) {
-      context.addIssue({
-        code: 'custom',
-        message: 'normalization attempts must match the result raw revision',
-        path: ['attempts'],
-      })
+    for (const [attemptIndex, attempt] of result.attempts.entries()) {
+      if (attempt.rawRevisionId !== result.rawRevisionId) {
+        context.addIssue({
+          code: 'custom',
+          message: 'normalization attempts must match the result raw revision',
+          path: ['attempts', attemptIndex, 'rawRevisionId'],
+        })
+      }
+
+      for (const [applicabilityIndex, applicability] of
+        (attempt.applicability ?? []).entries()) {
+        if (
+          applicability.resolverId !== attempt.resolver.id ||
+          applicability.resolverVersion !== attempt.resolver.version ||
+          applicability.inputHash !== attempt.inputHash
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message: 'applicability must match its parent resolver and input lineage',
+            path: ['attempts', attemptIndex, 'applicability', applicabilityIndex],
+          })
+        }
+        if (!attempt.resolver.outputFields.includes(applicability.field)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'applicability field must be declared by its parent resolver',
+            path: ['attempts', attemptIndex, 'applicability', applicabilityIndex, 'field'],
+          })
+        }
+      }
+
+      for (const [outcomeIndex, outcome] of attempt.outcomes.entries()) {
+        if (
+          outcome.resolverId !== attempt.resolver.id ||
+          outcome.resolverVersion !== attempt.resolver.version ||
+          outcome.inputHash !== attempt.inputHash
+        ) {
+          context.addIssue({
+            code: 'custom',
+            message: 'outcome must match its parent resolver and input lineage',
+            path: ['attempts', attemptIndex, 'outcomes', outcomeIndex],
+          })
+        }
+        if (!attempt.resolver.outputFields.includes(outcome.field)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'outcome field must be declared by its parent resolver',
+            path: ['attempts', attemptIndex, 'outcomes', outcomeIndex, 'field'],
+          })
+        }
+      }
     }
 
     if (
