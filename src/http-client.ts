@@ -12,6 +12,10 @@ import type {
   ConnectorObservationsListInput,
   ConnectorRunsListInput,
 } from './connector.js'
+import {
+  connectorRunsListResultSchema,
+  connectorRunSummarySchema,
+} from './connector.js'
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { ActionQueueListQuery } from './action-queue.js'
 import type { ScoreInput } from './scoring.js'
@@ -21,7 +25,10 @@ import {
   type SourcingFindingsListInput,
 } from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
-import { rawSourceReplayReceiptSchema } from './raw-sourcing.js'
+import {
+  rawSourceNormalizationResultSchema,
+  rawSourceReplayReceiptSchema,
+} from './raw-sourcing.js'
 
 export interface HttpValedictorianClientOptions {
   baseUrl?: string
@@ -505,20 +512,28 @@ export function createHttpValedictorianClient({
         return request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId)))
       },
       runs: {
-        list(input) {
+        async list(input) {
           const { connectorInstanceId, ...query } = input
 
-          return request(pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)), {
-            query: connectorRunListQueryToSearchParams(query),
-          })
+          return connectorRunsListResultSchema.parse(
+            await request(
+              pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)),
+              { query: connectorRunListQueryToSearchParams(query) },
+            ),
+          )
         },
-        trigger(input) {
+        async trigger(input) {
           const { connectorInstanceId, ...body } = input
 
-          return request(pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)), {
-            body,
-            method: 'POST',
-          })
+          return connectorRunSummarySchema.parse(
+            await request(
+              pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)),
+              {
+                body,
+                method: 'POST',
+              },
+            ),
+          )
         },
       },
       checkpoints: {
@@ -689,9 +704,13 @@ export function createHttpValedictorianClient({
           return rawSourceReplayReceiptSchema.parse(receipt)
         },
         normalization: {
-          get(rawRecordId) {
-            return request(
-              pathFor(valedictorianApiPaths.sourcingRawRecordNormalization(rawRecordId)),
+          async get(rawRecordId) {
+            return rawSourceNormalizationResultSchema.parse(
+              await request(
+                pathFor(
+                  valedictorianApiPaths.sourcingRawRecordNormalization(rawRecordId),
+                ),
+              ),
             )
           },
         },

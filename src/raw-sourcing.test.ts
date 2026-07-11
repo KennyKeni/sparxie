@@ -96,6 +96,111 @@ function normalizationResultWithAttempt(attempt: unknown) {
 }
 
 describe('raw sourcing public contract', () => {
+  it('uses the shared typed retry advice for normalization field outcomes', () => {
+    const retryOutcome = {
+      resolverId: completeAttemptOutcome.resolverId,
+      resolverVersion: completeAttemptOutcome.resolverVersion,
+      field: completeAttemptOutcome.field,
+      inputHash: completeAttemptOutcome.inputHash,
+      status: 'retry',
+      retry: {
+        state: 'scheduled',
+        reason: 'network_interruption',
+        attempt: 1,
+        maxAttempts: 4,
+        lastAttemptAt: '2026-07-11T14:00:00.000Z',
+        computedDelayMs: 30_000,
+        serverMinimumDelayMs: null,
+        nextAttemptAt: '2026-07-11T14:00:30.000Z',
+        horizonAt: '2026-07-11T15:00:00.000Z',
+      },
+    }
+
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        normalizationResultWithAttempt({
+          ...completeNormalizationAttempt,
+          outcomes: [retryOutcome],
+        }),
+      ).success,
+    ).toBe(true)
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        normalizationResultWithAttempt({
+          ...completeNormalizationAttempt,
+          outcomes: [
+            {
+              resolverId: completeAttemptOutcome.resolverId,
+              resolverVersion: completeAttemptOutcome.resolverVersion,
+              field: completeAttemptOutcome.field,
+              inputHash: completeAttemptOutcome.inputHash,
+              status: 'retry',
+              reason: 'network_interruption',
+              retryAfter: '2026-07-11T14:00:30.000Z',
+            },
+          ],
+        }),
+      ).success,
+    ).toBe(false)
+  })
+
+  it('keeps schedulable and terminal normalization outcomes distinct', () => {
+    const baseOutcome = {
+      resolverId: completeAttemptOutcome.resolverId,
+      resolverVersion: completeAttemptOutcome.resolverVersion,
+      field: completeAttemptOutcome.field,
+      inputHash: completeAttemptOutcome.inputHash,
+    }
+    const terminalTiming = {
+      reason: 'operation_timeout',
+      attempt: 4,
+      maxAttempts: 4,
+      lastAttemptAt: '2026-07-11T14:59:00.000Z',
+      computedDelayMs: 120_000,
+      nextAttemptAt: null,
+      horizonAt: '2026-07-11T15:00:00.000Z',
+    }
+    const resultWithOutcome = (outcome: unknown) => ({
+      rawRecordId: 'raw-1',
+      rawRevisionId: 'revision-1',
+      canonicalSchemaVersion: 'candidate/v1',
+      attempts: [],
+      fieldOutcomes: [outcome],
+      updatedAt: '2026-07-11T15:00:00.000Z',
+      status: 'pending',
+      gate: null,
+      canonicalCandidate: null,
+    })
+    const exhausted = { state: 'exhausted', ...terminalTiming }
+    const cancelled = { state: 'cancelled', ...terminalTiming }
+
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        resultWithOutcome({ ...baseOutcome, status: 'retry', retry: exhausted }),
+      ).success,
+    ).toBe(false)
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        resultWithOutcome({ ...baseOutcome, status: 'exhausted', retry: exhausted }),
+      ).success,
+    ).toBe(true)
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        resultWithOutcome({ ...baseOutcome, status: 'cancelled', retry: cancelled }),
+      ).success,
+    ).toBe(true)
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        resultWithOutcome({ ...baseOutcome, status: 'exhausted', retry: cancelled }),
+      ).success,
+    ).toBe(false)
+    expect(
+      rawSourceNormalizationResultSchema.safeParse(
+        resultWithOutcome({ ...baseOutcome, status: 'cancelled', retry: exhausted }),
+      ).success,
+    ).toBe(false)
+  })
+
   it('rejects applicability that mismatches its parent resolver or input lineage', () => {
     for (const applicability of [
       {
@@ -767,6 +872,8 @@ describe('raw sourcing public contract', () => {
       'abstained',
       'blocked',
       'retry',
+      'exhausted',
+      'cancelled',
       'rejected',
       'conflict',
       'failed',

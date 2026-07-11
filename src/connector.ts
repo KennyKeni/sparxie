@@ -1,3 +1,6 @@
+import { z } from 'zod'
+import { retryAdviceSchema, type RetryAdvice } from './retry.js'
+
 export const connectorAuthModes = [
   'none',
   'api_key',
@@ -140,10 +143,48 @@ export interface ConnectorRunSummary {
   warningCount: number
   stats: unknown
   warnings: ConnectorWarning[]
-  retryHints: unknown
+  retryHints: RetryAdvice | null
   startedAt: string
   completedAt: string | null
 }
+
+const connectorWarningSchema = z
+  .object({
+    code: z.string(),
+    label: z.string().nullable(),
+    message: z.string(),
+    severity: z.enum(connectorStatusSeverities),
+  })
+  .strict()
+
+export const connectorRunSummarySchema: z.ZodType<ConnectorRunSummary> = z
+  .object({
+    id: z.string(),
+    connectorInstanceId: z.string(),
+    mode: z.string(),
+    status: z.string(),
+    coverage: z
+      .object({ start: z.string().nullable(), end: z.string().nullable() })
+      .strict(),
+    filterSignature: z.string(),
+    observationCount: z.number(),
+    warningCount: z.number(),
+    stats: z.unknown(),
+    warnings: z.array(connectorWarningSchema),
+    retryHints: retryAdviceSchema.nullable(),
+    startedAt: z.string(),
+    completedAt: z.string().nullable(),
+  })
+  .strict()
+  .superRefine((run, context) => {
+    if (run.retryHints?.state === 'not_due' && run.status !== 'skipped') {
+      context.addIssue({
+        code: 'custom',
+        message: 'not-due connector runs must use the skipped status',
+        path: ['status'],
+      })
+    }
+  })
 
 export interface ConnectorCheckpoint {
   connectorInstanceId: string
@@ -234,6 +275,16 @@ export interface ConnectorRunsListResult {
   offset: number
   hasMore: boolean
 }
+
+export const connectorRunsListResultSchema: z.ZodType<ConnectorRunsListResult> = z
+  .object({
+    items: z.array(connectorRunSummarySchema),
+    total: z.number().int().nonnegative(),
+    limit: z.number().int().nonnegative(),
+    offset: z.number().int().nonnegative(),
+    hasMore: z.boolean(),
+  })
+  .strict()
 
 export interface TriggerConnectorRunInput {
   connectorInstanceId: string

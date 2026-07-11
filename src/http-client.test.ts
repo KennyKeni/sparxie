@@ -132,10 +132,170 @@ describe('HTTP Valedictorian client', () => {
     expect(client).not.toHaveProperty('secrets')
   })
 
+  it('rejects malformed connector retry advice returned by the server', async () => {
+    mockFetch(
+      jsonResponse({
+        id: 'run-1',
+        connectorInstanceId: 'connector-1',
+        mode: 'manual',
+        status: 'skipped',
+        coverage: { start: null, end: null },
+        filterSignature: 'all',
+        observationCount: 0,
+        warningCount: 0,
+        stats: null,
+        warnings: [],
+        retryHints: {
+          state: 'not_due',
+          reason: 'auth',
+          attempt: 1,
+          maxAttempts: 4,
+          lastAttemptAt: '2026-07-11T14:00:00.000Z',
+          computedDelayMs: 30_000,
+          nextAttemptAt: '2026-07-11T14:00:30.000Z',
+          horizonAt: '2026-07-11T15:00:00.000Z',
+        },
+        startedAt: '2026-07-11T14:00:01.000Z',
+        completedAt: '2026-07-11T14:00:01.000Z',
+      }),
+    )
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    })
+
+    await expect(
+      client.forWorkspace('workspace-1').connectors.runs.trigger({
+        connectorInstanceId: 'connector-1',
+        mode: 'manual',
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('round-trips a workspace-scoped skipped not-due connector run', async () => {
+    const payload = {
+      id: 'run-2',
+      connectorInstanceId: 'connector-1',
+      mode: 'manual',
+      status: 'skipped',
+      coverage: { start: null, end: null },
+      filterSignature: 'all',
+      observationCount: 0,
+      warningCount: 0,
+      stats: null,
+      warnings: [],
+      retryHints: {
+        state: 'not_due',
+        reason: 'server_failure',
+        attempt: 2,
+        maxAttempts: 4,
+        lastAttemptAt: '2026-07-11T14:00:00.000Z',
+        computedDelayMs: 30_000,
+        nextAttemptAt: '2026-07-11T14:00:30.000Z',
+        horizonAt: '2026-07-11T15:00:00.000Z',
+      },
+      startedAt: '2026-07-11T14:00:01.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...payload, status: 'completed' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    })
+    const workspace = client.forWorkspace('workspace 1')
+
+    await expect(
+      workspace.connectors.runs.trigger({
+        connectorInstanceId: 'connector/1',
+        mode: 'manual',
+      }),
+    ).resolves.toEqual(payload)
+    await expect(
+      workspace.connectors.runs.trigger({
+        connectorInstanceId: 'connector/1',
+        mode: 'manual',
+      }),
+    ).rejects.toThrow()
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://valedictorian.test/v1/workspaces/workspace%201/connectors/connector%2F1/runs',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('validates retry advice in connector run list responses', async () => {
+    mockFetch(
+      jsonResponse({
+        items: [
+          {
+            id: 'run-1',
+            connectorInstanceId: 'connector-1',
+            mode: 'scheduled',
+            status: 'failed',
+            coverage: { start: null, end: null },
+            filterSignature: 'all',
+            observationCount: 0,
+            warningCount: 0,
+            stats: null,
+            warnings: [],
+            retryHints: {
+              state: 'scheduled',
+              reason: 'network_interruption',
+              attempt: 4,
+              maxAttempts: 4,
+              lastAttemptAt: '2026-07-11T14:00:00.000Z',
+              computedDelayMs: 30_000,
+              nextAttemptAt: '2026-07-11T14:00:30.000Z',
+              horizonAt: '2026-07-11T15:00:00.000Z',
+            },
+            startedAt: '2026-07-11T14:00:00.000Z',
+            completedAt: '2026-07-11T14:00:01.000Z',
+          },
+        ],
+        total: 1,
+        limit: 25,
+        offset: 0,
+        hasMore: false,
+      }),
+    )
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    })
+
+    await expect(
+      client.forWorkspace('workspace-1').connectors.runs.list({
+        connectorInstanceId: 'connector-1',
+      }),
+    ).rejects.toThrow()
+  })
+
   it('maps connector methods to workspace-scoped HTTP endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 7; index += 1) {
-      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    const run = {
+      id: 'run-1',
+      connectorInstanceId: 'jobright/session 1',
+      mode: 'manual',
+      status: 'completed',
+      coverage: { start: null, end: null },
+      filterSignature: 'internships',
+      observationCount: 0,
+      warningCount: 0,
+      stats: null,
+      warnings: [],
+      retryHints: null,
+      startedAt: '2026-07-11T14:00:00.000Z',
+      completedAt: '2026-07-11T14:00:01.000Z',
+    }
+    for (const response of [
+      { ok: true },
+      { ok: true },
+      { ok: true },
+      { ok: true },
+      run,
+      { items: [run], total: 1, limit: 25, offset: 5, hasMore: false },
+      { ok: true },
+    ]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(response))
     }
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
@@ -1099,7 +1259,17 @@ describe('HTTP Valedictorian client', () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ rawRecordId: 'raw/record 1' }))
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ rawRecordId: 'raw/record 1', status: 'completed' }),
+      jsonResponse({
+        rawRecordId: 'raw/record 1',
+        rawRevisionId: 'revision-1',
+        canonicalSchemaVersion: 'candidate/v1',
+        attempts: [],
+        fieldOutcomes: [],
+        updatedAt: '2026-07-11T14:00:01.000Z',
+        status: 'pending',
+        gate: null,
+        canonicalCandidate: null,
+      }),
     )
     vi.stubGlobal('fetch', fetchMock)
     const workspace = createHttpValedictorianClient({
@@ -1119,6 +1289,47 @@ describe('HTTP Valedictorian client', () => {
       'http://127.0.0.1:4317/v1/workspaces/workspace%2Fone/sourcing/raw-records/raw%2Frecord%201/normalization',
       expect.objectContaining({ method: 'GET' }),
     )
+  })
+
+  it('rejects malformed normalization retry outcomes returned by the server', async () => {
+    mockFetch(
+      jsonResponse({
+        rawRecordId: 'raw-1',
+        rawRevisionId: 'revision-1',
+        canonicalSchemaVersion: 'candidate/v1',
+        attempts: [],
+        fieldOutcomes: [
+          {
+            resolverId: 'resolver-1',
+            resolverVersion: '1.0.0',
+            field: 'companyName',
+            inputHash: 'sha256:input',
+            status: 'retry',
+            retry: {
+              state: 'scheduled',
+              reason: 'captcha',
+              attempt: 1,
+              maxAttempts: 4,
+              lastAttemptAt: '2026-07-11T14:00:00.000Z',
+              computedDelayMs: 30_000,
+              nextAttemptAt: '2026-07-11T14:00:30.000Z',
+              horizonAt: '2026-07-11T15:00:00.000Z',
+            },
+          },
+        ],
+        updatedAt: '2026-07-11T14:00:01.000Z',
+        status: 'pending',
+        gate: null,
+        canonicalCandidate: null,
+      }),
+    )
+    const workspace = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1')
+
+    await expect(
+      workspace.sourcing.rawRecords.normalization.get('raw-1'),
+    ).rejects.toThrow()
   })
 
   it('replays precise invalidations with version selectors and field directives', async () => {
