@@ -3,6 +3,10 @@ import {
   canonicalDateOnlySchema,
   type CanonicalDateOnly,
 } from './canonical-date.js'
+import {
+  connectorRunScheduleOccurrenceLinkSchema,
+  type ConnectorRunScheduleOccurrenceLink,
+} from './connector-schedule.js'
 import { retryAdviceSchema, type RetryAdvice } from './retry.js'
 
 export const connectorAuthModes = [
@@ -137,10 +141,9 @@ export interface ConnectorStatusSummary {
   warnings: ConnectorWarning[]
 }
 
-export interface ConnectorRunSummary {
+export interface ConnectorRunSummaryBase {
   id: string
   connectorInstanceId: string
-  mode: ConnectorRunMode | string
   status: ConnectorRunStatus | string
   coverage: ConnectorCoverageWindow
   filterSignature: string
@@ -153,6 +156,20 @@ export interface ConnectorRunSummary {
   completedAt: string | null
 }
 
+export type ConnectorRunSummary =
+  | (ConnectorRunSummaryBase & {
+      mode: 'manual'
+      scheduleOccurrence: null
+    })
+  | (ConnectorRunSummaryBase & {
+      mode: 'scheduled'
+      scheduleOccurrence: ConnectorRunScheduleOccurrenceLink & { admittedMode: 'scheduled' }
+    })
+  | (ConnectorRunSummaryBase & {
+      mode: 'catch_up'
+      scheduleOccurrence: ConnectorRunScheduleOccurrenceLink & { admittedMode: 'catch_up' }
+    })
+
 const connectorWarningSchema = z
   .object({
     code: z.string(),
@@ -162,34 +179,71 @@ const connectorWarningSchema = z
   })
   .strict()
 
+const connectorRunSummaryBaseShape = {
+  id: z.string(),
+  connectorInstanceId: z.string(),
+  status: z.string(),
+  coverage: z
+    .object({ start: z.string().nullable(), end: z.string().nullable() })
+    .strict(),
+  filterSignature: z.string(),
+  observationCount: z.number(),
+  warningCount: z.number(),
+  stats: z.unknown(),
+  warnings: z.array(connectorWarningSchema),
+  retryHints: retryAdviceSchema.nullable(),
+  startedAt: z.string(),
+  completedAt: z.string().nullable(),
+}
+
+function refineNotDueSkippedStatus(
+  run: { retryHints: RetryAdvice | null; status: string },
+  context: z.RefinementCtx,
+) {
+  if (run.retryHints?.state === 'not_due' && run.status !== 'skipped') {
+    context.addIssue({
+      code: 'custom',
+      message: 'not-due connector runs must use the skipped status',
+      path: ['status'],
+    })
+  }
+}
+
+const scheduledOccurrenceLinkSchema = connectorRunScheduleOccurrenceLinkSchema.and(
+  z.object({ admittedMode: z.literal('scheduled') }).strict(),
+)
+
+const catchUpOccurrenceLinkSchema = connectorRunScheduleOccurrenceLinkSchema.and(
+  z.object({ admittedMode: z.literal('catch_up') }).strict(),
+)
+
 export const connectorRunSummarySchema: z.ZodType<ConnectorRunSummary> = z
-  .object({
-    id: z.string(),
-    connectorInstanceId: z.string(),
-    mode: z.string(),
-    status: z.string(),
-    coverage: z
-      .object({ start: z.string().nullable(), end: z.string().nullable() })
-      .strict(),
-    filterSignature: z.string(),
-    observationCount: z.number(),
-    warningCount: z.number(),
-    stats: z.unknown(),
-    warnings: z.array(connectorWarningSchema),
-    retryHints: retryAdviceSchema.nullable(),
-    startedAt: z.string(),
-    completedAt: z.string().nullable(),
-  })
-  .strict()
-  .superRefine((run, context) => {
-    if (run.retryHints?.state === 'not_due' && run.status !== 'skipped') {
-      context.addIssue({
-        code: 'custom',
-        message: 'not-due connector runs must use the skipped status',
-        path: ['status'],
+  .discriminatedUnion('mode', [
+    z
+      .object({
+        ...connectorRunSummaryBaseShape,
+        mode: z.literal('manual'),
+        scheduleOccurrence: z.null(),
       })
-    }
-  })
+      .strict()
+      .superRefine(refineNotDueSkippedStatus),
+    z
+      .object({
+        ...connectorRunSummaryBaseShape,
+        mode: z.literal('scheduled'),
+        scheduleOccurrence: scheduledOccurrenceLinkSchema,
+      })
+      .strict()
+      .superRefine(refineNotDueSkippedStatus),
+    z
+      .object({
+        ...connectorRunSummaryBaseShape,
+        mode: z.literal('catch_up'),
+        scheduleOccurrence: catchUpOccurrenceLinkSchema,
+      })
+      .strict()
+      .superRefine(refineNotDueSkippedStatus),
+  ])
 
 export interface ConnectorCheckpoint {
   connectorInstanceId: string
@@ -367,7 +421,8 @@ export const connectorRunsListResultSchema: z.ZodType<ConnectorRunsListResult> =
 
 export interface TriggerConnectorRunInput {
   connectorInstanceId: string
-  mode?: ConnectorRunMode
+  /** Ordinary triggers are manual-only; scheduled/catch_up require due dispatch. */
+  mode?: 'manual'
   coverageStartedAt?: string | null
   coverageEndedAt?: string | null
   filterSignature?: string | null
@@ -375,6 +430,19 @@ export interface TriggerConnectorRunInput {
   reason?: string | null
   dryRun?: boolean
 }
+
+export const triggerConnectorRunInputSchema: z.ZodType<TriggerConnectorRunInput> = z
+  .object({
+    connectorInstanceId: z.string().min(1),
+    mode: z.literal('manual').optional(),
+    coverageStartedAt: z.string().nullable().optional(),
+    coverageEndedAt: z.string().nullable().optional(),
+    filterSignature: z.string().nullable().optional(),
+    filters: z.unknown().optional(),
+    reason: z.string().nullable().optional(),
+    dryRun: z.boolean().optional(),
+  })
+  .strict()
 
 export interface ConnectorCheckpointsListInput {
   connectorInstanceId: string

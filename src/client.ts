@@ -40,6 +40,18 @@ import type {
   UpdateConnectorInstanceInput,
 } from './connector.js'
 import type {
+  ConnectorScheduleAuditListResult,
+  ConnectorScheduleHistoryListInput,
+  ConnectorScheduleOccurrenceListResult,
+  ConnectorScheduleSummary,
+  DeleteConnectorScheduleInput,
+  DispatchConnectorScheduleDueInput,
+  DispatchConnectorScheduleDueResult,
+  PauseConnectorScheduleInput,
+  ResumeConnectorScheduleInput,
+  UpsertConnectorScheduleInput,
+} from './connector-schedule.js'
+import type {
   EvaluateApplicationPolicyInput,
   EvaluateRunWindowPolicyInput,
   EvaluateSourcingCandidatePolicyInput,
@@ -165,6 +177,20 @@ export interface ValedictorianWorkspaceClient {
     }
     observations: {
       list(input: ConnectorObservationsListInput): Promise<ConnectorObservationsListResult>
+    }
+    schedules: {
+      get(connectorInstanceId: string): Promise<ConnectorScheduleSummary | null>
+      upsert(input: UpsertConnectorScheduleInput): Promise<ConnectorScheduleSummary>
+      pause(input: PauseConnectorScheduleInput): Promise<ConnectorScheduleSummary>
+      resume(input: ResumeConnectorScheduleInput): Promise<ConnectorScheduleSummary>
+      delete(input: DeleteConnectorScheduleInput): Promise<void>
+      listAudit(input: ConnectorScheduleHistoryListInput): Promise<ConnectorScheduleAuditListResult>
+      listOccurrences(
+        input: ConnectorScheduleHistoryListInput,
+      ): Promise<ConnectorScheduleOccurrenceListResult>
+      dispatchDue(
+        input: DispatchConnectorScheduleDueInput,
+      ): Promise<DispatchConnectorScheduleDueResult>
     }
   }
   policy: {

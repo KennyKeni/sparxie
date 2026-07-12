@@ -4,6 +4,7 @@ import {
   connectorInstancesListResultSchema,
   connectorRunSummarySchema,
   createConnectorInstanceInputSchema,
+  triggerConnectorRunInputSchema,
   updateConnectorInstanceInputSchema,
 } from './index'
 
@@ -31,6 +32,7 @@ const skippedNotDueRun = {
   },
   startedAt: '2026-07-11T14:00:30.000Z',
   completedAt: '2026-07-11T14:00:30.000Z',
+  scheduleOccurrence: null,
 }
 
 describe('connector retry contract', () => {
@@ -266,6 +268,164 @@ describe('connector instance earliestBackfillDate contract', () => {
     expect(
       updateConnectorInstanceInputSchema.safeParse({
         earliestBackfillDate: '2026-06-01',
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('connector run schedule provenance contract', () => {
+  it('requires nullable scheduleOccurrence on run summaries and rejects spoofing via trigger input', () => {
+    expect(
+      connectorRunSummarySchema.parse({
+        ...skippedNotDueRun,
+        scheduleOccurrence: null,
+      }),
+    ).toEqual({
+      ...skippedNotDueRun,
+      scheduleOccurrence: null,
+    })
+
+    const linked = {
+      ...skippedNotDueRun,
+      mode: 'scheduled',
+      status: 'completed',
+      retryHints: null,
+      scheduleOccurrence: {
+        scheduleId: 'schedule-1',
+        scheduleRevision: 'rev-1',
+        occurrenceId: 'occ-1',
+        nominalAt: '2026-07-11T14:00:00.000Z',
+        admittedMode: 'scheduled',
+        idempotencyKey: 'rev-1:2026-07-11T14:00:00.000Z',
+      },
+    }
+
+    expect(connectorRunSummarySchema.parse(linked)).toEqual(linked)
+
+    const { scheduleOccurrence: _omitted, ...withoutLink } = skippedNotDueRun
+    expect(connectorRunSummarySchema.safeParse(withoutLink).success).toBe(false)
+
+    expect(
+      triggerConnectorRunInputSchema.parse({
+        connectorInstanceId: 'connector-1',
+        mode: 'manual',
+      }),
+    ).toEqual({
+      connectorInstanceId: 'connector-1',
+      mode: 'manual',
+    })
+    expect(
+      triggerConnectorRunInputSchema.safeParse({
+        connectorInstanceId: 'connector-1',
+        mode: 'manual',
+        scheduleOccurrence: linked.scheduleOccurrence,
+      }).success,
+    ).toBe(false)
+  })
+
+  it('requires scheduleOccurrence linkage to match manual, scheduled, or catch_up run mode', () => {
+    const base = {
+      ...skippedNotDueRun,
+      retryHints: null,
+      status: 'completed',
+      completedAt: '2026-07-11T14:05:00.000Z',
+    }
+    const scheduledLink = {
+      scheduleId: 'schedule-1',
+      scheduleRevision: 'rev-1',
+      occurrenceId: 'occ-1',
+      nominalAt: '2026-07-11T14:00:00.000Z',
+      admittedMode: 'scheduled' as const,
+      idempotencyKey: 'rev-1:2026-07-11T14:00:00.000Z',
+    }
+    const catchUpLink = {
+      ...scheduledLink,
+      admittedMode: 'catch_up' as const,
+      occurrenceId: 'occ-2',
+    }
+
+    expect(
+      connectorRunSummarySchema.parse({
+        ...base,
+        mode: 'manual',
+        scheduleOccurrence: null,
+      }),
+    ).toMatchObject({ mode: 'manual', scheduleOccurrence: null })
+    expect(
+      connectorRunSummarySchema.parse({
+        ...base,
+        mode: 'scheduled',
+        scheduleOccurrence: scheduledLink,
+      }),
+    ).toMatchObject({ mode: 'scheduled', scheduleOccurrence: scheduledLink })
+    expect(
+      connectorRunSummarySchema.parse({
+        ...base,
+        mode: 'catch_up',
+        scheduleOccurrence: catchUpLink,
+      }),
+    ).toMatchObject({ mode: 'catch_up', scheduleOccurrence: catchUpLink })
+
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...base,
+        mode: 'scheduled',
+        scheduleOccurrence: null,
+      }).success,
+    ).toBe(false)
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...base,
+        mode: 'catch_up',
+        scheduleOccurrence: null,
+      }).success,
+    ).toBe(false)
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...base,
+        mode: 'manual',
+        scheduleOccurrence: scheduledLink,
+      }).success,
+    ).toBe(false)
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...base,
+        mode: 'scheduled',
+        scheduleOccurrence: catchUpLink,
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects scheduled run links whose idempotencyKey is not the canonical revision:nominalAt key', () => {
+    const base = {
+      ...skippedNotDueRun,
+      retryHints: null,
+      status: 'completed',
+      completedAt: '2026-07-11T14:05:00.000Z',
+      mode: 'scheduled' as const,
+    }
+    const truthfulLink = {
+      scheduleId: 'schedule-1',
+      scheduleRevision: 'rev-1',
+      occurrenceId: 'occ-1',
+      nominalAt: '2026-07-11T14:00:00.000Z',
+      admittedMode: 'scheduled' as const,
+      idempotencyKey: 'rev-1:2026-07-11T14:00:00.000Z',
+    }
+
+    expect(
+      connectorRunSummarySchema.parse({
+        ...base,
+        scheduleOccurrence: truthfulLink,
+      }),
+    ).toMatchObject({ scheduleOccurrence: truthfulLink })
+    expect(
+      connectorRunSummarySchema.safeParse({
+        ...base,
+        scheduleOccurrence: {
+          ...truthfulLink,
+          idempotencyKey: 'arbitrary-client-key',
+        },
       }).success,
     ).toBe(false)
   })
