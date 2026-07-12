@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { connectorRunSummarySchema } from './index'
+import {
+  connectorInstanceSummarySchema,
+  connectorInstancesListResultSchema,
+  connectorRunSummarySchema,
+  createConnectorInstanceInputSchema,
+  updateConnectorInstanceInputSchema,
+} from './index'
 
 const skippedNotDueRun = {
   id: 'run-1',
@@ -125,6 +131,141 @@ describe('connector retry contract', () => {
           nextAttemptAt: null,
           horizonAt: '2026-07-11T14:00:00.0001Z',
         },
+      }).success,
+    ).toBe(false)
+  })
+})
+
+const connectorInstanceSummary = {
+  id: 'jobright/session-1',
+  connectorId: 'jobright.resolver',
+  connectorVersion: '0.1.0',
+  displayName: 'Jobright',
+  enabled: true,
+  auth: [
+    {
+      id: 'jobright-session',
+      mode: 'browser_session' as const,
+      label: 'Jobright session',
+      configured: true,
+    },
+  ],
+  config: { publicFeedUrl: 'https://jobright.test/feed.json' },
+  filters: { roleKeywords: ['intern'] },
+  earliestBackfillDate: '2026-07-04',
+  createdAt: '2026-07-11T14:00:00.000Z',
+  updatedAt: '2026-07-11T14:00:00.000Z',
+}
+
+describe('connector instance earliestBackfillDate contract', () => {
+  it('requires a canonical earliestBackfillDate on connector instance summaries', () => {
+    expect(connectorInstanceSummarySchema.parse(connectorInstanceSummary)).toEqual(
+      connectorInstanceSummary,
+    )
+    expect(
+      connectorInstancesListResultSchema.parse({ items: [connectorInstanceSummary] }),
+    ).toEqual({ items: [connectorInstanceSummary] })
+  })
+
+  it('rejects missing or invalid earliestBackfillDate on summaries and list results', () => {
+    const { earliestBackfillDate: _omitted, ...withoutDate } = connectorInstanceSummary
+
+    expect(connectorInstanceSummarySchema.safeParse(withoutDate).success).toBe(false)
+    expect(
+      connectorInstanceSummarySchema.safeParse({
+        ...connectorInstanceSummary,
+        earliestBackfillDate: '2023-02-29',
+      }).success,
+    ).toBe(false)
+    expect(
+      connectorInstanceSummarySchema.safeParse({
+        ...connectorInstanceSummary,
+        earliestBackfillDate: '0000-01-01',
+      }).success,
+    ).toBe(false)
+    expect(
+      connectorInstancesListResultSchema.safeParse({
+        items: [{ ...connectorInstanceSummary, earliestBackfillDate: '2024-1-01' }],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('validates create/update input DTOs with optional canonical earliestBackfillDate', () => {
+    const createBase = {
+      id: 'jobright/session-1',
+      connectorId: 'jobright.resolver',
+      connectorVersion: '0.1.0',
+      displayName: 'Jobright',
+      enabled: true,
+    }
+
+    expect(createConnectorInstanceInputSchema.parse(createBase)).toEqual(createBase)
+    expect(
+      createConnectorInstanceInputSchema.parse({
+        ...createBase,
+        earliestBackfillDate: '2026-07-04',
+        auth: [
+          {
+            id: 'jobright-session',
+            mode: 'browser_session',
+            label: 'Jobright session',
+            sessionKey: 'workspace-session',
+          },
+        ],
+        config: { publicFeedUrl: 'https://jobright.test/feed.json' },
+        filters: { roleKeywords: ['intern'] },
+      }),
+    ).toMatchObject({ earliestBackfillDate: '2026-07-04' })
+
+    expect(
+      updateConnectorInstanceInputSchema.parse({
+        connectorInstanceId: 'jobright/session-1',
+        earliestBackfillDate: '2026-06-01',
+      }),
+    ).toEqual({
+      connectorInstanceId: 'jobright/session-1',
+      earliestBackfillDate: '2026-06-01',
+    })
+
+    for (const invalidDate of [
+      '2023-02-29',
+      '2024-02-30',
+      '2024-1-01',
+      '2024-01-1',
+      '0000-01-01',
+      'not-a-date',
+    ]) {
+      expect(
+        createConnectorInstanceInputSchema.safeParse({
+          ...createBase,
+          earliestBackfillDate: invalidDate,
+        }).success,
+        `create:${invalidDate}`,
+      ).toBe(false)
+      expect(
+        updateConnectorInstanceInputSchema.safeParse({
+          connectorInstanceId: 'jobright/session-1',
+          earliestBackfillDate: invalidDate,
+        }).success,
+        `update:${invalidDate}`,
+      ).toBe(false)
+    }
+
+    expect(
+      createConnectorInstanceInputSchema.safeParse({
+        ...createBase,
+        unknownField: true,
+      }).success,
+    ).toBe(false)
+    expect(
+      updateConnectorInstanceInputSchema.safeParse({
+        connectorInstanceId: 'jobright/session-1',
+        unknownField: true,
+      }).success,
+    ).toBe(false)
+    expect(
+      updateConnectorInstanceInputSchema.safeParse({
+        earliestBackfillDate: '2026-06-01',
       }).success,
     ).toBe(false)
   })

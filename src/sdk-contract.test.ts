@@ -369,6 +369,7 @@ describe('SDK public contract', () => {
     })
 
     expect(packageJson.name).toBe('sparxie')
+    expect(packageJson.version).toBe('0.12.0')
     expect(packageJson.types).toBe('./dist/index.d.ts')
     expect(packageJson.files).toEqual(['dist'])
     expect(packageJson.exports).toBeDefined()
@@ -382,5 +383,29 @@ describe('SDK public contract', () => {
         '@types/better-sqlite3',
       ]),
     )
+  })
+
+  it('exports connector earliestBackfillDate schemas and required summary field', () => {
+    const connectorSource = fs.readFileSync(path.resolve('src/connector.ts'), 'utf8')
+    const indexSource = fs.readFileSync(path.resolve('src/index.ts'), 'utf8')
+    const summaryBlock =
+      connectorSource.match(/export interface ConnectorInstanceSummary \{[\s\S]*?\n\}/)?.[0] ??
+      ''
+    const createBlock =
+      connectorSource.match(/export interface CreateConnectorInstanceInput \{[\s\S]*?\n\}/)?.[0] ??
+      ''
+    const updateBlock =
+      connectorSource.match(/export interface UpdateConnectorInstanceInput \{[\s\S]*?\n\}/)?.[0] ??
+      ''
+
+    expect(indexSource).toContain("export * from './canonical-date.js'")
+    expect(summaryBlock).toMatch(/earliestBackfillDate:\s*CanonicalDateOnly/)
+    expect(createBlock).toMatch(/earliestBackfillDate\?:\s*CanonicalDateOnly/)
+    expect(updateBlock).toMatch(/earliestBackfillDate\?:\s*CanonicalDateOnly/)
+    expect(connectorSource).toContain('connectorInstanceSummarySchema')
+    expect(connectorSource).toContain('connectorInstancesListResultSchema')
+    expect(connectorSource).toContain('createConnectorInstanceInputSchema')
+    expect(connectorSource).toContain('updateConnectorInstanceInputSchema')
+    expect(connectorSource).toContain('connectorAuthReferenceInputSchema')
   })
 })

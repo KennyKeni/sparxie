@@ -1,5 +1,6 @@
 export * from './api.js'
 export * from './application.js'
+export * from './canonical-date.js'
 export * from './capabilities.js'
 export * from './client.js'
 export * from './connector.js'

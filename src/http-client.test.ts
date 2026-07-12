@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient } from './index'
-import { jsonResponse, mockFetch } from './http-client.test-support.js'
+import { jsonResponse, mockFetch, connectorInstanceSummaryPayload } from './http-client.test-support.js'
 
 describe('HTTP Valedictorian client', () => {
   afterEach(() => {
@@ -232,10 +232,11 @@ describe('HTTP Valedictorian client', () => {
       startedAt: '2026-07-11T14:00:00.000Z',
       completedAt: '2026-07-11T14:00:01.000Z',
     }
+    const summary = connectorInstanceSummaryPayload()
     for (const response of [
-      { ok: true },
-      { ok: true },
-      { ok: true },
+      { items: [summary] },
+      summary,
+      summary,
       { ok: true },
       run,
       { items: [run], total: 1, limit: 25, offset: 5, hasMore: false },
@@ -377,8 +378,19 @@ describe('HTTP Valedictorian client', () => {
 
   it('serializes username_password connector auth references with secretKey only', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    const summary = connectorInstanceSummaryPayload({
+      connectorVersion: '0.4.1',
+      auth: [
+        {
+          id: 'jobright-login',
+          mode: 'username_password',
+          label: 'Jobright login',
+          configured: true,
+        },
+      ],
+    })
+    fetchMock.mockResolvedValueOnce(jsonResponse(summary))
+    fetchMock.mockResolvedValueOnce(jsonResponse(summary))
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace 1')
@@ -462,6 +474,88 @@ describe('HTTP Valedictorian client', () => {
       expect(auth).not.toHaveProperty('cookie')
       expect(auth).not.toHaveProperty('sessionId')
     }
+  })
+
+  it('transports optional earliestBackfillDate and parses connector instance responses', async () => {
+    const summary = {
+      id: 'jobright/session-1',
+      connectorId: 'jobright.resolver',
+      connectorVersion: '0.1.0',
+      displayName: 'Jobright',
+      enabled: true,
+      auth: [
+        {
+          id: 'jobright-session',
+          mode: 'browser_session',
+          label: 'Jobright session',
+          configured: true,
+        },
+      ],
+      config: {},
+      filters: {},
+      earliestBackfillDate: '2026-07-04',
+      createdAt: '2026-07-11T14:00:00.000Z',
+      updatedAt: '2026-07-11T14:00:00.000Z',
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ items: [summary] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(summary))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ ...summary, earliestBackfillDate: '2026-06-01' }),
+    )
+    fetchMock.mockResolvedValueOnce(jsonResponse(summary))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        items: [{ ...summary, earliestBackfillDate: '2023-02-29' }],
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
+    const workspace = client.forWorkspace('workspace-1')
+
+    await expect(workspace.connectors.list()).resolves.toEqual({ items: [summary] })
+    await expect(
+      workspace.connectors.create({
+        id: 'jobright/session-1',
+        connectorId: 'jobright.resolver',
+        connectorVersion: '0.1.0',
+        displayName: 'Jobright',
+        enabled: true,
+      }),
+    ).resolves.toEqual(summary)
+    await expect(
+      workspace.connectors.update({
+        connectorInstanceId: 'jobright/session-1',
+        earliestBackfillDate: '2026-06-01',
+      }),
+    ).resolves.toEqual({ ...summary, earliestBackfillDate: '2026-06-01' })
+    await expect(
+      workspace.connectors.create({
+        id: 'jobright/session-1',
+        connectorId: 'jobright.resolver',
+        connectorVersion: '0.1.0',
+        displayName: 'Jobright',
+        enabled: true,
+        earliestBackfillDate: '2026-07-04',
+      }),
+    ).resolves.toEqual(summary)
+    await expect(workspace.connectors.list()).rejects.toThrow()
+
+    const omitCreateBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >
+    const updateBody = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >
+    const includeCreateBody = JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >
+    expect(omitCreateBody).not.toHaveProperty('earliestBackfillDate')
+    expect(updateBody).toEqual({ earliestBackfillDate: '2026-06-01' })
+    expect(includeCreateBody.earliestBackfillDate).toBe('2026-07-04')
   })
 
   it('maps root health and capabilities endpoints', async () => {
