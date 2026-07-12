@@ -39,6 +39,7 @@ import {
   rawSourceNormalizationResultSchema,
   rawSourceReplayReceiptSchema,
 } from './raw-sourcing.js'
+import { rawSourceProjectionResultSchema } from './sourcing-projection.js'
 
 export interface HttpValedictorianClientOptions {
   baseUrl?: string
@@ -704,6 +705,19 @@ export function createHttpValedictorianClient({
       },
     },
     sourcing: {
+      rawRevisions: {
+        projection: {
+          async get(rawRevisionId) {
+            return rawSourceProjectionResultSchema.parse(
+              await request(
+                pathFor(
+                  valedictorianApiPaths.sourcingRawRevisionProjection(rawRevisionId),
+                ),
+              ),
+            )
+          },
+        },
+      },
       rawRecords: {
         ingestBatch(input) {
           return request(pathFor(valedictorianApiPaths.sourcingRawRecordsBatch), {

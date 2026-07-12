@@ -82,6 +82,7 @@ import type {
   RawSourceReplayReceipt,
   ReplayRawSourceRecordsInput,
 } from './raw-sourcing.js'
+import type { RawSourceProjectionResult } from './sourcing-projection.js'
 import type {
   CompleteWorkflowRunInput,
   CreateWorkflowRunStepInput,
@@ -232,6 +233,11 @@ export interface ValedictorianWorkspaceClient {
     complete(input: CompleteWorkflowRunInput): Promise<WorkflowRun>
   }
   sourcing: {
+    rawRevisions: {
+      projection: {
+        get(rawRevisionId: string): Promise<RawSourceProjectionResult>
+      }
+    }
     rawRecords: {
       ingestBatch(input: BatchRawSourceRecordsInput): Promise<BatchRawSourceRecordsResult>
       get(rawRecordId: string): Promise<RawSourceRecord>
