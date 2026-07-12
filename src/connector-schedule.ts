@@ -184,12 +184,11 @@ export function connectorScheduleOccurrenceIdempotencyKey(
   return `${scheduleRevision}:${nominalAt}`
 }
 
-/** Closed statuses for sanitized schedule last-run summaries; keep equal to connectorRunStatuses. */
+/** Closed historical schedule-occurrence statuses. */
 export const connectorScheduleLastRunStatuses = [
   'queued',
   'running',
   'completed',
-  'partial_success',
   'failed',
   'cancelled',
   'skipped',

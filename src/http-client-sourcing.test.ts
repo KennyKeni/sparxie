@@ -2,6 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient } from './index'
 import { jsonResponse, mockFetch, sourcingFindingPayload } from './http-client.test-support.js'
 
+function rawReceipt(capture?: Record<string, string>, intakeItemId = 'item-1') {
+  return {
+    intakeItemId, rawRecordId: 'raw-1', sourceEntityId: null,
+    revision: { id: 'revision-1', rawRecordId: 'raw-1', revision: 1, contentHash: 'sha256:content', reused: false, createdAt: '2026-07-11T14:00:00.000Z' },
+    occurrence: { id: 'occurrence-1', rawRecordId: 'raw-1', rawRevisionId: 'revision-1', ...(capture ? { capture } : {}), observedAt: '2026-07-11T14:00:00.000Z', receivedAt: '2026-07-11T14:00:01.000Z' },
+  }
+}
+
 describe('HTTP Valedictorian client', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -200,58 +208,90 @@ describe('HTTP Valedictorian client', () => {
   })
 
   it('batch-ingests sparse raw CLI records without conflating adapter and reported origin', async () => {
-    const payload = { receipts: [] }
+    const record = { intakeItemId: 'item-1', adapter: { id: 'valedictorian-cli', kind: 'cli' as const, version: '0.12.0' }, observedAt: '2026-07-10T14:00:00.000Z', reportedOrigin: { kind: 'job_board' as const, name: 'LinkedIn' }, payload: { href: 'https://www.linkedin.com/jobs/view/123' } }
+    const input = { records: [record, { ...record, intakeItemId: 'item-2', observedAt: '2026-07-10T15:00:00.000Z' }] }, payload = { receipts: [rawReceipt(undefined, 'item-2'), rawReceipt()] }
     const fetchMock = mockFetch(jsonResponse(payload))
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace/raw intake')
 
     await expect(
-      workspace.sourcing.rawRecords.ingestBatch({
-        records: [
-          {
-            adapter: {
-              id: 'valedictorian-cli',
-              kind: 'cli',
-              version: '0.12.0',
-            },
-            observedAt: '2026-07-10T14:00:00.000Z',
-            reportedOrigin: {
-              kind: 'job_board',
-              name: 'LinkedIn',
-            },
-            payload: {
-              href: 'https://www.linkedin.com/jobs/view/123',
-            },
-          },
-        ],
-      }),
+      workspace.sourcing.rawRecords.ingestBatch(input),
     ).resolves.toEqual(payload)
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:4317/v1/workspaces/workspace%2Fraw%20intake/sourcing/raw-records/batch',
       expect.objectContaining({
-        body: JSON.stringify({
-          records: [
-            {
-              adapter: {
-                id: 'valedictorian-cli',
-                kind: 'cli',
-                version: '0.12.0',
-              },
-              observedAt: '2026-07-10T14:00:00.000Z',
-              reportedOrigin: {
-                kind: 'job_board',
-                name: 'LinkedIn',
-              },
-              payload: {
-                href: 'https://www.linkedin.com/jobs/view/123',
-              },
-            },
-          ],
-        }),
+        body: expect.any(String) as string,
         method: 'POST',
       }),
     )
+    const request = fetchMock.mock.calls[0]?.[1]
+    expect(JSON.parse(request?.body as string)).toEqual(input)
+  })
+
+  it('validates connector capture before fetch and strictly parses raw responses', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ receipts: [rawReceipt({
+      connectorInstanceId: 'connector-1', connectorRunId: 'run-1', executionScopeId: 'scope_wrong_1',
+    })] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ receipts: [rawReceipt()] }))
+    const mismatched = rawReceipt({
+      connectorInstanceId: 'connector-1', connectorRunId: 'run-1', executionScopeId: 'scope_connector_1',
+    })
+    mismatched.occurrence.rawRevisionId = 'revision-other'
+    fetchMock.mockResolvedValueOnce(jsonResponse({ receipts: [mismatched] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      id: 'raw-1', sourceEntityId: null,
+      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
+      reportedOrigin: null, createdAt: '2026-07-11T14:00:00.000Z',
+      latestRevision: {
+        id: 'revision-1', rawRecordId: 'raw-1', revision: 1,
+        contentHash: 'sha256:content',
+        adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
+        reportedOrigin: null, observedAt: '2026-07-11T14:00:00.000Z',
+        providerRecordId: null, providerSchema: null, payload: null, evidence: [],
+        createdAt: '2026-07-11T14:00:00.000Z',
+      },
+      occurrences: [{
+        id: 'occurrence-1', rawRecordId: 'raw-1', rawRevisionId: 'revision-1',
+        observedAt: '2026-07-11T14:00:00.000Z', receivedAt: '2026-07-11T14:00:01.000Z',
+      }],
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const rawRecords = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').sourcing.rawRecords
+
+    await expect(rawRecords.ingestBatch({ records: [{
+      intakeItemId: 'item-1',
+      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
+      capture: { connectorInstanceId: 'connector-1', connectorRunId: 'run-1' },
+      observedAt: '2026-07-11T14:00:00.000Z',
+    }] } as never)).rejects.toThrow()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await expect(rawRecords.ingestBatch({ records: [{
+      intakeItemId: 'item-1',
+      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
+      capture: {
+        connectorInstanceId: 'connector-1', connectorRunId: 'run-1',
+        executionScopeId: 'scope_connector_1',
+      },
+      observedAt: '2026-07-11T14:00:00.000Z',
+    }] })).rejects.toThrow()
+    await expect(rawRecords.ingestBatch({ records: [{
+      intakeItemId: 'item-1',
+      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
+      capture: { connectorInstanceId: 'connector-1', connectorRunId: 'run-1', executionScopeId: 'scope_connector_1' },
+      observedAt: '2026-07-11T14:00:00.000Z',
+    }] })).rejects.toThrow()
+    await expect(rawRecords.ingestBatch({ records: [{
+      intakeItemId: 'item-1',
+      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
+      capture: { connectorInstanceId: 'connector-1', connectorRunId: 'run-1', executionScopeId: 'scope_connector_1' },
+      observedAt: '2026-07-11T14:00:00.000Z',
+    }] })).rejects.toThrow()
+    await expect(rawRecords.get('raw-1')).rejects.toThrow()
   })
 
   it('round-trips connector capture and canonical finding lineage on explicit workspace routes', async () => {
@@ -284,8 +324,15 @@ describe('HTTP Valedictorian client', () => {
       ...canonicalProjection,
       workMode: 'hybrid' as const,
     }
+    const capture = {
+      connectorInstanceId: 'connector-instance-1', connectorRunId: 'connector-run-1',
+      executionScopeId: 'scope_connector_1',
+    }
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    fetchMock.mockResolvedValueOnce(jsonResponse({ receipts: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ receipts: [
+      rawReceipt({ executionScopeId: capture.executionScopeId, connectorRunId: capture.connectorRunId, connectorInstanceId: capture.connectorInstanceId }, 'item-2'),
+      rawReceipt(capture, 'item-1'),
+    ] }))
     fetchMock.mockResolvedValueOnce(jsonResponse(finding))
     vi.stubGlobal('fetch', fetchMock)
     const workspace = createHttpValedictorianClient({
@@ -295,12 +342,16 @@ describe('HTTP Valedictorian client', () => {
     await workspace.sourcing.rawRecords.ingestBatch({
       records: [
         {
+          intakeItemId: 'item-1',
           adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
-          capture: {
-            connectorInstanceId: 'connector-instance-1',
-            connectorRunId: 'connector-run-1',
-          },
+          capture,
           observedAt: '2026-07-11T14:00:00.000Z',
+        },
+        {
+          intakeItemId: 'item-2',
+          adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
+          capture,
+          observedAt: '2026-07-11T15:00:00.000Z',
         },
       ],
     })
@@ -480,13 +531,43 @@ describe('HTTP Valedictorian client', () => {
 
   it('reads raw records and normalization results through encoded workspace paths', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    fetchMock.mockResolvedValueOnce(jsonResponse({ rawRecordId: 'raw/record 1' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      id: 'raw/record 1', sourceEntityId: null,
+      adapter: { id: 'cli', kind: 'cli', version: '1.0.0' }, reportedOrigin: null,
+      createdAt: '2026-07-11T14:00:00.000Z',
+      latestRevision: {
+        id: 'revision-1', rawRecordId: 'raw/record 1', revision: 1,
+        contentHash: 'sha256:content',
+        adapter: { id: 'cli', kind: 'cli', version: '1.0.0' },
+        reportedOrigin: null, observedAt: '2026-07-11T14:00:00.000Z',
+        providerRecordId: null, providerSchema: null, payload: null, evidence: [],
+        createdAt: '2026-07-11T14:00:00.000Z',
+      },
+      occurrences: [{
+        id: 'occurrence-old', rawRecordId: 'raw/record 1', rawRevisionId: 'revision-old',
+        observedAt: '2026-07-10T14:00:00.000Z', receivedAt: '2026-07-10T14:00:01.000Z',
+      }],
+    }))
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         rawRecordId: 'raw/record 1',
         rawRevisionId: 'revision-1',
         canonicalSchemaVersion: 'candidate/v1',
-        attempts: [],
+        attempts: [{
+          id: 'attempt-1', rawRevisionId: 'revision-1',
+          resolver: {
+            id: 'provider-resolver', version: '1.0.0', scopeRequirement: 'source', requiredInputs: [],
+            outputFields: [], capabilities: ['network'], costClass: 'low', precedence: 10,
+          },
+          inputHash: 'sha256:provider-input',
+          executionScopeId: 'scope_connector_1',
+          operationOutcome: {
+            kind: 'scope_rate_limited', executionScopeId: 'scope_connector_1',
+            retryAt: '2026-07-11T14:01:00.000Z', serverMinimumDelayMs: 30_000,
+          },
+          status: 'blocked', startedAt: '2026-07-11T14:00:00.000Z',
+          completedAt: '2026-07-11T14:00:01.000Z', outcomes: [],
+        }],
         fieldOutcomes: [],
         updatedAt: '2026-07-11T14:00:01.000Z',
         status: 'pending',
@@ -500,7 +581,11 @@ describe('HTTP Valedictorian client', () => {
     }).forWorkspace('workspace/one')
 
     await workspace.sourcing.rawRecords.get('raw/record 1')
-    await workspace.sourcing.rawRecords.normalization.get('raw/record 1')
+    await expect(
+      workspace.sourcing.rawRecords.normalization.get('raw/record 1'),
+    ).resolves.toMatchObject({
+      attempts: [{ executionScopeId: 'scope_connector_1', operationOutcome: { kind: 'scope_rate_limited' } }],
+    })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -553,6 +638,33 @@ describe('HTTP Valedictorian client', () => {
     await expect(
       workspace.sourcing.rawRecords.normalization.get('raw-1'),
     ).rejects.toThrow()
+  })
+
+  it('binds raw record and normalization reads to the requested record id', async () => {
+    const rawRecord = {
+      id: 'raw-other', sourceEntityId: null,
+      adapter: { id: 'cli', kind: 'cli', version: '1.0.0' }, reportedOrigin: null,
+      createdAt: '2026-07-11T14:00:00.000Z',
+      latestRevision: {
+        id: 'revision-1', rawRecordId: 'raw-other', revision: 1, contentHash: 'sha256:content',
+        adapter: { id: 'cli', kind: 'cli', version: '1.0.0' }, reportedOrigin: null,
+        observedAt: '2026-07-11T14:00:00.000Z', providerRecordId: null,
+        providerSchema: null, payload: null, evidence: [], createdAt: '2026-07-11T14:00:00.000Z',
+      }, occurrences: [],
+    }
+    const normalization = {
+      rawRecordId: 'raw-other', rawRevisionId: 'revision-1', canonicalSchemaVersion: 'candidate/v1',
+      attempts: [], fieldOutcomes: [], updatedAt: '2026-07-11T14:00:00.000Z',
+      status: 'pending', gate: null, canonicalCandidate: null,
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse(rawRecord))
+      .mockResolvedValueOnce(jsonResponse(normalization))
+    vi.stubGlobal('fetch', fetchMock)
+    const records = createHttpValedictorianClient({ baseUrl: 'https://valedictorian.test' })
+      .forWorkspace('workspace-1').sourcing.rawRecords
+    await expect(records.get('raw-requested')).rejects.toThrow()
+    await expect(records.normalization.get('raw-requested')).rejects.toThrow()
   })
 
   it('replays precise invalidations with version selectors and field directives', async () => {

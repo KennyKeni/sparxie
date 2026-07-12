@@ -8,6 +8,12 @@ import {
   type ScheduledRetryAdvice,
 } from './retry.js'
 import type { SourcingDestinationClass } from './sourcing.js'
+import {
+  sourceExecutionScopeIdSchema,
+  sourceOperationOutcomeSchema,
+  type SourceExecutionScopeId,
+  type SourceOperationOutcome,
+} from './source-execution.js'
 
 /** JSON-safe values accepted by the raw sourcing transport contract. */
 export type JsonPrimitive = boolean | number | string | null
@@ -91,6 +97,7 @@ export interface SourceAdapterProvenance {
 export interface ConnectorCaptureReference {
   connectorInstanceId: string
   connectorRunId: string
+  executionScopeId: SourceExecutionScopeId
 }
 
 export const reportedOriginKinds = [
@@ -122,6 +129,7 @@ export interface RawSourceEvidenceInput {
 }
 
 interface RawSourceRecordInputBase {
+  intakeItemId: string
   observedAt: string
   reportedOrigin?: ReportedSourceOrigin | null
   providerRecordId?: string | null
@@ -141,7 +149,9 @@ export type RawSourceRecordInput = RawSourceRecordInputBase &
         capture: ConnectorCaptureReference
       }
     | {
-        adapter: SourceAdapterProvenance
+        adapter: SourceAdapterProvenance & {
+          kind: Exclude<SourceAdapterKind, 'connector'>
+        }
         capture?: never
       }
   )
@@ -160,6 +170,7 @@ export const connectorCaptureReferenceSchema = z
   .object({
     connectorInstanceId: rawIdentifierSchema,
     connectorRunId: rawIdentifierSchema,
+    executionScopeId: sourceExecutionScopeIdSchema,
   })
   .strict()
 
@@ -172,36 +183,34 @@ const reportedSourceOriginSchema = z
   })
   .strict()
 
-const rawSourceEvidenceInputSchema = z
-  .object({
-    kind: rawIdentifierSchema,
-    label: rawIdentifierSchema,
-    value: z.json(),
-  })
-  .strict()
+const rawSourceEvidenceInputSchema = z.object({
+  kind: rawIdentifierSchema, label: rawIdentifierSchema, value: z.json(),
+}).strict()
 
-export const rawSourceRecordInputSchema = z
-  .object({
-    adapter: sourceAdapterProvenanceSchema,
-    capture: connectorCaptureReferenceSchema.optional(),
-    observedAt: z.iso.datetime({ offset: true }),
-    reportedOrigin: reportedSourceOriginSchema.nullable().optional(),
-    providerRecordId: z.string().nullable().optional(),
-    providerSchema: z.string().nullable().optional(),
-    payload: z.record(z.string(), z.json()).nullable().optional(),
-    evidence: z.array(rawSourceEvidenceInputSchema).optional(),
-  })
-  .strict()
-  .refine((record) => record.capture === undefined || record.adapter.kind === 'connector', {
-    message: 'capture references require a connector adapter',
-    path: ['capture'],
-  })
+const rawSourceRecordInputBaseShape = {
+  intakeItemId: rawIdentifierSchema, observedAt: z.iso.datetime({ offset: true }), reportedOrigin: reportedSourceOriginSchema.nullable().optional(), providerRecordId: z.string().nullable().optional(),
+  providerSchema: z.string().nullable().optional(), payload: z.record(z.string(), z.json()).nullable().optional(),
+  evidence: z.array(rawSourceEvidenceInputSchema).optional(),
+} as const
+
+export const rawSourceRecordInputSchema: z.ZodType<RawSourceRecordInput> = z.union([
+  z.object({
+    ...rawSourceRecordInputBaseShape,
+    adapter: sourceAdapterProvenanceSchema.extend({ kind: z.literal('connector') }),
+    capture: connectorCaptureReferenceSchema,
+  }).strict(),
+  z.object({
+    ...rawSourceRecordInputBaseShape,
+    adapter: sourceAdapterProvenanceSchema.extend({ kind: z.enum(['cli', 'manual', 'import']) }),
+  }).strict(),
+])
 
 export interface ConnectorCaptureBinding {
   requestWorkspaceId: string
   workspaceId: string
   connectorInstanceId: string
   connectorRunId: string
+  executionScopeId: SourceExecutionScopeId
   adapter: SourceAdapterProvenance & { kind: 'connector' }
 }
 
@@ -221,6 +230,7 @@ export function createBoundRawSourceRecordInputSchema(
       binding.requestWorkspaceId === binding.workspaceId &&
       record.capture.connectorInstanceId === binding.connectorInstanceId &&
       record.capture.connectorRunId === binding.connectorRunId &&
+      record.capture.executionScopeId === binding.executionScopeId &&
       record.adapter.id === binding.adapter.id &&
       record.adapter.kind === binding.adapter.kind &&
       record.adapter.version === binding.adapter.version
@@ -235,9 +245,13 @@ export function createBoundRawSourceRecordInputSchema(
   })
 }
 
-export const batchRawSourceRecordsInputSchema = z
+export const batchRawSourceRecordsInputSchema: z.ZodType<BatchRawSourceRecordsInput> = z
   .object({ records: z.array(rawSourceRecordInputSchema).max(MAX_RAW_SOURCE_BATCH_RECORDS) })
   .strict()
+  .superRefine((input, context) => {
+    if (new Set(input.records.map((record) => record.intakeItemId)).size !== input.records.length)
+      context.addIssue({ code: 'custom', message: 'intake item ids must be unique', path: ['records'] })
+  })
 
 export interface BatchRawSourceRecordsInput {
   records: RawSourceRecordInput[]
@@ -253,6 +267,7 @@ export interface RawSourceRevisionReceipt {
 }
 
 export interface RawSourceIntakeReceipt {
+  readonly intakeItemId: string
   readonly rawRecordId: string
   readonly sourceEntityId: string | null
   readonly revision: RawSourceRevisionReceipt
@@ -297,6 +312,56 @@ export interface RawSourceOccurrenceReceipt {
   readonly receivedAt: string
 }
 
+export const rawSourceRevisionReceiptSchema: z.ZodType<RawSourceRevisionReceipt> = z.object({
+  id: rawIdentifierSchema, rawRecordId: rawIdentifierSchema, revision: z.number().int().positive(),
+  contentHash: rawIdentifierSchema, reused: z.boolean(), createdAt: z.iso.datetime({ offset: true }),
+}).strict()
+
+export const rawSourceOccurrenceReceiptSchema: z.ZodType<RawSourceOccurrenceReceipt> = z.object({
+  id: rawIdentifierSchema, rawRecordId: rawIdentifierSchema, rawRevisionId: rawIdentifierSchema,
+  capture: connectorCaptureReferenceSchema.nullable().optional(),
+  observedAt: z.iso.datetime({ offset: true }), receivedAt: z.iso.datetime({ offset: true }),
+}).strict()
+
+export const rawSourceRevisionSchema: z.ZodType<RawSourceRevision> = z.object({
+  id: rawIdentifierSchema, rawRecordId: rawIdentifierSchema, revision: z.number().int().positive(),
+  contentHash: rawIdentifierSchema, adapter: sourceAdapterProvenanceSchema,
+  reportedOrigin: reportedSourceOriginSchema.nullable(), observedAt: z.iso.datetime({ offset: true }),
+  providerRecordId: z.string().nullable(), providerSchema: z.string().nullable(),
+  payload: z.record(z.string(), z.json()).nullable(), evidence: z.array(rawSourceEvidenceInputSchema),
+  createdAt: z.iso.datetime({ offset: true }),
+}).strict()
+
+export const rawSourceIntakeReceiptSchema: z.ZodType<RawSourceIntakeReceipt> = z.object({
+  intakeItemId: rawIdentifierSchema, rawRecordId: rawIdentifierSchema, sourceEntityId: rawIdentifierSchema.nullable(), revision: rawSourceRevisionReceiptSchema,
+  occurrence: rawSourceOccurrenceReceiptSchema,
+}).strict().superRefine((receipt, context) => {
+  if (receipt.revision.rawRecordId !== receipt.rawRecordId ||
+      receipt.occurrence.rawRecordId !== receipt.rawRecordId ||
+      receipt.occurrence.rawRevisionId !== receipt.revision.id) {
+    context.addIssue({ code: 'custom', message: 'receipt revision and occurrence lineage must agree' })
+  }
+})
+
+export const batchRawSourceRecordsResultSchema: z.ZodType<BatchRawSourceRecordsResult> =
+  z.object({ receipts: z.array(rawSourceIntakeReceiptSchema) }).strict()
+
+export const rawSourceRecordSchema: z.ZodType<RawSourceRecord> = z.object({
+  id: rawIdentifierSchema, sourceEntityId: rawIdentifierSchema.nullable(), adapter: sourceAdapterProvenanceSchema,
+  reportedOrigin: reportedSourceOriginSchema.nullable(), createdAt: z.iso.datetime({ offset: true }),
+  latestRevision: rawSourceRevisionSchema,
+  occurrences: z.array(rawSourceOccurrenceReceiptSchema),
+}).strict().superRefine((record, context) => {
+  const adapterMatches = record.latestRevision.adapter.id === record.adapter.id && record.latestRevision.adapter.kind === record.adapter.kind &&
+    record.latestRevision.adapter.version === record.adapter.version
+  const occurrencesMatch = record.occurrences.every((occurrence) =>
+    occurrence.rawRecordId === record.id &&
+    ((record.adapter.kind === 'connector') === (occurrence.capture != null)))
+  if (record.latestRevision.rawRecordId !== record.id || !adapterMatches || !occurrencesMatch) {
+    context.addIssue({ code: 'custom', message: 'raw record revision, adapter, occurrence, and capture lineage must agree' })
+  }
+})
+
 export const canonicalCandidateFields = [
   'canonicalIdentity',
   'companyName',
@@ -325,6 +390,7 @@ export type ResolverCostClass = (typeof resolverCostClasses)[number]
 export interface ResolverDeclaration {
   id: string
   version: string
+  scopeRequirement: 'source' | 'none'
   supportedAdapters?: {
     kinds?: SourceAdapterKind[]
     ids?: string[]
@@ -418,6 +484,8 @@ export interface NormalizationAttempt {
   readonly rawRevisionId: string
   resolver: ResolverDeclaration
   inputHash: string
+  executionScopeId: SourceExecutionScopeId | null
+  operationOutcome: SourceOperationOutcome | null
   status: NormalizationStatus
   applicability?: ResolverApplicabilityDecision[]
   startedAt: string
@@ -758,6 +826,7 @@ const resolverDeclarationSchema = z
   .object({
     id: rawIdentifierSchema,
     version: rawIdentifierSchema,
+    scopeRequirement: z.enum(['source', 'none']),
     supportedAdapters: z
       .object({
         kinds: z.array(z.enum(sourceAdapterKinds)).optional(),
@@ -793,6 +862,8 @@ const normalizationAttemptSchema = z
     rawRevisionId: rawIdentifierSchema,
     resolver: resolverDeclarationSchema,
     inputHash: rawIdentifierSchema,
+    executionScopeId: sourceExecutionScopeIdSchema.nullable(),
+    operationOutcome: sourceOperationOutcomeSchema.nullable(),
     status: z.enum(normalizationStatuses),
     applicability: z.array(resolverApplicabilityDecisionSchema).optional(),
     startedAt: z.iso.datetime({ offset: true }),
@@ -800,6 +871,23 @@ const normalizationAttemptSchema = z
     outcomes: z.array(fieldResolutionOutcomeSchema),
   })
   .strict()
+  .superRefine((attempt, context) => {
+    if ((attempt.resolver.scopeRequirement === 'source') !==
+        (attempt.executionScopeId !== null)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'attempt scope must satisfy the resolver scope requirement',
+        path: ['executionScopeId'],
+      })
+    }
+    const outcomeScope = attempt.operationOutcome?.kind === 'authentication_expired' ||
+      attempt.operationOutcome?.kind === 'scope_rate_limited'
+      ? attempt.operationOutcome.executionScopeId
+      : null
+    if (outcomeScope !== null && outcomeScope !== attempt.executionScopeId) {
+      context.addIssue({ code: 'custom', message: 'operation outcome scope must match the attempt scope', path: ['operationOutcome'] })
+    }
+  })
 
 const canonicalSourceCandidateReferenceSchema = z
   .object({

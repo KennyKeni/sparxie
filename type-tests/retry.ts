@@ -1,5 +1,4 @@
 import type {
-  ConnectorRunSummary,
   CancelledRetryAdvice,
   ExhaustedRetryAdvice,
   FieldResolutionOutcome,
@@ -31,10 +30,6 @@ const reasonsAreClosed: IsExact<
 const statesAreClosed: IsExact<
   RetryAdviceState,
   'scheduled' | 'not_due' | 'exhausted' | 'cancelled'
-> = true
-const connectorRetryIsTypedAndNullable: IsExact<
-  ConnectorRunSummary['retryHints'],
-  RetryAdvice | null
 > = true
 
 const scheduledRetry: RetryAdvice = {
@@ -177,7 +172,6 @@ void impossibleExhaustedCancellation
 void reasonsAreClosed
 void retryAdviceSchema
 void transientRetryReasons
-void connectorRetryIsTypedAndNullable
 void scheduledBranch
 void notDueBranch
 void exhaustedBranch

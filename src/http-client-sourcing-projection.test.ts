@@ -33,6 +33,22 @@ describe('HTTP sourcing projection client', () => {
     )
   })
 
+  it('rejects an otherwise-valid projection for another requested revision', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      rawRecordId: 'raw-1', rawRevisionId: 'revision-other',
+      updatedAt: '2026-07-12T12:00:00.000Z', status: 'pending',
+      normalizationStatus: 'completed', gateStatus: 'passed',
+      canonicalCandidateId: 'candidate-1',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const projection = createHttpValedictorianClient({ baseUrl: 'https://valedictorian.test' })
+      .forWorkspace('workspace-1').sourcing.rawRevisions.projection
+
+    await expect(projection.get('revision-requested')).rejects.toThrow(/identity/)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('runtime-validates every projection receipt branch', async () => {
     const base = {
       rawRecordId: 'raw-1',

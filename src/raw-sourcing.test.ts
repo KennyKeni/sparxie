@@ -5,6 +5,7 @@ import {
   canonicalIdentityKinds,
   canonicalPostedAtPrecisions,
   canonicalSeniorities,
+  batchRawSourceRecordsInputSchema,
   createBoundRawSourceRecordInputSchema,
   fieldResolutionStatuses,
   isFieldResolutionStatus,
@@ -59,6 +60,7 @@ const completeNormalizationAttempt = {
   resolver: {
     id: 'resolver-1',
     version: '1.0.0',
+    scopeRequirement: 'none',
     requiredInputs: [],
     outputFields: ['companyName'],
     capabilities: ['pure'],
@@ -66,6 +68,8 @@ const completeNormalizationAttempt = {
     precedence: 1,
   },
   inputHash: 'sha256:input',
+  executionScopeId: null,
+  operationOutcome: null,
   status: 'completed',
   applicability: [
     {
@@ -96,6 +100,13 @@ function normalizationResultWithAttempt(attempt: unknown) {
 }
 
 describe('raw sourcing public contract', () => {
+  it('requires distinct intake item ids within a batch', () => {
+    const record = {
+      intakeItemId: 'item-1', adapter: { id: 'cli', kind: 'cli', version: '1.0.0' },
+      observedAt: '2026-07-11T14:00:00.000Z',
+    }
+    expect(batchRawSourceRecordsInputSchema.safeParse({ records: [record, record] }).success).toBe(false)
+  })
   it('uses the shared typed retry advice for normalization field outcomes', () => {
     const retryOutcome = {
       resolverId: completeAttemptOutcome.resolverId,
@@ -434,6 +445,7 @@ describe('raw sourcing public contract', () => {
           resolver: {
             id: 'resolver-1',
             version: '1.0.0',
+            scopeRequirement: 'none',
             requiredInputs: [],
             outputFields: ['companyName'],
             capabilities: ['pure'],
@@ -441,6 +453,8 @@ describe('raw sourcing public contract', () => {
             precedence: 1,
           },
           inputHash: 'sha256:input',
+          executionScopeId: null,
+          operationOutcome: null,
           status: 'completed',
           startedAt: '2026-07-11T14:00:00.000Z',
           completedAt: '2026-07-11T14:00:01.000Z',
@@ -500,10 +514,12 @@ describe('raw sourcing public contract', () => {
 
   it('accepts connector capture references without producer-owned binding data', () => {
     const record = {
+      intakeItemId: 'item-connector',
       adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
       capture: {
         connectorInstanceId: 'connector-instance-1',
         connectorRunId: 'connector-run-1',
+        executionScopeId: 'scope_connector_1',
       },
       observedAt: '2026-07-11T14:00:00.000Z',
     }
@@ -598,11 +614,13 @@ describe('raw sourcing public contract', () => {
       workspaceId: 'workspace-2',
       connectorInstanceId: 'connector-instance-1',
       connectorRunId: 'connector-run-1',
+      executionScopeId: 'scope_connector_1',
       adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
     })
 
     expect(
       schema.safeParse({
+        intakeItemId: 'item-connector',
         adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
         capture: {
           connectorInstanceId: 'connector-instance-1',
@@ -619,6 +637,7 @@ describe('raw sourcing public contract', () => {
       workspaceId: 'workspace-1',
       connectorInstanceId: 'connector-instance-1',
       connectorRunId: 'connector-run-1',
+      executionScopeId: 'scope_connector_1',
       adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
     })
 
@@ -640,15 +659,18 @@ describe('raw sourcing public contract', () => {
       workspaceId: 'workspace-1',
       connectorInstanceId: 'connector-instance-1',
       connectorRunId: 'connector-run-1',
+      executionScopeId: 'scope_connector_1',
       adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
     })
 
     expect(
       schema.safeParse({
+        intakeItemId: 'item-connector',
         adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
         capture: {
           connectorInstanceId: 'connector-instance-1',
           connectorRunId: 'connector-run-1',
+          executionScopeId: 'scope_connector_1',
         },
         observedAt: '2026-07-11T14:00:00.000Z',
       }).success,
@@ -661,6 +683,7 @@ describe('raw sourcing public contract', () => {
       workspaceId: 'workspace-1',
       connectorInstanceId: 'connector-instance-1',
       connectorRunId: 'connector-run-1',
+      executionScopeId: 'scope_connector_1',
       adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
     })
     const record = {
