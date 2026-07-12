@@ -52,6 +52,7 @@ export interface ConnectorScheduleDailyCadence {
 
 export interface ConnectorScheduleWeeklyCadence {
   kind: 'weekly'
+  /** ISO-8601 weekday number: `1` = Monday through `7` = Sunday. */
   dayOfWeek: number
   localTime: string
 }
@@ -108,7 +109,14 @@ export const connectorScheduleCadenceSchema: z.ZodType<ConnectorScheduleCadence>
     z
       .object({
         kind: z.literal('weekly'),
-        dayOfWeek: z.number().int().min(1).max(7),
+        dayOfWeek: z
+          .number()
+          .int()
+          .min(1)
+          .max(7)
+          .describe(
+            'ISO-8601 weekday: 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday, 7 = Sunday',
+          ),
         localTime: localTimeSchema,
       })
       .strict(),
