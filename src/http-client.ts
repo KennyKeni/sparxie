@@ -17,7 +17,15 @@ import {
   connectorInstanceSummarySchema,
   connectorRunsListResultSchema,
   connectorRunSummarySchema,
+  triggerConnectorRunInputSchema,
 } from './connector.js'
+import {
+  createConnectorScheduleHttpMethods,
+  connectorScheduleHistoryListQueryToSearchParams,
+} from './http-client-connector-schedules.js'
+import { valedictorianCapabilitiesSchema } from './capabilities.js'
+
+export { connectorScheduleHistoryListQueryToSearchParams }
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { ActionQueueListQuery } from './action-queue.js'
 import type { ScoreInput } from './scoring.js'
@@ -531,7 +539,7 @@ export function createHttpValedictorianClient({
           )
         },
         async trigger(input) {
-          const { connectorInstanceId, ...body } = input
+          const { connectorInstanceId, ...body } = triggerConnectorRunInputSchema.parse(input)
 
           return connectorRunSummarySchema.parse(
             await request(
@@ -562,6 +570,12 @@ export function createHttpValedictorianClient({
           })
         },
       },
+      schedules: createConnectorScheduleHttpMethods({
+        isNotFound: (error) =>
+          error instanceof ValedictorianHttpError && error.status === 404,
+        pathFor,
+        request,
+      }),
     },
     policy: {
       config: {
@@ -785,8 +799,10 @@ export function createHttpValedictorianClient({
 
   return {
     capabilities: {
-      get() {
-        return request(valedictorianApiPaths.capabilities)
+      async get() {
+        return valedictorianCapabilitiesSchema.parse(
+          await request(valedictorianApiPaths.capabilities),
+        )
       },
     },
     forWorkspace(workspaceId) {

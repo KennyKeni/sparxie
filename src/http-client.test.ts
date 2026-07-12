@@ -141,6 +141,7 @@ describe('HTTP Valedictorian client', () => {
       },
       startedAt: '2026-07-11T14:00:01.000Z',
       completedAt: '2026-07-11T14:00:01.000Z',
+      scheduleOccurrence: null,
     }
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse(payload))
@@ -231,6 +232,7 @@ describe('HTTP Valedictorian client', () => {
       retryHints: null,
       startedAt: '2026-07-11T14:00:00.000Z',
       completedAt: '2026-07-11T14:00:01.000Z',
+      scheduleOccurrence: null,
     }
     const summary = connectorInstanceSummaryPayload()
     for (const response of [
@@ -247,7 +249,6 @@ describe('HTTP Valedictorian client', () => {
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace 1')
-
     await workspace.connectors.list()
     await workspace.connectors.create({
       id: 'jobright/session 1',
@@ -356,10 +357,10 @@ describe('HTTP Valedictorian client', () => {
       'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/runs',
       expect.objectContaining({
         body: JSON.stringify({
+          mode: 'manual',
           coverageStartedAt: '2026-07-01T00:00:00.000Z',
           coverageEndedAt: '2026-07-08T00:00:00.000Z',
           filterSignature: 'internships',
-          mode: 'manual',
         }),
         method: 'POST',
       }),
@@ -561,7 +562,20 @@ describe('HTTP Valedictorian client', () => {
   it('maps root health and capabilities endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ multiWorkspace: true }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        localSqlite: true,
+        agentWorkflows: false,
+        workflowRuns: true,
+        applicationAttempts: true,
+        sourcing: true,
+        connectors: true,
+        hostedSync: false,
+        multiWorkspace: true,
+        billing: false,
+        connectorScheduling: { available: false },
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
 

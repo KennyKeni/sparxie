@@ -77,6 +77,24 @@ export const valedictorianApiPaths = {
   connectorObservations(connectorInstanceId: string) {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/observations`
   },
+  connectorSchedule(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule`
+  },
+  connectorSchedulePause(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/pause`
+  },
+  connectorScheduleResume(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/resume`
+  },
+  connectorScheduleAudit(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/audit`
+  },
+  connectorScheduleOccurrences(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/occurrences`
+  },
+  connectorScheduleDispatchDue(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/dispatch-due`
+  },
   sourcingCandidatesProcess: '/v1/sourcing/candidates/process',
   sourcingRawRecordsBatch: '/v1/sourcing/raw-records/batch',
   sourcingRawRecordsReplay: '/v1/sourcing/raw-records/replay',

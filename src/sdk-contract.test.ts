@@ -358,6 +358,7 @@ describe('SDK public contract', () => {
       hostedSync: false,
       multiWorkspace: true,
       billing: false,
+      connectorScheduling: { available: false },
     })
   })
 
