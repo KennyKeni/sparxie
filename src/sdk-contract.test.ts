@@ -200,24 +200,26 @@ describe('SDK public contract', () => {
       'queued',
       'running',
       'completed',
-      'partial_success',
       'failed',
       'cancelled',
       'skipped',
     ])
     expect(connectorStatusSeverities).toEqual(['healthy', 'warning', 'blocked'])
     expect(connectorStatusStates).toEqual([
-      'auth_required',
+      'authentication_required',
+      'backfilling',
       'blocked',
+      'boundary_exhausted',
       'cancelled',
+      'caught_up',
+      'checking_newest',
+      'cooling_down',
       'failed',
-      'healthy',
       'never_run',
-      'no_jobs',
-      'partial_success',
       'queued',
-      'running',
+      'resolving',
       'skipped',
+      'source_exhausted',
     ])
     expect(connectorActionRequiredKinds).toEqual([
       'auth',

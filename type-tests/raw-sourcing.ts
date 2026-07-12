@@ -44,22 +44,26 @@ const candidateReferenceCarriesSourceEntity: IsExact<
 > = true
 
 const sparseCliIntake: RawSourceRecordInput = {
+  intakeItemId: 'item-sparse',
   adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
   observedAt: '2026-07-10T14:00:00.000Z',
 }
 
 declare const broadlyTypedLegacyAdapter: SourceAdapterProvenance
 
-const uncapturedLegacyIntake: RawSourceRecordInput = {
+// @ts-expect-error A broadly typed adapter could be a connector and cannot omit capture.
+const uncapturedBroadAdapter: RawSourceRecordInput = {
   adapter: broadlyTypedLegacyAdapter,
   observedAt: '2026-07-10T14:00:00.000Z',
 }
 
 const connectorCaptureIntake: RawSourceRecordInput = {
+  intakeItemId: 'item-connector',
   adapter: { id: 'jobright', kind: 'connector', version: '2.1.0' },
   capture: {
     connectorInstanceId: 'connector-instance-1',
     connectorRunId: 'connector-run-1',
+    executionScopeId: 'scope_connector_1',
   },
   observedAt: '2026-07-10T14:00:00.000Z',
 }
@@ -70,6 +74,7 @@ const spoofedCaptureAdapter: RawSourceRecordInput = {
   capture: {
     connectorInstanceId: 'connector-instance-1',
     connectorRunId: 'connector-run-1',
+    executionScopeId: 'scope_connector_1',
   },
   observedAt: '2026-07-10T14:00:00.000Z',
 }
@@ -86,7 +91,7 @@ const spoofedCaptureWorkspace: RawSourceRecordInput = {
 }
 
 void connectorCaptureIntake
-void uncapturedLegacyIntake
+void uncapturedBroadAdapter
 void spoofedCaptureAdapter
 void spoofedCaptureWorkspace
 
@@ -190,6 +195,7 @@ const missingAdapter: RawSourceRecordInput = {
 }
 
 const naturalUrl: RawSourceRecordInput = {
+  intakeItemId: 'item-natural',
   adapter: { id: 'manual-entry', kind: 'manual', version: '1.0.0' },
   observedAt: '2026-07-10T14:00:00.000Z',
   reportedOrigin: {
@@ -201,6 +207,7 @@ const naturalUrl: RawSourceRecordInput = {
 }
 
 const jobrightIntermediary: RawSourceRecordInput = {
+  intakeItemId: 'item-jobright',
   adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
   observedAt: '2026-07-10T14:00:00.000Z',
   reportedOrigin: { kind: 'aggregator', name: 'Jobright' },
@@ -220,6 +227,7 @@ const jobrightIntermediary: RawSourceRecordInput = {
 const providerMapper: ResolverDeclaration = {
   id: 'linkedin-employment-type',
   version: '2.1.0',
+  scopeRequirement: 'source',
   supportedAdapters: {
     kinds: ['connector'],
     ids: ['linkedin'],
@@ -236,6 +244,7 @@ const providerMapper: ResolverDeclaration = {
 const providerTitleResolver: ResolverDeclaration = {
   id: 'linkedin-title',
   version: '2.1.0',
+  scopeRequirement: 'source',
   supportedAdapters: {
     kinds: ['connector'],
     ids: ['linkedin'],
@@ -267,6 +276,8 @@ const fallbackAfterAbstention: NormalizationAttempt[] = [
     rawRevisionId: 'revision-1',
     resolver: providerTitleResolver,
     inputHash: 'sha256:title',
+    executionScopeId: 'scope_connector_1',
+    operationOutcome: null,
     status: 'completed',
     startedAt: '2026-07-10T14:01:00.000Z',
     completedAt: '2026-07-10T14:01:00.010Z',
@@ -287,6 +298,7 @@ const fallbackAfterAbstention: NormalizationAttempt[] = [
     resolver: {
       id: 'generic-title',
       version: '1.0.0',
+      scopeRequirement: 'none',
       supportedAdapters: { kinds: ['connector', 'cli', 'manual', 'import'] },
       requiredInputs: ['payload.title'],
       outputFields: ['roleTitle'],
@@ -295,6 +307,8 @@ const fallbackAfterAbstention: NormalizationAttempt[] = [
       precedence: 10,
     },
     inputHash: 'sha256:title',
+    executionScopeId: null,
+    operationOutcome: null,
     status: 'completed',
     startedAt: '2026-07-10T14:01:00.011Z',
     completedAt: '2026-07-10T14:01:00.012Z',

@@ -7,7 +7,12 @@ import {
   connectorRunScheduleOccurrenceLinkSchema,
   type ConnectorRunScheduleOccurrenceLink,
 } from './connector-schedule.js'
-import { retryAdviceSchema, type RetryAdvice } from './retry.js'
+import {
+  sourceExecutionScopeIdSchema,
+  sourceOperationOutcomeSchema,
+  type SourceExecutionScopeId,
+  type SourceOperationOutcome,
+} from './source-execution.js'
 
 export const connectorAuthModes = [
   'none',
@@ -29,7 +34,6 @@ export const connectorRunStatuses = [
   'queued',
   'running',
   'completed',
-  'partial_success',
   'failed',
   'cancelled',
   'skipped',
@@ -42,17 +46,20 @@ export const connectorStatusSeverities = ['healthy', 'warning', 'blocked'] as co
 export type ConnectorStatusSeverity = (typeof connectorStatusSeverities)[number]
 
 export const connectorStatusStates = [
-  'auth_required',
+  'authentication_required',
+  'backfilling',
   'blocked',
+  'boundary_exhausted',
   'cancelled',
+  'caught_up',
+  'checking_newest',
+  'cooling_down',
   'failed',
-  'healthy',
   'never_run',
-  'no_jobs',
-  'partial_success',
   'queued',
-  'running',
+  'resolving',
   'skipped',
+  'source_exhausted',
 ] as const
 
 export type ConnectorStatusState = (typeof connectorStatusStates)[number]
@@ -107,6 +114,38 @@ export interface ConnectorCoverageWindow {
   end: string | null
 }
 
+export type ConnectorNewestFrontierState =
+  | { state: 'not_started' }
+  | { state: 'advancing' | 'caught_up' }
+
+export interface ConnectorBackfillBoundary {
+  earliestDate: CanonicalDateOnly
+}
+
+export type ConnectorHistoricalBackfillState =
+  | { state: 'not_started'; boundary: ConnectorBackfillBoundary }
+  | {
+      state: 'advancing' | 'caught_up' | 'boundary_reached' | 'source_exhausted'
+      boundary: ConnectorBackfillBoundary
+    }
+
+export type ConnectorSynchronizationOutcome =
+  | { kind: 'in_progress' }
+  | { kind: 'failed'; reason: string }
+  | { kind: 'cancelled'; reason: string }
+  | { kind: 'yielded'; reason: 'invocation_budget' | 'operation_timeout' }
+  | { kind: 'caught_up' }
+  | {
+      kind: 'cooling_down'
+      operation: Extract<SourceOperationOutcome, { kind: 'scope_rate_limited' }>
+    }
+  | {
+      kind: 'action_required'
+      operation: Extract<SourceOperationOutcome, { kind: 'authentication_expired' }>
+    }
+  | { kind: 'boundary_exhausted' }
+  | { kind: 'source_exhausted' }
+
 export interface ConnectorInstanceSummary {
   id: string
   connectorId: string
@@ -144,14 +183,16 @@ export interface ConnectorStatusSummary {
 export interface ConnectorRunSummaryBase {
   id: string
   connectorInstanceId: string
-  status: ConnectorRunStatus | string
-  coverage: ConnectorCoverageWindow
+  executionScopeId: SourceExecutionScopeId
+  status: ConnectorRunStatus
   filterSignature: string
   observationCount: number
   warningCount: number
-  stats: unknown
   warnings: ConnectorWarning[]
-  retryHints: RetryAdvice | null
+  newestFrontier: ConnectorNewestFrontierState
+  historicalBackfill: ConnectorHistoricalBackfillState
+  pendingResolutionCount: number
+  outcome: ConnectorSynchronizationOutcome
   startedAt: string
   completedAt: string | null
 }
@@ -182,29 +223,120 @@ const connectorWarningSchema = z
 const connectorRunSummaryBaseShape = {
   id: z.string(),
   connectorInstanceId: z.string(),
-  status: z.string(),
-  coverage: z
-    .object({ start: z.string().nullable(), end: z.string().nullable() })
-    .strict(),
+  executionScopeId: sourceExecutionScopeIdSchema,
+  status: z.enum(connectorRunStatuses),
   filterSignature: z.string(),
-  observationCount: z.number(),
-  warningCount: z.number(),
-  stats: z.unknown(),
+  observationCount: z.number().int().nonnegative(),
+  warningCount: z.number().int().nonnegative(),
   warnings: z.array(connectorWarningSchema),
-  retryHints: retryAdviceSchema.nullable(),
-  startedAt: z.string(),
-  completedAt: z.string().nullable(),
+  newestFrontier: z.discriminatedUnion('state', [
+    z.object({ state: z.literal('not_started') }).strict(),
+    z.object({ state: z.literal('advancing') }).strict(),
+    z.object({ state: z.literal('caught_up') }).strict(),
+  ]),
+  historicalBackfill: z.discriminatedUnion('state', [
+    z.object({ state: z.literal('not_started'), boundary: z.object({ earliestDate: canonicalDateOnlySchema }).strict() }).strict(),
+    z.object({ state: z.literal('advancing'), boundary: z.object({ earliestDate: canonicalDateOnlySchema }).strict() }).strict(),
+    z.object({ state: z.literal('caught_up'), boundary: z.object({ earliestDate: canonicalDateOnlySchema }).strict() }).strict(),
+    z.object({ state: z.literal('boundary_reached'), boundary: z.object({ earliestDate: canonicalDateOnlySchema }).strict() }).strict(),
+    z.object({ state: z.literal('source_exhausted'), boundary: z.object({ earliestDate: canonicalDateOnlySchema }).strict() }).strict(),
+  ]),
+  pendingResolutionCount: z.number().int().nonnegative(),
+  outcome: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('in_progress') }).strict(),
+    z.object({ kind: z.literal('failed'), reason: z.string().min(1).max(512) }).strict(),
+    z.object({ kind: z.literal('cancelled'), reason: z.string().min(1).max(512) }).strict(),
+    z.object({ kind: z.literal('yielded'), reason: z.enum(['invocation_budget', 'operation_timeout']) }).strict(),
+    z.object({ kind: z.literal('caught_up') }).strict(),
+    z.object({
+      kind: z.literal('cooling_down'),
+      operation: sourceOperationOutcomeSchema.refine(
+        (value): value is Extract<SourceOperationOutcome, { kind: 'scope_rate_limited' }> =>
+          value.kind === 'scope_rate_limited',
+      ),
+    }).strict(),
+    z.object({
+      kind: z.literal('action_required'),
+      operation: sourceOperationOutcomeSchema.refine(
+        (value): value is Extract<SourceOperationOutcome, { kind: 'authentication_expired' }> =>
+          value.kind === 'authentication_expired',
+      ),
+    }).strict(),
+    z.object({ kind: z.literal('boundary_exhausted') }).strict(),
+    z.object({ kind: z.literal('source_exhausted') }).strict(),
+  ]),
+  startedAt: z.iso.datetime({ offset: true }),
+  completedAt: z.iso.datetime({ offset: true }).nullable(),
 }
 
-function refineNotDueSkippedStatus(
-  run: { retryHints: RetryAdvice | null; status: string },
+function refineContinuousRun(
+  run: ConnectorRunSummaryBase,
   context: z.RefinementCtx,
 ) {
-  if (run.retryHints?.state === 'not_due' && run.status !== 'skipped') {
+  if (run.warningCount !== run.warnings.length) {
+    context.addIssue({ code: 'custom', message: 'warning count must equal warnings length', path: ['warningCount'] })
+  }
+  const invocationInProgress = run.status === 'queued' || run.status === 'running'
+  if (invocationInProgress !== (run.outcome.kind === 'in_progress')) {
+    context.addIssue({
+      code: 'custom', message: 'queued/running invocations require in-progress outcome',
+      path: ['outcome'],
+    })
+  }
+  if ((run.status === 'failed') !== (run.outcome.kind === 'failed')) {
+    context.addIssue({ code: 'custom', message: 'failed status and outcome must agree', path: ['outcome'] })
+  }
+  if ((run.status === 'cancelled') !== (run.outcome.kind === 'cancelled')) {
+    context.addIssue({ code: 'custom', message: 'cancelled status and outcome must agree', path: ['outcome'] })
+  }
+  if (invocationInProgress !== (run.completedAt === null)) {
+    context.addIssue({
+      code: 'custom', message: 'only queued/running invocations omit completion time',
+      path: ['completedAt'],
+    })
+  }
+  if (run.completedAt !== null && Date.parse(run.completedAt) < Date.parse(run.startedAt)) {
+    context.addIssue({
+      code: 'custom', message: 'completion cannot precede start', path: ['completedAt'],
+    })
+  }
+  if ((run.outcome.kind === 'caught_up' ||
+       run.outcome.kind === 'boundary_exhausted' ||
+       run.outcome.kind === 'source_exhausted') && run.status !== 'completed') {
+    context.addIssue({
+      code: 'custom', message: 'successful synchronization outcomes require completed status',
+      path: ['status'],
+    })
+  }
+  const progressCaughtUp = run.newestFrontier.state === 'caught_up' &&
+    run.historicalBackfill.state === 'caught_up' && run.pendingResolutionCount === 0
+  if (progressCaughtUp !== (run.outcome.kind === 'caught_up')) {
     context.addIssue({
       code: 'custom',
-      message: 'not-due connector runs must use the skipped status',
-      path: ['status'],
+      message: 'caught-up runs require caught-up frontiers and no pending resolutions',
+      path: ['outcome'],
+    })
+  }
+  const operation = run.outcome.kind === 'cooling_down' ||
+    run.outcome.kind === 'action_required' ? run.outcome.operation : null
+  if (operation !== null && operation.executionScopeId !== run.executionScopeId) {
+    context.addIssue({
+      code: 'custom', message: 'run operation scope must match the run scope',
+      path: ['outcome', 'operation', 'executionScopeId'],
+    })
+  }
+  if (run.outcome.kind === 'boundary_exhausted' &&
+      run.historicalBackfill.state !== 'boundary_reached') {
+    context.addIssue({
+      code: 'custom', message: 'boundary exhaustion requires a reached backfill boundary',
+      path: ['outcome'],
+    })
+  }
+  if (run.outcome.kind === 'source_exhausted' &&
+      run.historicalBackfill.state !== 'source_exhausted') {
+    context.addIssue({
+      code: 'custom', message: 'source exhaustion requires exhausted backfill source state',
+      path: ['outcome'],
     })
   }
 }
@@ -226,7 +358,7 @@ export const connectorRunSummarySchema: z.ZodType<ConnectorRunSummary> = z
         scheduleOccurrence: z.null(),
       })
       .strict()
-      .superRefine(refineNotDueSkippedStatus),
+      .superRefine(refineContinuousRun),
     z
       .object({
         ...connectorRunSummaryBaseShape,
@@ -234,7 +366,7 @@ export const connectorRunSummarySchema: z.ZodType<ConnectorRunSummary> = z
         scheduleOccurrence: scheduledOccurrenceLinkSchema,
       })
       .strict()
-      .superRefine(refineNotDueSkippedStatus),
+      .superRefine(refineContinuousRun),
     z
       .object({
         ...connectorRunSummaryBaseShape,
@@ -242,7 +374,7 @@ export const connectorRunSummarySchema: z.ZodType<ConnectorRunSummary> = z
         scheduleOccurrence: catchUpOccurrenceLinkSchema,
       })
       .strict()
-      .superRefine(refineNotDueSkippedStatus),
+      .superRefine(refineContinuousRun),
   ])
 
 export interface ConnectorCheckpoint {
@@ -306,6 +438,69 @@ const connectorAuthSummarySchema = z
     configured: z.boolean(),
   })
   .strict()
+
+const connectorActionRequiredSchema = z.object({
+  id: z.string(),
+  kind: z.enum(connectorActionRequiredKinds),
+  label: z.string(),
+  message: z.string(),
+  severity: z.enum(connectorStatusSeverities),
+}).strict()
+
+const connectorStatusActionSchema = z.object({
+  id: z.enum(['configure', 'reconnect', 'review', 'skip', 'wait']),
+  label: z.string(),
+}).strict()
+
+export const connectorStatusSummarySchema: z.ZodType<ConnectorStatusSummary> =
+  z.object({
+    id: z.string(),
+    connectorId: z.string(),
+    connectorVersion: z.string().nullable(),
+    displayName: z.string(),
+    enabled: z.boolean(),
+    auth: z.array(connectorAuthSummarySchema),
+    actionRequired: z.array(connectorActionRequiredSchema),
+    actions: z.array(connectorStatusActionSchema),
+    lastRunAt: z.iso.datetime({ offset: true }).nullable(),
+    latestRunId: z.string().nullable(),
+    observationCount: z.number().int().nonnegative(),
+    severity: z.enum(connectorStatusSeverities),
+    status: z.enum(connectorStatusStates),
+    statusLabel: z.string(),
+    summary: z.string(),
+    warningCount: z.number().int().nonnegative(),
+    warnings: z.array(connectorWarningSchema),
+  }).strict().superRefine((status, context) => {
+    if (status.warningCount !== status.warnings.length) {
+      context.addIssue({ code: 'custom', message: 'warning count must equal warnings length', path: ['warningCount'] })
+    }
+    if ((status.lastRunAt === null) !== (status.latestRunId === null)) {
+      context.addIssue({
+        code: 'custom', message: 'last run time and id must be present together',
+        path: ['latestRunId'],
+      })
+    }
+    if (status.status === 'never_run' && status.lastRunAt !== null) {
+      context.addIssue({
+        code: 'custom', message: 'never-run status cannot reference a run', path: ['lastRunAt'],
+      })
+    }
+    const hasAuthAction = status.actionRequired.some((action) => action.kind === 'auth')
+    if (hasAuthAction !== (status.status === 'authentication_required')) {
+      context.addIssue({
+        code: 'custom', message: 'authentication-required status and auth action must agree',
+        path: ['status'],
+      })
+    }
+    if (status.status === 'authentication_required' && status.severity !== 'blocked') {
+      context.addIssue({ code: 'custom', message: 'authentication required must be blocked', path: ['severity'] })
+    }
+    if (status.status === 'caught_up' &&
+        (status.severity !== 'healthy' || status.actionRequired.length !== 0 || status.lastRunAt === null)) {
+      context.addIssue({ code: 'custom', message: 'caught-up status must be healthy, actionable-free, and run-backed', path: ['status'] })
+    }
+  })
 
 export const connectorInstanceSummarySchema: z.ZodType<ConnectorInstanceSummary> = z
   .object({
@@ -395,11 +590,20 @@ export const updateConnectorInstanceInputSchema: z.ZodType<UpdateConnectorInstan
 
 export interface ConnectorRunsListInput {
   connectorInstanceId: string
-  status?: ConnectorRunStatus | string
-  mode?: ConnectorRunMode | string
+  status?: ConnectorRunStatus
+  mode?: ConnectorRunMode
   limit?: number
   offset?: number
 }
+
+export const connectorRunsListInputSchema: z.ZodType<ConnectorRunsListInput> =
+  z.object({
+    connectorInstanceId: z.string().min(1),
+    status: z.enum(connectorRunStatuses).optional(),
+    mode: z.enum(connectorRunModes).optional(),
+    limit: z.number().int().nonnegative().optional(),
+    offset: z.number().int().nonnegative().optional(),
+  }).strict()
 
 export interface ConnectorRunsListResult {
   items: ConnectorRunSummary[]
@@ -423,8 +627,6 @@ export interface TriggerConnectorRunInput {
   connectorInstanceId: string
   /** Ordinary triggers are manual-only; scheduled/catch_up require due dispatch. */
   mode?: 'manual'
-  coverageStartedAt?: string | null
-  coverageEndedAt?: string | null
   filterSignature?: string | null
   filters?: unknown
   reason?: string | null
@@ -435,8 +637,6 @@ export const triggerConnectorRunInputSchema: z.ZodType<TriggerConnectorRunInput>
   .object({
     connectorInstanceId: z.string().min(1),
     mode: z.literal('manual').optional(),
-    coverageStartedAt: z.string().nullable().optional(),
-    coverageEndedAt: z.string().nullable().optional(),
     filterSignature: z.string().nullable().optional(),
     filters: z.unknown().optional(),
     reason: z.string().nullable().optional(),

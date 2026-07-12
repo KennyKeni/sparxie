@@ -2,6 +2,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient } from './index'
 import { jsonResponse, mockFetch, connectorInstanceSummaryPayload } from './http-client.test-support.js'
 
+const continuousRunFields = {
+  executionScopeId: 'scope_connector_1',
+  newestFrontier: { state: 'advancing' },
+  historicalBackfill: {
+    state: 'advancing',
+    boundary: { earliestDate: '2026-01-01' },
+  },
+  pendingResolutionCount: 1,
+  outcome: { kind: 'yielded', reason: 'invocation_budget' },
+} as const
+
+const connectorStatusPayload = {
+  id: 'connector-1', connectorId: 'jobright', connectorVersion: '1.0.0',
+  displayName: 'Jobright', enabled: true,
+  auth: [{ id: 'session', mode: 'browser_session', label: 'Session', configured: true }],
+  actionRequired: [], actions: [], lastRunAt: '2026-07-12T14:00:00.000Z', latestRunId: 'run-1',
+  observationCount: 0, severity: 'healthy', status: 'caught_up',
+  statusLabel: 'Caught up', summary: 'Source is synchronized.',
+  warningCount: 0, warnings: [],
+} as const
+
 describe('HTTP Valedictorian client', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -119,33 +140,22 @@ describe('HTTP Valedictorian client', () => {
 
   it('round-trips a workspace-scoped skipped not-due connector run', async () => {
     const payload = {
+      ...continuousRunFields,
       id: 'run-2',
-      connectorInstanceId: 'connector-1',
+      connectorInstanceId: 'connector/1',
       mode: 'manual',
       status: 'skipped',
-      coverage: { start: null, end: null },
       filterSignature: 'all',
       observationCount: 0,
       warningCount: 0,
-      stats: null,
       warnings: [],
-      retryHints: {
-        state: 'not_due',
-        reason: 'server_failure',
-        attempt: 2,
-        maxAttempts: 4,
-        lastAttemptAt: '2026-07-11T14:00:00.000Z',
-        computedDelayMs: 30_000,
-        nextAttemptAt: '2026-07-11T14:00:30.000Z',
-        horizonAt: '2026-07-11T15:00:00.000Z',
-      },
       startedAt: '2026-07-11T14:00:01.000Z',
       completedAt: '2026-07-11T14:00:01.000Z',
       scheduleOccurrence: null,
     }
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse(payload))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...payload, status: 'completed' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...payload, status: 'anything' }))
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({
       baseUrl: 'https://valedictorian.test',
@@ -216,20 +226,62 @@ describe('HTTP Valedictorian client', () => {
     ).rejects.toThrow()
   })
 
+  it('rejects open connector run-list filters before fetch', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    vi.stubGlobal('fetch', fetchMock)
+    const runs = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').connectors.runs
+
+    await expect(runs.list({
+      connectorInstanceId: 'connector-1', status: 'partial_success',
+    } as never)).rejects.toThrow()
+    await expect(runs.list({
+      connectorInstanceId: 'connector-1', mode: 'provider_mode',
+    } as never)).rejects.toThrow()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects otherwise-valid connector responses for another requested identity', async () => {
+    const wrongSummary = connectorInstanceSummaryPayload({ id: 'connector-other' })
+    const wrongStatus = { ...connectorStatusPayload, id: 'connector-other' }
+    const wrongRun = {
+      ...continuousRunFields, id: 'run-1', connectorInstanceId: 'connector-other',
+      mode: 'manual', status: 'completed', filterSignature: 'all', observationCount: 0,
+      warningCount: 0, warnings: [], startedAt: '2026-07-12T14:00:00.000Z',
+      completedAt: '2026-07-12T14:01:00.000Z', scheduleOccurrence: null,
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    for (const response of [wrongSummary, wrongSummary, wrongStatus, wrongRun, {
+      items: [wrongRun], total: 1, limit: 25, offset: 0, hasMore: false,
+    }]) fetchMock.mockResolvedValueOnce(jsonResponse(response))
+    vi.stubGlobal('fetch', fetchMock)
+    const connectors = createHttpValedictorianClient({ baseUrl: 'https://valedictorian.test' })
+      .forWorkspace('workspace-1').connectors
+
+    await expect(connectors.create({
+      id: 'connector-1', connectorId: 'provider', connectorVersion: '1.0.0',
+      displayName: 'Provider', enabled: true,
+    })).rejects.toThrow(/identity/)
+    await expect(connectors.update({ connectorInstanceId: 'connector-1' })).rejects.toThrow(/identity/)
+    await expect(connectors.inspect('connector-1')).rejects.toThrow(/identity/)
+    await expect(connectors.runs.trigger({ connectorInstanceId: 'connector-1' })).rejects.toThrow(/identity/)
+    await expect(connectors.runs.list({ connectorInstanceId: 'connector-1' })).rejects.toThrow(/identity/)
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+  })
+
   it('maps connector methods to workspace-scoped HTTP endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     const run = {
+      ...continuousRunFields,
       id: 'run-1',
       connectorInstanceId: 'jobright/session 1',
       mode: 'manual',
       status: 'completed',
-      coverage: { start: null, end: null },
       filterSignature: 'internships',
       observationCount: 0,
       warningCount: 0,
-      stats: null,
       warnings: [],
-      retryHints: null,
       startedAt: '2026-07-11T14:00:00.000Z',
       completedAt: '2026-07-11T14:00:01.000Z',
       scheduleOccurrence: null,
@@ -239,7 +291,7 @@ describe('HTTP Valedictorian client', () => {
       { items: [summary] },
       summary,
       summary,
-      { ok: true },
+      { ...connectorStatusPayload, id: 'jobright/session 1' },
       run,
       { items: [run], total: 1, limit: 25, offset: 5, hasMore: false },
       { ok: true },
@@ -282,8 +334,6 @@ describe('HTTP Valedictorian client', () => {
     await workspace.connectors.inspect('jobright/session 1')
     await workspace.connectors.runs.trigger({
       connectorInstanceId: 'jobright/session 1',
-      coverageStartedAt: '2026-07-01T00:00:00.000Z',
-      coverageEndedAt: '2026-07-08T00:00:00.000Z',
       filterSignature: 'internships',
       mode: 'manual',
     })
@@ -358,8 +408,6 @@ describe('HTTP Valedictorian client', () => {
       expect.objectContaining({
         body: JSON.stringify({
           mode: 'manual',
-          coverageStartedAt: '2026-07-01T00:00:00.000Z',
-          coverageEndedAt: '2026-07-08T00:00:00.000Z',
           filterSignature: 'internships',
         }),
         method: 'POST',
@@ -375,6 +423,46 @@ describe('HTTP Valedictorian client', () => {
       'http://127.0.0.1:4317/v1/workspaces/workspace%201/connectors/jobright%2Fsession%201/observations?connectorRunId=run-1&limit=50',
       expect.objectContaining({ method: 'GET' }),
     )
+  })
+
+  it('strictly parses connector status inspection without secret fields', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    const neverRun = {
+      ...connectorStatusPayload, status: 'never_run', statusLabel: 'Never run',
+      summary: 'Connector has not run.', lastRunAt: null, latestRunId: null,
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse(neverRun))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ...connectorStatusPayload, status: 'partial_success', password: 'plaintext',
+    }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ...connectorStatusPayload, lastRunAt: '2026-07-12T14:00:00.000Z', latestRunId: null,
+    }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ...neverRun, lastRunAt: '2026-07-12T14:00:00.000Z', latestRunId: 'run-1',
+    }))
+    const authRequired = {
+      ...connectorStatusPayload, status: 'authentication_required', severity: 'blocked',
+      actionRequired: [{ id: 'auth', kind: 'auth', label: 'Reconnect', message: 'Authentication expired.', severity: 'blocked' }],
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse(authRequired))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ...connectorStatusPayload, severity: 'blocked', latestRunId: null,
+      actionRequired: authRequired.actionRequired,
+    }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...neverRun, warningCount: 1 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const connectors = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').connectors
+
+    await expect(connectors.inspect('connector-1')).resolves.toEqual(neverRun)
+    await expect(connectors.inspect('connector-1')).rejects.toThrow()
+    await expect(connectors.inspect('connector-1')).rejects.toThrow()
+    await expect(connectors.inspect('connector-1')).rejects.toThrow()
+    await expect(connectors.inspect('connector-1')).resolves.toEqual(authRequired)
+    await expect(connectors.inspect('connector-1')).rejects.toThrow()
+    await expect(connectors.inspect('connector-1')).rejects.toThrow()
   })
 
   it('serializes username_password connector auth references with secretKey only', async () => {

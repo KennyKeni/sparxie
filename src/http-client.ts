@@ -15,7 +15,9 @@ import type {
 import {
   connectorInstancesListResultSchema,
   connectorInstanceSummarySchema,
+  connectorStatusSummarySchema,
   connectorRunsListResultSchema,
+  connectorRunsListInputSchema,
   connectorRunSummarySchema,
   triggerConnectorRunInputSchema,
 } from './connector.js'
@@ -36,9 +38,12 @@ import {
 } from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
 import {
+  batchRawSourceRecordsInputSchema,
+  rawSourceRecordSchema,
   rawSourceNormalizationResultSchema,
   rawSourceReplayReceiptSchema,
 } from './raw-sourcing.js'
+import { createBoundBatchRawSourceRecordsResultSchema } from './raw-sourcing-bound.js'
 import { rawSourceProjectionResultSchema } from './sourcing-projection.js'
 
 export interface HttpValedictorianClientOptions {
@@ -57,6 +62,11 @@ export class ValedictorianHttpError extends Error {
     this.status = status
     this.body = body
   }
+}
+
+function requireResponseIdentity<T>(value: T, actual: string, expected: string): T {
+  if (actual !== expected) throw new Error(`response identity ${actual} does not match ${expected}`)
+  return value
 }
 
 const applicationListQueryParamKeys = [
@@ -508,41 +518,48 @@ export function createHttpValedictorianClient({
         )
       },
       async create(input) {
-        return connectorInstanceSummarySchema.parse(
+        const summary = connectorInstanceSummarySchema.parse(
           await request(pathFor(valedictorianApiPaths.connectors), {
             body: input,
             method: 'POST',
           }),
         )
+        return requireResponseIdentity(summary, summary.id, input.id)
       },
       async update(input) {
         const { connectorInstanceId, ...body } = input
 
-        return connectorInstanceSummarySchema.parse(
+        const summary = connectorInstanceSummarySchema.parse(
           await request(pathFor(valedictorianApiPaths.connector(connectorInstanceId)), {
             body,
             method: 'PATCH',
           }),
         )
+        return requireResponseIdentity(summary, summary.id, connectorInstanceId)
       },
-      inspect(connectorInstanceId) {
-        return request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId)))
+      async inspect(connectorInstanceId) {
+        const summary = connectorStatusSummarySchema.parse(
+          await request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId))),
+        )
+        return requireResponseIdentity(summary, summary.id, connectorInstanceId)
       },
       runs: {
         async list(input) {
-          const { connectorInstanceId, ...query } = input
+          const { connectorInstanceId, ...query } = connectorRunsListInputSchema.parse(input)
 
-          return connectorRunsListResultSchema.parse(
+          const result = connectorRunsListResultSchema.parse(
             await request(
               pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)),
               { query: connectorRunListQueryToSearchParams(query) },
             ),
           )
+          result.items.forEach((run) => requireResponseIdentity(run, run.connectorInstanceId, connectorInstanceId))
+          return result
         },
         async trigger(input) {
           const { connectorInstanceId, ...body } = triggerConnectorRunInputSchema.parse(input)
 
-          return connectorRunSummarySchema.parse(
+          const run = connectorRunSummarySchema.parse(
             await request(
               pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)),
               {
@@ -551,6 +568,7 @@ export function createHttpValedictorianClient({
               },
             ),
           )
+          return requireResponseIdentity(run, run.connectorInstanceId, connectorInstanceId)
         },
       },
       checkpoints: {
@@ -708,25 +726,33 @@ export function createHttpValedictorianClient({
       rawRevisions: {
         projection: {
           async get(rawRevisionId) {
-            return rawSourceProjectionResultSchema.parse(
+            const projection = rawSourceProjectionResultSchema.parse(
               await request(
                 pathFor(
                   valedictorianApiPaths.sourcingRawRevisionProjection(rawRevisionId),
                 ),
               ),
             )
+            return requireResponseIdentity(projection, projection.rawRevisionId, rawRevisionId)
           },
         },
       },
       rawRecords: {
-        ingestBatch(input) {
-          return request(pathFor(valedictorianApiPaths.sourcingRawRecordsBatch), {
-            body: input,
+        async ingestBatch(input) {
+          const body = batchRawSourceRecordsInputSchema.parse(input)
+          return createBoundBatchRawSourceRecordsResultSchema(body).parse(
+            await request(pathFor(valedictorianApiPaths.sourcingRawRecordsBatch), {
+            body,
             method: 'POST',
-          })
+            }),
+          )
         },
-        get(rawRecordId) {
-          return request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId)))
+        async get(rawRecordId) {
+          return rawSourceRecordSchema.refine((record) => record.id === rawRecordId, {
+            message: 'raw record response must match the requested id', path: ['id'],
+          }).parse(
+            await request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId))),
+          )
         },
         async replay(input) {
           const receipt = await request(
@@ -741,7 +767,10 @@ export function createHttpValedictorianClient({
         },
         normalization: {
           async get(rawRecordId) {
-            return rawSourceNormalizationResultSchema.parse(
+            return rawSourceNormalizationResultSchema.refine(
+              (result) => result.rawRecordId === rawRecordId,
+              { message: 'normalization response must match the requested raw record', path: ['rawRecordId'] },
+            ).parse(
               await request(
                 pathFor(
                   valedictorianApiPaths.sourcingRawRecordNormalization(rawRecordId),

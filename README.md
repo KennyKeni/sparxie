@@ -62,6 +62,7 @@ raw intake contract:
 await workspace.sourcing.rawRecords.ingestBatch({
   records: [
     {
+      intakeItemId: 'batch-item-1',
       adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
       observedAt: new Date().toISOString(),
       reportedOrigin: { kind: 'job_board', name: 'LinkedIn' },
@@ -79,13 +80,44 @@ job field. Payload and evidence values are JSON-safe and use the exported
 `rawRecords.normalization.get`, and request version-targeted reprocessing with
 `rawRecords.replay`.
 
-Connector adapters may add a `capture` containing only `connectorInstanceId`
-and `connectorRunId`. Compatible servers resolve those references inside the
+Every batch record requires a unique opaque `intakeItemId`. Receipts echo that
+transient identifier so the typed client can correlate reordered responses,
+reject duplicate/missing/unknown items, and validate connector capture against
+the matching request without persisting the batch identity.
+
+Connector adapters require a `capture` containing `connectorInstanceId`,
+`connectorRunId`, and opaque `executionScopeId`. Compatible servers resolve those references inside the
 workspace named by the HTTP route and validate the producer's adapter against
 the registered connector with `createBoundRawSourceRecordInputSchema`. A
 producer cannot supply a workspace or override the registered adapter lineage.
 The accepted capture is returned on the intake occurrence, so repeated runs can
 share a deduplicated raw record without conflating their run provenance.
+
+The execution scope is derived by the trusted host. The binding validator equality-checks it with the registered
+connector scope; it contains no workspace, account, credential, or session
+components. Provider normalization attempts carry that scope, while pure or
+generic attempts use `null`. Resolver declarations explicitly state a closed
+`scopeRequirement` of `source` or `none`; the bound normalization-result schema
+correlates source-scoped attempts with a trusted raw revision and execution
+scope. Authentication expiry and rate limiting are
+scope-level operation outcomes; transient and permanent record failures remain
+item-level outcomes and never leak raw provider responses.
+
+Connector runs report continuous synchronization rather than requested-result
+targets. `newestFrontier`, `historicalBackfill`, `pendingResolutionCount`, and
+the typed run `outcome` distinguish resumable yields, caught-up state,
+cooldowns, required action, and explicit boundary or source exhaustion.
+Provider checkpoints stay behind the separate checkpoint endpoint and are not
+included in public progress DTOs. A yielded invocation is not synchronization
+completion, and `caught_up` is valid only when both frontiers are caught up and
+no resolutions are pending.
+
+Invocation lifecycle is explicit: queued/running runs use `in_progress`, failed
+runs use `failed`, and cancelled runs use `cancelled`. Completed or skipped
+invocations may report the remaining non-in-progress synchronization outcomes
+according to backend admission behavior, but cannot masquerade as failure or
+cancellation. Run and connector-status warning counts exactly match their
+sanitized warning arrays.
 
 Intake receipts and raw-record reads expose the nullable source-entity identity;
 promoted canonical-candidate references always identify their source entity.

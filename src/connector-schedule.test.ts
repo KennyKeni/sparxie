@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { describe, expect, it } from 'vitest'
 import {
-  connectorRunStatuses,
   connectorScheduleAuditEventSchema,
   connectorScheduleAuditListResultSchema,
   connectorScheduleCadenceSchema,
@@ -296,7 +295,14 @@ describe('connector schedule resource contract', () => {
   })
 
   it('restricts last-run summaries to closed scheduled statuses and scheduled|catch_up modes', () => {
-    expect(connectorScheduleLastRunStatuses).toEqual([...connectorRunStatuses])
+    expect(connectorScheduleLastRunStatuses).toEqual([
+      'queued',
+      'running',
+      'completed',
+      'failed',
+      'cancelled',
+      'skipped',
+    ])
 
     expect(
       connectorScheduleLastRunSummarySchema.parse({
