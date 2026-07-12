@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { describe, expect, it } from 'vitest'
 import {
   connectorRunStatuses,
@@ -25,6 +26,28 @@ import {
 } from './index'
 
 describe('connector schedule cadence contract', () => {
+  it('documents that ISO weekday 1 means Monday', () => {
+    const jsonSchema = z.toJSONSchema(connectorScheduleCadenceSchema)
+    const weeklySchema = jsonSchema.oneOf?.find(
+      (cadence) => cadence.properties?.kind?.const === 'weekly',
+    )
+
+    expect(weeklySchema?.properties?.dayOfWeek?.description).toBe(
+      'ISO-8601 weekday: 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday, 7 = Sunday',
+    )
+  })
+
+  it('documents that ISO weekday 7 means Sunday', () => {
+    const jsonSchema = z.toJSONSchema(connectorScheduleCadenceSchema)
+    const weeklySchema = jsonSchema.oneOf?.find(
+      (cadence) => cadence.properties?.kind?.const === 'weekly',
+    )
+
+    expect(weeklySchema?.properties?.dayOfWeek?.description).toBe(
+      'ISO-8601 weekday: 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday, 7 = Sunday',
+    )
+  })
+
   it('accepts only structured interval, daily, and weekly cadences', () => {
     expect(
       connectorScheduleCadenceSchema.parse({ kind: 'interval', everyMinutes: 30 }),
