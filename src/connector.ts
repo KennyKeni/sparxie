@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { canonicalDateOnlySchema } from './canonical-date.js'
 import { retryAdviceSchema, type RetryAdvice } from './retry.js'
 
 export const connectorAuthModes = [
@@ -108,6 +109,7 @@ export interface ConnectorInstanceSummary {
   auth: ConnectorAuthSummary[]
   config: unknown
   filters: unknown
+  earliestBackfillDate: string
   createdAt: string
   updatedAt: string
 }
@@ -239,6 +241,38 @@ export interface ConnectorInstancesListResult {
   items: ConnectorInstanceSummary[]
 }
 
+const connectorAuthSummarySchema = z
+  .object({
+    id: z.string(),
+    mode: z.enum(connectorAuthModes),
+    label: z.string().nullable(),
+    configured: z.boolean(),
+  })
+  .strict()
+
+export const connectorInstanceSummarySchema: z.ZodType<ConnectorInstanceSummary> = z
+  .object({
+    id: z.string(),
+    connectorId: z.string(),
+    connectorVersion: z.string(),
+    displayName: z.string(),
+    enabled: z.boolean(),
+    auth: z.array(connectorAuthSummarySchema),
+    config: z.unknown(),
+    filters: z.unknown(),
+    earliestBackfillDate: canonicalDateOnlySchema,
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .strict()
+
+export const connectorInstancesListResultSchema: z.ZodType<ConnectorInstancesListResult> =
+  z
+    .object({
+      items: z.array(connectorInstanceSummarySchema),
+    })
+    .strict()
+
 export interface CreateConnectorInstanceInput {
   id: string
   connectorId: string
@@ -248,6 +282,7 @@ export interface CreateConnectorInstanceInput {
   auth?: ConnectorAuthReferenceInput[]
   config?: Record<string, unknown>
   filters?: Record<string, unknown>
+  earliestBackfillDate?: string
 }
 
 export interface UpdateConnectorInstanceInput {
@@ -258,6 +293,7 @@ export interface UpdateConnectorInstanceInput {
   auth?: ConnectorAuthReferenceInput[]
   config?: Record<string, unknown>
   filters?: Record<string, unknown>
+  earliestBackfillDate?: string
 }
 
 export interface ConnectorRunsListInput {

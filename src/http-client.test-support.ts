@@ -15,6 +15,36 @@ export function mockFetch(response: Response) {
   return fetchMock
 }
 
+export function connectorInstanceSummaryPayload(
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    id: 'jobright/session 1',
+    connectorId: 'jobright.resolver',
+    connectorVersion: '0.1.0',
+    displayName: 'Jobright',
+    enabled: true,
+    auth: [
+      {
+        id: 'jobright-session',
+        mode: 'browser_session',
+        label: 'Jobright session',
+        configured: true,
+      },
+    ],
+    config: {
+      publicFeedUrl: 'https://jobright.test/feed.json',
+    },
+    filters: {
+      roleKeywords: ['intern'],
+    },
+    earliestBackfillDate: '2026-07-04',
+    createdAt: '2026-07-11T14:00:00.000Z',
+    updatedAt: '2026-07-11T14:00:00.000Z',
+    ...overrides,
+  }
+}
+
 export function sourcingFindingPayload(country: unknown = null) {
   return {
     id: 'finding-1',

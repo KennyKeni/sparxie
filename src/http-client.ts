@@ -13,6 +13,8 @@ import type {
   ConnectorRunsListInput,
 } from './connector.js'
 import {
+  connectorInstancesListResultSchema,
+  connectorInstanceSummarySchema,
   connectorRunsListResultSchema,
   connectorRunSummarySchema,
 } from './connector.js'
@@ -491,22 +493,28 @@ export function createHttpValedictorianClient({
       },
     },
     connectors: {
-      list() {
-        return request(pathFor(valedictorianApiPaths.connectors))
+      async list() {
+        return connectorInstancesListResultSchema.parse(
+          await request(pathFor(valedictorianApiPaths.connectors)),
+        )
       },
-      create(input) {
-        return request(pathFor(valedictorianApiPaths.connectors), {
-          body: input,
-          method: 'POST',
-        })
+      async create(input) {
+        return connectorInstanceSummarySchema.parse(
+          await request(pathFor(valedictorianApiPaths.connectors), {
+            body: input,
+            method: 'POST',
+          }),
+        )
       },
-      update(input) {
+      async update(input) {
         const { connectorInstanceId, ...body } = input
 
-        return request(pathFor(valedictorianApiPaths.connector(connectorInstanceId)), {
-          body,
-          method: 'PATCH',
-        })
+        return connectorInstanceSummarySchema.parse(
+          await request(pathFor(valedictorianApiPaths.connector(connectorInstanceId)), {
+            body,
+            method: 'PATCH',
+          }),
+        )
       },
       inspect(connectorInstanceId) {
         return request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId)))
