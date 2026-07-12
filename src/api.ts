@@ -104,6 +104,9 @@ export const valedictorianApiPaths = {
   sourcingRawRecordNormalization(rawRecordId: string) {
     return `/v1/sourcing/raw-records/${encodeURIComponent(rawRecordId)}/normalization`
   },
+  sourcingRawRevisionProjection(rawRevisionId: string) {
+    return `/v1/sourcing/raw-revisions/${encodeURIComponent(rawRevisionId)}/projection`
+  },
   sourcingFindings: '/v1/sourcing/findings',
   sourcingFinding(findingId: string) {
     return `/v1/sourcing/findings/${encodeURIComponent(findingId)}`
