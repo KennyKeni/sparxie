@@ -399,10 +399,13 @@ describe('SDK public contract', () => {
       ''
 
     expect(indexSource).toContain("export * from './canonical-date.js'")
-    expect(summaryBlock).toMatch(/earliestBackfillDate:\s*string/)
-    expect(createBlock).toMatch(/earliestBackfillDate\?:\s*string/)
-    expect(updateBlock).toMatch(/earliestBackfillDate\?:\s*string/)
+    expect(summaryBlock).toMatch(/earliestBackfillDate:\s*CanonicalDateOnly/)
+    expect(createBlock).toMatch(/earliestBackfillDate\?:\s*CanonicalDateOnly/)
+    expect(updateBlock).toMatch(/earliestBackfillDate\?:\s*CanonicalDateOnly/)
     expect(connectorSource).toContain('connectorInstanceSummarySchema')
     expect(connectorSource).toContain('connectorInstancesListResultSchema')
+    expect(connectorSource).toContain('createConnectorInstanceInputSchema')
+    expect(connectorSource).toContain('updateConnectorInstanceInputSchema')
+    expect(connectorSource).toContain('connectorAuthReferenceInputSchema')
   })
 })

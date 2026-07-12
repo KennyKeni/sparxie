@@ -1,5 +1,8 @@
 import { z } from 'zod'
-import { canonicalDateOnlySchema } from './canonical-date.js'
+import {
+  canonicalDateOnlySchema,
+  type CanonicalDateOnly,
+} from './canonical-date.js'
 import { retryAdviceSchema, type RetryAdvice } from './retry.js'
 
 export const connectorAuthModes = [
@@ -109,7 +112,7 @@ export interface ConnectorInstanceSummary {
   auth: ConnectorAuthSummary[]
   config: unknown
   filters: unknown
-  earliestBackfillDate: string
+  earliestBackfillDate: CanonicalDateOnly
   createdAt: string
   updatedAt: string
 }
@@ -282,7 +285,7 @@ export interface CreateConnectorInstanceInput {
   auth?: ConnectorAuthReferenceInput[]
   config?: Record<string, unknown>
   filters?: Record<string, unknown>
-  earliestBackfillDate?: string
+  earliestBackfillDate?: CanonicalDateOnly
 }
 
 export interface UpdateConnectorInstanceInput {
@@ -293,8 +296,48 @@ export interface UpdateConnectorInstanceInput {
   auth?: ConnectorAuthReferenceInput[]
   config?: Record<string, unknown>
   filters?: Record<string, unknown>
-  earliestBackfillDate?: string
+  earliestBackfillDate?: CanonicalDateOnly
 }
+
+export const connectorAuthReferenceInputSchema: z.ZodType<ConnectorAuthReferenceInput> =
+  z
+    .object({
+      id: z.string(),
+      mode: z.enum(connectorAuthModes),
+      label: z.string().nullable().optional(),
+      secretKey: z.string().optional(),
+      sessionKey: z.string().optional(),
+    })
+    .strict()
+
+export const createConnectorInstanceInputSchema: z.ZodType<CreateConnectorInstanceInput> =
+  z
+    .object({
+      id: z.string(),
+      connectorId: z.string(),
+      connectorVersion: z.string(),
+      displayName: z.string(),
+      enabled: z.boolean(),
+      auth: z.array(connectorAuthReferenceInputSchema).optional(),
+      config: z.record(z.string(), z.unknown()).optional(),
+      filters: z.record(z.string(), z.unknown()).optional(),
+      earliestBackfillDate: canonicalDateOnlySchema.optional(),
+    })
+    .strict()
+
+export const updateConnectorInstanceInputSchema: z.ZodType<UpdateConnectorInstanceInput> =
+  z
+    .object({
+      connectorInstanceId: z.string(),
+      connectorVersion: z.string().optional(),
+      displayName: z.string().optional(),
+      enabled: z.boolean().optional(),
+      auth: z.array(connectorAuthReferenceInputSchema).optional(),
+      config: z.record(z.string(), z.unknown()).optional(),
+      filters: z.record(z.string(), z.unknown()).optional(),
+      earliestBackfillDate: canonicalDateOnlySchema.optional(),
+    })
+    .strict()
 
 export interface ConnectorRunsListInput {
   connectorInstanceId: string

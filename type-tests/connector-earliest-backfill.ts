@@ -9,6 +9,8 @@ import {
   canonicalDateOnlySchema,
   connectorInstanceSummarySchema,
   connectorInstancesListResultSchema,
+  createConnectorInstanceInputSchema,
+  updateConnectorInstanceInputSchema,
 } from '../src/index.js'
 
 type IsExact<Actual, Expected> =
@@ -19,17 +21,17 @@ type IsExact<Actual, Expected> =
 
 const summaryDateIsRequired: IsExact<
   ConnectorInstanceSummary['earliestBackfillDate'],
-  string
+  CanonicalDateOnly
 > = true
 
 const createDateIsOptional: IsExact<
   CreateConnectorInstanceInput['earliestBackfillDate'],
-  string | undefined
+  CanonicalDateOnly | undefined
 > = true
 
 const updateDateIsOptional: IsExact<
   UpdateConnectorInstanceInput['earliestBackfillDate'],
-  string | undefined
+  CanonicalDateOnly | undefined
 > = true
 
 const canonicalDateAlias: IsExact<CanonicalDateOnly, string> = true
@@ -100,3 +102,5 @@ void connectorInstanceApisStayWorkspaceScoped
 void canonicalDateOnlySchema
 void connectorInstanceSummarySchema
 void connectorInstancesListResultSchema
+void createConnectorInstanceInputSchema
+void updateConnectorInstanceInputSchema
