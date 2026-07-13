@@ -19,6 +19,7 @@ import {
   type ConnectorWarning,
 } from './connector.js'
 import { compareUtf8Bytewise } from './raw-sourcing-list.js'
+import { refineConnectorSynchronizationInvariants } from './connector-synchronization-invariants.js'
 
 export const connectorOverviewRunOutcomes = [
   'in_progress',
@@ -182,7 +183,9 @@ const latestRunSchema: z.ZodType<ConnectorOverviewLatestRun> = z.object({
   pendingResolutionCount: z.number().int().nonnegative(),
   startedAt: z.iso.datetime({ offset: true }),
   completedAt: z.iso.datetime({ offset: true }).nullable(),
-}).strict()
+}).strict().superRefine((run, context) => {
+  refineConnectorSynchronizationInvariants(run, context)
+})
 
 const connectorOverviewIdSchema = z.string().min(1).refine((value) => {
   for (const scalar of value) {

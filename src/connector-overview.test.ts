@@ -92,11 +92,147 @@ describe('connector overview record contract', () => {
         ...overviewRecord.latestRun,
         status: 'skipped',
         outcome: 'cooling_down',
+        newestFrontier: { state: 'advancing' },
       },
       cooldown: { retryAt: '2026-07-13T14:05:00.000Z' },
     } as const
 
     expect(connectorOverviewRecordSchema.parse(coolingDown)).toEqual(coolingDown)
+  })
+
+  it('rejects caught-up outcomes without caught-up progress and zero pending resolutions', () => {
+    const invalidRuns = [
+      {
+        ...overviewRecord.latestRun,
+        newestFrontier: { state: 'advancing' },
+      },
+      {
+        ...overviewRecord.latestRun,
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+      {
+        ...overviewRecord.latestRun,
+        pendingResolutionCount: 1,
+      },
+    ]
+
+    for (const latestRun of invalidRuns) {
+      expect(connectorOverviewRecordSchema.safeParse({
+        ...overviewRecord,
+        latestRun,
+      }).success).toBe(false)
+    }
+  })
+
+  it('accepts boundary exhaustion only at a reached historical boundary', () => {
+    const boundaryExhausted = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'boundary_exhausted',
+        statusLabel: 'Boundary exhausted',
+        summary: 'The configured historical boundary was reached.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        outcome: 'boundary_exhausted',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'boundary_reached',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(boundaryExhausted)).toEqual(
+      boundaryExhausted,
+    )
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...boundaryExhausted,
+      latestRun: {
+        ...boundaryExhausted.latestRun,
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    }).success).toBe(false)
+  })
+
+  it('accepts source exhaustion only with exhausted historical source state', () => {
+    const sourceExhausted = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'source_exhausted',
+        statusLabel: 'Source exhausted',
+        summary: 'The provider has no more historical jobs.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        outcome: 'source_exhausted',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'source_exhausted',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(sourceExhausted)).toEqual(
+      sourceExhausted,
+    )
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...sourceExhausted,
+      latestRun: {
+        ...sourceExhausted.latestRun,
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    }).success).toBe(false)
+  })
+
+  it('requires completed status for successful synchronization outcomes', () => {
+    const successfulRuns = [
+      overviewRecord.latestRun,
+      {
+        ...overviewRecord.latestRun,
+        outcome: 'boundary_exhausted',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'boundary_reached',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+      {
+        ...overviewRecord.latestRun,
+        outcome: 'source_exhausted',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'source_exhausted',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    ]
+
+    for (const latestRun of successfulRuns) {
+      expect(connectorOverviewRecordSchema.safeParse({
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity: 'warning',
+          status: 'blocked',
+        },
+        latestRun: { ...latestRun, status: 'skipped' },
+      }).success).toBe(false)
+    }
   })
 
   it('rejects internally inconsistent health, latest-run, and cooldown projections', () => {

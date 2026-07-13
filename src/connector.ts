@@ -17,6 +17,7 @@ import {
   type SourceExecutionScopeId,
   type SourceOperationOutcome,
 } from './source-execution.js'
+import { refineConnectorSynchronizationInvariants } from './connector-synchronization-invariants.js'
 
 export const connectorAuthModes = [
   'none',
@@ -332,43 +333,19 @@ function refineContinuousRun(
       code: 'custom', message: 'completion cannot precede start', path: ['completedAt'],
     })
   }
-  if ((run.outcome.kind === 'caught_up' ||
-       run.outcome.kind === 'boundary_exhausted' ||
-       run.outcome.kind === 'source_exhausted') && run.status !== 'completed') {
-    context.addIssue({
-      code: 'custom', message: 'successful synchronization outcomes require completed status',
-      path: ['status'],
-    })
-  }
-  const progressCaughtUp = run.newestFrontier.state === 'caught_up' &&
-    run.historicalBackfill.state === 'caught_up' && run.pendingResolutionCount === 0
-  if (progressCaughtUp !== (run.outcome.kind === 'caught_up')) {
-    context.addIssue({
-      code: 'custom',
-      message: 'caught-up runs require caught-up frontiers and no pending resolutions',
-      path: ['outcome'],
-    })
-  }
+  refineConnectorSynchronizationInvariants({
+    status: run.status,
+    outcome: run.outcome.kind,
+    newestFrontier: run.newestFrontier,
+    historicalBackfill: run.historicalBackfill,
+    pendingResolutionCount: run.pendingResolutionCount,
+  }, context)
   const operation = run.outcome.kind === 'cooling_down' ||
     run.outcome.kind === 'action_required' ? run.outcome.operation : null
   if (operation !== null && operation.executionScopeId !== run.executionScopeId) {
     context.addIssue({
       code: 'custom', message: 'run operation scope must match the run scope',
       path: ['outcome', 'operation', 'executionScopeId'],
-    })
-  }
-  if (run.outcome.kind === 'boundary_exhausted' &&
-      run.historicalBackfill.state !== 'boundary_reached') {
-    context.addIssue({
-      code: 'custom', message: 'boundary exhaustion requires a reached backfill boundary',
-      path: ['outcome'],
-    })
-  }
-  if (run.outcome.kind === 'source_exhausted' &&
-      run.historicalBackfill.state !== 'source_exhausted') {
-    context.addIssue({
-      code: 'custom', message: 'source exhaustion requires exhausted backfill source state',
-      path: ['outcome'],
     })
   }
 }
