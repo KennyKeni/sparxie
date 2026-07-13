@@ -1,0 +1,101 @@
+import { describe, expect, it, vi } from 'vitest'
+import {
+  createHttpValedictorianClient,
+  InvalidPersistedRawDetailHttpError,
+  invalidPersistedRawDetailErrorBody,
+  ValedictorianHttpError,
+} from './index.js'
+import { jsonResponse } from './http-client.test-support.js'
+
+describe('typed HTTP error handling', () => {
+  it('preserves a persisted raw-detail integrity status and canonical body', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(invalidPersistedRawDetailErrorBody, { status: 503 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const rawRecords = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').sourcing.rawRecords
+
+    const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(InvalidPersistedRawDetailHttpError)
+    expect(error).toMatchObject({
+      status: 503,
+      body: invalidPersistedRawDetailErrorBody,
+      message: invalidPersistedRawDetailErrorBody.message,
+    })
+  })
+
+  it('safely rejects a malformed integrity body without exposing diagnostics', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        code: invalidPersistedRawDetailErrorBody.code,
+        message: 'payload.password: expected string',
+        validation: { rawPayload: 'secret' },
+      }, { status: 500 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const rawRecords = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').sourcing.rawRecords
+
+    const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
+    expect(error).toMatchObject({ status: 500, body: null })
+    expect(JSON.stringify(error)).not.toContain('password')
+    expect(String(error)).not.toContain('password')
+    expect(JSON.stringify(error)).not.toContain('secret')
+  })
+
+  it('keeps an unrelated server failure generic', async () => {
+    const body = { code: 'database_unavailable', message: 'Database unavailable.' }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(body, { status: 502 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const rawRecords = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').sourcing.rawRecords
+
+    const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
+    expect(error).toMatchObject({ status: 502, body })
+  })
+
+  it('does not classify a client error as persisted-data corruption', async () => {
+    const body = { code: 'invalid_request', message: 'Invalid request.' }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(body, { status: 400 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const rawRecords = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').sourcing.rawRecords
+
+    const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
+    expect(error).toMatchObject({ status: 400, body })
+  })
+
+  it('leaves transport failures distinct from HTTP errors', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const rawRecords = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').sourcing.rawRecords
+
+    const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(TypeError)
+    expect(error).not.toBeInstanceOf(ValedictorianHttpError)
+    expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
+  })
+})

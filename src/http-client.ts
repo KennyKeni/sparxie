@@ -61,6 +61,11 @@ import {
   rawSourceRecordsListResultSchema,
 } from './raw-sourcing-list.js'
 import { rawSourceProjectionResultSchema } from './sourcing-projection.js'
+import {
+  invalidPersistedRawDetailErrorCode,
+  invalidPersistedRawDetailErrorBodySchema,
+  type InvalidPersistedRawDetailErrorBody,
+} from './http-error-contract.js'
 
 export { rawSourceRecordsListQueryToSearchParams }
 
@@ -70,15 +75,23 @@ export interface HttpValedictorianClientOptions {
   fetch?: typeof fetch
 }
 
-export class ValedictorianHttpError extends Error {
+export class ValedictorianHttpError<Body = unknown> extends Error {
   readonly status: number
-  readonly body: unknown
+  readonly body: Body
 
-  constructor({ body, message, status }: { body: unknown; message: string; status: number }) {
+  constructor({ body, message, status }: { body: Body; message: string; status: number }) {
     super(message)
     this.name = 'ValedictorianHttpError'
     this.status = status
     this.body = body
+  }
+}
+
+export class InvalidPersistedRawDetailHttpError
+  extends ValedictorianHttpError<InvalidPersistedRawDetailErrorBody> {
+  constructor(body: InvalidPersistedRawDetailErrorBody, status: number) {
+    super({ body, message: body.message, status })
+    this.name = 'InvalidPersistedRawDetailHttpError'
   }
 }
 
@@ -90,6 +103,37 @@ export class ConnectorRetirementConflictError extends ValedictorianHttpError {
     this.name = 'ConnectorRetirementConflictError'
     this.conflict = conflict
   }
+}
+
+function rethrowRawRecordDetailError(error: unknown): never {
+  if (
+    !(error instanceof ValedictorianHttpError)
+    || error.status < 500
+    || error.status > 599
+  ) {
+    throw error
+  }
+
+  const integrityError = invalidPersistedRawDetailErrorBodySchema.safeParse(error.body)
+
+  if (integrityError.success) {
+    throw new InvalidPersistedRawDetailHttpError(integrityError.data, error.status)
+  }
+
+  if (
+    typeof error.body === 'object'
+    && error.body !== null
+    && 'code' in error.body
+    && error.body.code === invalidPersistedRawDetailErrorCode
+  ) {
+    throw new ValedictorianHttpError({
+      body: null,
+      message: 'Request failed',
+      status: error.status,
+    })
+  }
+
+  throw error
 }
 
 function requireResponseIdentity<T>(value: T, actual: string, expected: string): T {
@@ -828,11 +872,17 @@ export function createHttpValedictorianClient({
           )
         },
         async get(rawRecordId) {
+          let body: unknown
+
+          try {
+            body = await request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId)))
+          } catch (error) {
+            rethrowRawRecordDetailError(error)
+          }
+
           return rawSourceRecordSchema.refine((record) => record.id === rawRecordId, {
             message: 'raw record response must match the requested id', path: ['id'],
-          }).parse(
-            await request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId))),
-          )
+          }).parse(body)
         },
         async replay(input) {
           const receipt = await request(
