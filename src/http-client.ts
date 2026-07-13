@@ -22,6 +22,12 @@ import {
   triggerConnectorRunInputSchema,
 } from './connector.js'
 import {
+  connectorRetirementActiveWorkConflictSchema,
+  connectorRetirementResultSchema,
+  removeConnectorInstanceInputSchema,
+  type ConnectorRetirementActiveWorkConflict,
+} from './connector-retirement.js'
+import {
   connectorOverviewListQuerySchema,
   connectorOverviewListQueryToSearchParams,
   connectorOverviewListResultSchema,
@@ -73,6 +79,16 @@ export class ValedictorianHttpError extends Error {
     this.name = 'ValedictorianHttpError'
     this.status = status
     this.body = body
+  }
+}
+
+export class ConnectorRetirementConflictError extends ValedictorianHttpError {
+  readonly conflict: ConnectorRetirementActiveWorkConflict
+
+  constructor(conflict: ConnectorRetirementActiveWorkConflict) {
+    super({ body: conflict, message: conflict.message, status: 409 })
+    this.name = 'ConnectorRetirementConflictError'
+    this.conflict = conflict
   }
 }
 
@@ -548,6 +564,40 @@ export function createHttpValedictorianClient({
           }),
         )
         return requireResponseIdentity(summary, summary.id, connectorInstanceId)
+      },
+      async remove(input) {
+        const { connectorInstanceId } = removeConnectorInstanceInputSchema.parse(input)
+        let response: unknown
+        try {
+          response = await request(
+            pathFor(valedictorianApiPaths.connector(connectorInstanceId)),
+            { method: 'DELETE' },
+          )
+        } catch (error) {
+          if (
+            error instanceof ValedictorianHttpError
+            && error.status === 409
+            && typeof error.body === 'object'
+            && error.body !== null
+            && 'code' in error.body
+            && error.body.code === 'connector_retirement_active_work_conflict'
+          ) {
+            const conflict = connectorRetirementActiveWorkConflictSchema.parse(error.body)
+            requireResponseIdentity(
+              conflict,
+              conflict.connectorInstanceId,
+              connectorInstanceId,
+            )
+            throw new ConnectorRetirementConflictError(conflict)
+          }
+          throw error
+        }
+        const result = connectorRetirementResultSchema.parse(response)
+        return requireResponseIdentity(
+          result,
+          result.connectorInstanceId,
+          connectorInstanceId,
+        )
       },
       async inspect(connectorInstanceId) {
         const summary = connectorStatusSummarySchema.parse(
