@@ -27,6 +27,47 @@ const skippedNotDueRun = {
   scheduleOccurrence: null,
 }
 
+const lifecycleCounts = {
+  version: 'connector-run-lifecycle-counts/v1',
+  source: 'frozen_terminal',
+  scope: {
+    kind: 'connector_run',
+    connectorRunId: 'run-1',
+    executionScopeId: 'scope_connector_1',
+  },
+  provider: {
+    returnedRows: 5,
+    validRecords: 3,
+    invalidRecords: 1,
+    sourceDuplicates: 1,
+    capturedRecords: 4,
+    occurrenceCount: 4,
+    captureShortfall: 1,
+    unclassifiedRows: 0,
+    invariant: 'reconciled',
+    gaps: [],
+  },
+  destination: {
+    normalized: 3,
+    resolvedEmployerOrAts: 2,
+    resolvedThirdParty: 1,
+    unresolved: 0,
+    pending: 0,
+    gateRejected: 1,
+    unclassified: 0,
+    invariant: 'reconciled',
+  },
+  sourcing: {
+    findingsAdded: 1,
+    canonicalDuplicates: 1,
+    notFit: 1,
+    rejected: 0,
+    actionableReview: 0,
+    unclassified: 0,
+    invariant: 'reconciled',
+  },
+} as const
+
 describe('connector continuous synchronization contract', () => {
   it('accepts a yielded invocation without claiming synchronization completion', () => {
     expect(connectorRunSummarySchema.parse(skippedNotDueRun)).toEqual(
@@ -49,6 +90,88 @@ describe('connector continuous synchronization contract', () => {
     }).success).toBe(false)
     expect(connectorRunSummarySchema.safeParse({
       ...skippedNotDueRun, stats: {},
+    }).success).toBe(false)
+  })
+
+  it('preserves a reconciled lifecycle summary on a connector run', () => {
+    const run = { ...skippedNotDueRun, lifecycleCounts }
+
+    expect(connectorRunSummarySchema.parse(run)).toEqual(run)
+  })
+
+  it('rejects lifecycle summaries scoped to another run or execution', () => {
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        scope: { ...lifecycleCounts.scope, connectorRunId: 'run-other' },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        scope: { ...lifecycleCounts.scope, executionScopeId: 'scope_other' },
+      },
+    }).success).toBe(false)
+  })
+
+  it('rejects lifecycle summaries that claim reconciliation with inconsistent totals', () => {
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        provider: { ...lifecycleCounts.provider, returnedRows: 6 },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        destination: { ...lifecycleCounts.destination, normalized: 2 },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        sourcing: { ...lifecycleCounts.sourcing, findingsAdded: 2 },
+      },
+    }).success).toBe(false)
+  })
+
+  it('requires lifecycle provenance to match whether the invocation is active', () => {
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: { ...lifecycleCounts, source: 'live_current' },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      status: 'running',
+      outcome: { kind: 'in_progress' },
+      completedAt: null,
+      lifecycleCounts: { ...lifecycleCounts, source: 'frozen_terminal' },
+    }).success).toBe(false)
+  })
+
+  it('rejects opaque or secret-bearing lifecycle fields while allowing absence', () => {
+    expect(connectorRunSummarySchema.parse(skippedNotDueRun)).toEqual(skippedNotDueRun)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        session: { cookie: 'must-not-cross-the-contract' },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        provider: {
+          ...lifecycleCounts.provider,
+          headers: { authorization: 'must-not-cross-the-contract' },
+        },
+      },
     }).success).toBe(false)
   })
 })

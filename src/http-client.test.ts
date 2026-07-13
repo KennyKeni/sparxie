@@ -13,6 +13,32 @@ const continuousRunFields = {
   outcome: { kind: 'yielded', reason: 'invocation_budget' },
 } as const
 
+function lifecycleCountsFor(runId: string) {
+  return {
+    version: 'connector-run-lifecycle-counts/v1',
+    source: 'frozen_terminal',
+    scope: {
+      kind: 'connector_run',
+      connectorRunId: runId,
+      executionScopeId: 'scope_connector_1',
+    },
+    provider: {
+      returnedRows: 5, validRecords: 3, invalidRecords: 1, sourceDuplicates: 1,
+      capturedRecords: 4, occurrenceCount: 4, captureShortfall: 1,
+      unclassifiedRows: 0, invariant: 'reconciled', gaps: [],
+    },
+    destination: {
+      normalized: 3, resolvedEmployerOrAts: 2, resolvedThirdParty: 1,
+      unresolved: 0, pending: 0, gateRejected: 1, unclassified: 0,
+      invariant: 'reconciled',
+    },
+    sourcing: {
+      findingsAdded: 1, canonicalDuplicates: 1, notFit: 1, rejected: 0,
+      actionableReview: 0, unclassified: 0, invariant: 'reconciled',
+    },
+  } as const
+}
+
 const connectorStatusPayload = {
   id: 'connector-1', connectorId: 'jobright', connectorVersion: '1.0.0',
   displayName: 'Jobright', enabled: true,
@@ -178,6 +204,35 @@ describe('HTTP Valedictorian client', () => {
       'https://valedictorian.test/v1/workspaces/workspace%201/connectors/connector%2F1/runs',
       expect.objectContaining({ method: 'POST' }),
     )
+  })
+
+  it('preserves identical lifecycle counts through run trigger and list paths', async () => {
+    const run = {
+      ...continuousRunFields,
+      id: 'run-lifecycle',
+      connectorInstanceId: 'connector-1',
+      mode: 'manual',
+      status: 'skipped',
+      filterSignature: 'all',
+      observationCount: 4,
+      warningCount: 0,
+      warnings: [],
+      lifecycleCounts: lifecycleCountsFor('run-lifecycle'),
+      startedAt: '2026-07-11T14:00:01.000Z',
+      completedAt: '2026-07-11T14:00:02.000Z',
+      scheduleOccurrence: null,
+    }
+    const list = { items: [run], total: 1, limit: 25, offset: 0, hasMore: false }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(run))
+    fetchMock.mockResolvedValueOnce(jsonResponse(list))
+    vi.stubGlobal('fetch', fetchMock)
+    const runs = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').connectors.runs
+
+    await expect(runs.trigger({ connectorInstanceId: 'connector-1' })).resolves.toEqual(run)
+    await expect(runs.list({ connectorInstanceId: 'connector-1' })).resolves.toEqual(list)
   })
 
   it('validates retry advice in connector run list responses', async () => {

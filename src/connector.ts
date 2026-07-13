@@ -8,6 +8,10 @@ import {
   type ConnectorRunScheduleOccurrenceLink,
 } from './connector-schedule.js'
 import {
+  connectorRunLifecycleCountsSchema,
+  type ConnectorRunLifecycleCounts,
+} from './connector-run-lifecycle.js'
+import {
   sourceExecutionScopeIdSchema,
   sourceOperationOutcomeSchema,
   type SourceExecutionScopeId,
@@ -192,6 +196,7 @@ export interface ConnectorRunSummaryBase {
   newestFrontier: ConnectorNewestFrontierState
   historicalBackfill: ConnectorHistoricalBackfillState
   pendingResolutionCount: number
+  lifecycleCounts?: ConnectorRunLifecycleCounts
   outcome: ConnectorSynchronizationOutcome
   startedAt: string
   completedAt: string | null
@@ -242,6 +247,7 @@ const connectorRunSummaryBaseShape = {
     z.object({ state: z.literal('source_exhausted'), boundary: z.object({ earliestDate: canonicalDateOnlySchema }).strict() }).strict(),
   ]),
   pendingResolutionCount: z.number().int().nonnegative(),
+  lifecycleCounts: connectorRunLifecycleCountsSchema.optional(),
   outcome: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('in_progress') }).strict(),
     z.object({ kind: z.literal('failed'), reason: z.string().min(1).max(512) }).strict(),
@@ -273,10 +279,36 @@ function refineContinuousRun(
   run: ConnectorRunSummaryBase,
   context: z.RefinementCtx,
 ) {
+  if (run.lifecycleCounts !== undefined) {
+    if (run.lifecycleCounts.scope.connectorRunId !== run.id) {
+      context.addIssue({
+        code: 'custom',
+        message: 'lifecycle count scope must match the run id',
+        path: ['lifecycleCounts', 'scope', 'connectorRunId'],
+      })
+    }
+    if (run.lifecycleCounts.scope.executionScopeId !== run.executionScopeId) {
+      context.addIssue({
+        code: 'custom',
+        message: 'lifecycle count scope must match the execution scope',
+        path: ['lifecycleCounts', 'scope', 'executionScopeId'],
+      })
+    }
+  }
   if (run.warningCount !== run.warnings.length) {
     context.addIssue({ code: 'custom', message: 'warning count must equal warnings length', path: ['warningCount'] })
   }
   const invocationInProgress = run.status === 'queued' || run.status === 'running'
+  if (
+    run.lifecycleCounts !== undefined
+    && invocationInProgress !== (run.lifecycleCounts.source === 'live_current')
+  ) {
+    context.addIssue({
+      code: 'custom',
+      message: 'lifecycle count provenance must match invocation activity',
+      path: ['lifecycleCounts', 'source'],
+    })
+  }
   if (invocationInProgress !== (run.outcome.kind === 'in_progress')) {
     context.addIssue({
       code: 'custom', message: 'queued/running invocations require in-progress outcome',
