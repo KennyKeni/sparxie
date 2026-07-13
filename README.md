@@ -134,6 +134,8 @@ job field. Payload and evidence values are JSON-safe and use the exported
 `rawRecords.list`, read the immutable record/receipt with `rawRecords.get`,
 read normalization and gate outcomes with `rawRecords.normalization.get`, and
 request version-targeted reprocessing with `rawRecords.replay`.
+`rawRecords.list({ connectorRunId })` matches exact run lineage on any persisted
+occurrence, including records whose latest occurrence belongs to a later run.
 
 Every batch record requires a unique opaque `intakeItemId`. Receipts echo that
 transient identifier so the typed client can correlate reordered responses,

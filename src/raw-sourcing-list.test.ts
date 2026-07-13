@@ -750,6 +750,25 @@ describe('raw source records list keyset pagination', () => {
 })
 
 describe('raw source records list query contract', () => {
+  it('accepts an exact connector run filter and rejects invalid identifiers', () => {
+    expect(
+      rawSourceRecordsListQuerySchema.parse({
+        connectorRunId: 'connector-run/one',
+      }),
+    ).toEqual({
+      connectorRunId: 'connector-run/one',
+    })
+
+    expect(
+      rawSourceRecordsListQuerySchema.safeParse({ connectorRunId: '' }).success,
+    ).toBe(false)
+    expect(
+      rawSourceRecordsListQuerySchema.safeParse({
+        connectorRunId: 'r'.repeat(257),
+      }).success,
+    ).toBe(false)
+  })
+
   it('rejects invalid filters and encodes allowlisted keys in deterministic order', () => {
     expect(rawSourceRecordsListQuerySchema.parse({})).toEqual({})
     expect(
@@ -759,6 +778,7 @@ describe('raw source records list query contract', () => {
         adapterId: 'jobright',
         adapterKind: 'connector',
         connectorInstanceId: 'connector-instance-1',
+        connectorRunId: 'connector-run-1',
         receivedFrom: '2026-07-10T00:00:00.000Z',
         receivedTo: '2026-07-11T00:00:00.000Z',
         normalizationStatus: 'raw_only',
@@ -771,6 +791,7 @@ describe('raw source records list query contract', () => {
       adapterId: 'jobright',
       adapterKind: 'connector',
       connectorInstanceId: 'connector-instance-1',
+      connectorRunId: 'connector-run-1',
       receivedFrom: '2026-07-10T00:00:00.000Z',
       receivedTo: '2026-07-11T00:00:00.000Z',
       normalizationStatus: 'raw_only',
@@ -812,6 +833,7 @@ describe('raw source records list query contract', () => {
       adapterId: 'valedictorian-cli',
       gateStatus: 'needs_enrichment',
       connectorInstanceId: 'ignored-for-order',
+      connectorRunId: 'connector-run/one',
       receivedFrom: '2026-07-10T00:00:00.000Z',
       normalizationStatus: 'completed',
       unknown: 'drop-me',
@@ -825,6 +847,7 @@ describe('raw source records list query contract', () => {
       'adapterId',
       'adapterKind',
       'connectorInstanceId',
+      'connectorRunId',
       'receivedFrom',
       'receivedTo',
       'normalizationStatus',
@@ -838,6 +861,7 @@ describe('raw source records list query contract', () => {
         'adapterId=valedictorian-cli',
         'adapterKind=cli',
         'connectorInstanceId=ignored-for-order',
+        'connectorRunId=connector-run%2Fone',
         'receivedFrom=2026-07-10T00%3A00%3A00.000Z',
         'receivedTo=2026-07-11T00%3A00%3A00.000Z',
         'normalizationStatus=completed',
