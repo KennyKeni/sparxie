@@ -44,6 +44,22 @@ const overviewRecord = {
   cooldown: null,
 } as const
 
+const configurationAction = {
+  id: 'configuration-overlay',
+  kind: 'configuration',
+  label: 'Configure',
+  message: 'Update connector configuration.',
+  severity: 'blocked',
+} as const
+
+const authAction = {
+  id: 'auth-overlay',
+  kind: 'auth',
+  label: 'Reconnect',
+  message: 'Reconnect the provider session.',
+  severity: 'blocked',
+} as const
+
 function runBackedOverviewCases() {
   const running = {
     ...overviewRecord.latestRun,
@@ -555,13 +571,7 @@ describe('connector overview record contract', () => {
         statusLabel: 'Authentication required',
         summary: 'Reconnect the connector to synchronize again.',
       },
-      actionRequired: [{
-        id: 'auth-1',
-        kind: 'auth',
-        label: 'Reconnect',
-        message: 'The provider session expired.',
-        severity: 'blocked',
-      }],
+      actionRequired: [authAction],
       actions: [{ id: 'reconnect', label: 'Reconnect' }],
     } as const
 
@@ -580,19 +590,55 @@ describe('connector overview record contract', () => {
         statusLabel: 'Configuration required',
         summary: 'Update the connector configuration.',
       },
-      actionRequired: [{
-        id: 'configuration-1',
-        kind: 'configuration',
-        label: 'Configure',
-        message: 'A required provider setting is missing.',
-        severity: 'blocked',
-      }],
+      actionRequired: [configurationAction],
       actions: [{ id: 'configure', label: 'Configure' }],
     } as const
 
     expect(connectorOverviewRecordSchema.parse(configurationBlocked)).toEqual(
       configurationBlocked,
     )
+  })
+
+  it('rejects blocked overlays without blocked configuration evidence', () => {
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        status: 'blocked',
+      },
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'blocked',
+        status: 'blocked',
+      },
+      actionRequired: [{
+        id: 'manual-review-1',
+        kind: 'manual_review',
+        label: 'Review',
+        message: 'Review this connector.',
+        severity: 'blocked',
+      }],
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      health: { ...overviewRecord.health, status: 'blocked' },
+      actionRequired: [configurationAction],
+    }).success).toBe(false)
+  })
+
+  it('rejects configuration evidence under non-blocked health', () => {
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'blocked',
+        status: 'authentication_required',
+      },
+      actionRequired: [authAction, configurationAction],
+    }).success).toBe(false)
   })
 
   it('rejects unrelated skipped health for every unambiguous run-backed state', () => {
@@ -650,13 +696,7 @@ describe('connector overview record contract', () => {
           severity: 'blocked',
           status: 'authentication_required',
         },
-        actionRequired: [{
-          id: 'auth-overlay',
-          kind: 'auth',
-          label: 'Reconnect',
-          message: 'Reconnect the provider session.',
-          severity: 'blocked',
-        }],
+        actionRequired: [authAction],
       } as const
       const configurationBlocked = {
         ...base,
@@ -665,13 +705,7 @@ describe('connector overview record contract', () => {
           severity: 'blocked',
           status: 'blocked',
         },
-        actionRequired: [{
-          id: 'configuration-overlay',
-          kind: 'configuration',
-          label: 'Configure',
-          message: 'Update connector configuration.',
-          severity: 'blocked',
-        }],
+        actionRequired: [configurationAction],
       } as const
 
       expect(connectorOverviewRecordSchema.parse(authenticationRequired)).toEqual(
@@ -699,6 +733,13 @@ describe('connector overview record contract', () => {
         outcome: 'yielded',
         newestFrontier: { state: 'advancing' },
       },
+      actionRequired: [{
+        id: 'manual-review-1',
+        kind: 'manual_review',
+        label: 'Review',
+        message: 'Review this yielded connector.',
+        severity: 'warning',
+      }],
     } as const
 
     expect(connectorOverviewRecordSchema.parse(yielded)).toEqual(yielded)

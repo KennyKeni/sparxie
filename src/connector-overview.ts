@@ -242,6 +242,23 @@ export const connectorOverviewRecordSchema: z.ZodType<ConnectorOverviewRecord> =
         path: ['health', 'severity'],
       })
     }
+    const hasConfigurationAction = record.actionRequired.some(
+      (action) => action.kind === 'configuration',
+    )
+    if (hasConfigurationAction !== (record.health.status === 'blocked')) {
+      context.addIssue({
+        code: 'custom',
+        message: 'blocked health and configuration evidence must agree',
+        path: ['health', 'status'],
+      })
+    }
+    if (record.health.status === 'blocked' && record.health.severity !== 'blocked') {
+      context.addIssue({
+        code: 'custom',
+        message: 'blocked configuration health must be blocked severity',
+        path: ['health', 'severity'],
+      })
+    }
 
     const run = record.latestRun
     if (run !== null) {
