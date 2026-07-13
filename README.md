@@ -31,6 +31,61 @@ console.log(applications.items)
 
 Connector create, update, and status DTOs carry secret references and auth metadata only. Plaintext credential values stay behind workspace write-only secret endpoints and are not returned by normal connector reads.
 
+## Connector overview
+
+Connector management views can fetch a bounded workspace page without issuing
+per-connector inspect and run-history requests:
+
+```ts
+const page = await workspace.connectors.overview.list({
+  enabled: true,
+  severity: 'warning',
+  limit: 50,
+})
+```
+
+Pages use opaque cursor continuation in stable UTF-8 bytewise connector-id
+order. `enabled`, `severity`, and `status` filters are conjunctive and must stay
+unchanged when continuing with `nextCursor`. The response intentionally has no
+total or offset, so backends can fetch a connector page and its latest run in
+work proportional to that page rather than run-history size.
+
+Rows contain connector identity and enabled state, existing public health and
+action projections, a compact latest-run summary when present, and only the
+public `retryAt` for cooldowns. They exclude credentials, auth/session data,
+configuration and filters, execution-scope and retry internals, raw provider
+payloads, and runner or deployment state. Existing connector inspect and
+run-list methods remain available for detail views.
+
+The compact run's required nullable `cancellationKind` is `user_skipped` only
+when a cancelled run represents an explicit user skip; otherwise it is `null`.
+It does not expose the full run's free-form cancellation reason or internal
+codes.
+
+Each overview row is an atomic projection. Unambiguous run-backed health uses
+this precedence and must agree in both directions with `latestRun`:
+
+| Latest run signal | Required health status |
+| --- | --- |
+| No latest run | `never_run` |
+| Queued, in progress | `queued` |
+| Running with newest frontier advancing | `checking_newest` |
+| Otherwise running with historical backfill advancing | `backfilling` |
+| Otherwise running with pending resolutions | `resolving` |
+| Running before another progress signal is visible | `checking_newest` |
+| Caught up, boundary exhausted, or source exhausted | Matching outcome |
+| Cooling down with public `retryAt` | `cooling_down` |
+| Cancelled with `cancellationKind: null`, or failed | Matching run status |
+| Cancelled with `cancellationKind: user_skipped` | `skipped` |
+
+`authentication_required` with an auth action and generic `blocked` with at
+least one `captcha`, `configuration`, `manual_review`, or `rate_limit` action
+are independent overlays: current blockers may change after the latest run, so
+those states may replace a derived run-backed state. Those non-auth actions do
+not conversely force blocked health. A yielded/skipped run remains intentionally
+ambiguous. A cooldown is present exactly when the row presents matching
+cooling-down health and run outcome.
+
 ## Sourcing destination provenance
 
 Sourcing finding reads expose projection-owned destination provenance through

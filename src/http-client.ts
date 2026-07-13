@@ -22,6 +22,11 @@ import {
   triggerConnectorRunInputSchema,
 } from './connector.js'
 import {
+  connectorOverviewListQuerySchema,
+  connectorOverviewListQueryToSearchParams,
+  connectorOverviewListResultSchema,
+} from './connector-overview.js'
+import {
   createConnectorScheduleHttpMethods,
   connectorScheduleHistoryListQueryToSearchParams,
 } from './http-client-connector-schedules.js'
@@ -549,6 +554,16 @@ export function createHttpValedictorianClient({
           await request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId))),
         )
         return requireResponseIdentity(summary, summary.id, connectorInstanceId)
+      },
+      overview: {
+        async list(query = {}) {
+          const parsedQuery = connectorOverviewListQuerySchema.parse(query)
+          return connectorOverviewListResultSchema.parse(
+            await request(pathFor(valedictorianApiPaths.connectorOverview), {
+              query: connectorOverviewListQueryToSearchParams(parsedQuery),
+            }),
+          )
+        },
       },
       runs: {
         async list(input) {

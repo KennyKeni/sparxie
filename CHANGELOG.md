@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a bounded workspace connector overview contract and typed client with
+  sanitized current health, latest-run, action, and cooldown projections.
 - Expose strict, sanitized connector-run lifecycle counts for provider intake,
   destination normalization, and sourcing outcomes through run-list and trigger
   responses.
