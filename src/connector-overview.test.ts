@@ -163,6 +163,185 @@ describe('connector overview record contract', () => {
     }).success).toBe(false)
   })
 
+  it('rejects boundary-exhausted health without a matching current run', () => {
+    const health = {
+      ...overviewRecord.health,
+      severity: 'warning',
+      status: 'boundary_exhausted',
+      statusLabel: 'Boundary exhausted',
+      summary: 'The configured historical boundary was reached.',
+    } as const
+
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      health,
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      health,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
+  it('accepts queued health only with a queued in-progress current run', () => {
+    const queued = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'queued',
+        statusLabel: 'Queued',
+        summary: 'Synchronization is queued.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'queued',
+        outcome: 'in_progress',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+        completedAt: null,
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(queued)).toEqual(queued)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...queued,
+      latestRun: { ...queued.latestRun, status: 'running' },
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...queued,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
+  it('accepts resolving health only for pending work after frontier advancement', () => {
+    const resolving = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'resolving',
+        statusLabel: 'Resolving',
+        summary: 'Resolving synchronized jobs.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'running',
+        outcome: 'in_progress',
+        pendingResolutionCount: 2,
+        completedAt: null,
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(resolving)).toEqual(resolving)
+
+    const invalidRuns = [
+      { ...resolving.latestRun, status: 'queued' },
+      { ...resolving.latestRun, pendingResolutionCount: 0 },
+      { ...resolving.latestRun, newestFrontier: { state: 'advancing' } },
+      {
+        ...resolving.latestRun,
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    ]
+
+    for (const latestRun of invalidRuns) {
+      expect(connectorOverviewRecordSchema.safeParse({
+        ...resolving,
+        latestRun,
+      }).success).toBe(false)
+    }
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...resolving,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
+  it('accepts failed health only with a failed current run', () => {
+    const failed = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'blocked',
+        status: 'failed',
+        statusLabel: 'Failed',
+        summary: 'Synchronization failed.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'failed',
+        outcome: 'failed',
+        newestFrontier: { state: 'advancing' },
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(failed)).toEqual(failed)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...failed,
+      latestRun: overviewRecord.latestRun,
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...failed,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
+  it('allows authentication-required health over a prior caught-up run', () => {
+    const authenticationRequired = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'blocked',
+        status: 'authentication_required',
+        statusLabel: 'Authentication required',
+        summary: 'Reconnect the connector to synchronize again.',
+      },
+      actionRequired: [{
+        id: 'auth-1',
+        kind: 'auth',
+        label: 'Reconnect',
+        message: 'The provider session expired.',
+        severity: 'blocked',
+      }],
+      actions: [{ id: 'reconnect', label: 'Reconnect' }],
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(authenticationRequired)).toEqual(
+      authenticationRequired,
+    )
+  })
+
+  it('allows a generic configuration block over a prior caught-up run', () => {
+    const configurationBlocked = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'blocked',
+        status: 'blocked',
+        statusLabel: 'Configuration required',
+        summary: 'Update the connector configuration.',
+      },
+      actionRequired: [{
+        id: 'configuration-1',
+        kind: 'configuration',
+        label: 'Configure',
+        message: 'A required provider setting is missing.',
+        severity: 'blocked',
+      }],
+      actions: [{ id: 'configure', label: 'Configure' }],
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(configurationBlocked)).toEqual(
+      configurationBlocked,
+    )
+  })
+
   it('accepts source exhaustion only with exhausted historical source state', () => {
     const sourceExhausted = {
       ...overviewRecord,

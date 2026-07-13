@@ -279,6 +279,52 @@ export const connectorOverviewRecordSchema: z.ZodType<ConnectorOverviewRecord> =
         path: ['latestRun'],
       })
     }
+    if (
+      record.health.status === 'boundary_exhausted'
+      && run?.outcome !== 'boundary_exhausted'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'boundary-exhausted health requires a matching latest run',
+        path: ['health', 'status'],
+      })
+    }
+    if (
+      record.health.status === 'queued'
+      && (run?.status !== 'queued' || run.outcome !== 'in_progress')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'queued health requires a queued in-progress latest run',
+        path: ['health', 'status'],
+      })
+    }
+    if (
+      record.health.status === 'resolving'
+      && (
+        run?.status !== 'running'
+        || run.outcome !== 'in_progress'
+        || run.pendingResolutionCount === 0
+        || run.newestFrontier.state !== 'caught_up'
+        || run.historicalBackfill.state !== 'caught_up'
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'resolving health requires pending work after frontier advancement',
+        path: ['health', 'status'],
+      })
+    }
+    if (
+      record.health.status === 'failed'
+      && (run?.status !== 'failed' || run.outcome !== 'failed')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'failed health requires a failed latest run',
+        path: ['health', 'status'],
+      })
+    }
     if (record.health.status === 'caught_up' && (
       record.health.severity !== 'healthy'
       || record.actionRequired.length !== 0
