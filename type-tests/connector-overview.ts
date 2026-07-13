@@ -1,6 +1,7 @@
 import type {
   ConnectorOverviewListQuery,
   ConnectorOverviewListResult,
+  ConnectorOverviewLatestRun,
   ConnectorOverviewRecord,
   ConnectorOverviewRunOutcome,
   ValedictorianClient,
@@ -66,6 +67,16 @@ const runOutcomesStayClosed: IsExact<
   | 'source_exhausted'
 > = true
 
+const cancellationKindStaysBounded: IsExact<
+  ConnectorOverviewLatestRun['cancellationKind'],
+  'user_skipped' | null
+> = true
+
+const compactRunOmitsCancellationInternals: IsExact<
+  keyof ConnectorOverviewLatestRun & ('reason' | 'cancellationReason' | 'internalCode'),
+  never
+> = true
+
 connectorOverviewListQuerySchema satisfies {
   parse(value: unknown): ConnectorOverviewListQuery
 }
@@ -82,3 +93,5 @@ void queryOmitsOffset
 void resultOmitsCounts
 void overviewOmitsInternals
 void runOutcomesStayClosed
+void cancellationKindStaysBounded
+void compactRunOmitsCancellationInternals

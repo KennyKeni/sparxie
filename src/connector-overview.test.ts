@@ -30,6 +30,7 @@ const overviewRecord = {
     mode: 'manual',
     status: 'completed',
     outcome: 'caught_up',
+    cancellationKind: null,
     observationCount: 12,
     warningCount: 0,
     newestFrontier: { state: 'caught_up' },
@@ -203,6 +204,7 @@ describe('connector overview record contract', () => {
         ...overviewRecord,
         latestRun: { ...overviewRecord.latestRun, filterSignature: 'private-filter' },
       },
+      { ...overviewRecord, latestRun: { ...overviewRecord.latestRun, reason: 'private-reason' } },
       {
         ...overviewRecord,
         cooldown: {
@@ -561,6 +563,75 @@ describe('connector overview record contract', () => {
     }).success).toBe(false)
   })
 
+  it('derives skipped health from a user-skipped cancellation', () => {
+    const userSkipped = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'skipped',
+        statusLabel: 'Skipped',
+        summary: 'Synchronization was skipped by the user.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'cancelled',
+        outcome: 'cancelled',
+        cancellationKind: 'user_skipped',
+        newestFrontier: { state: 'advancing' },
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(userSkipped)).toEqual(userSkipped)
+  })
+
+  it('rejects invalid cancellation-kind and health mappings', () => {
+    const cancelledRun = {
+      ...overviewRecord.latestRun,
+      status: 'cancelled',
+      outcome: 'cancelled',
+      newestFrontier: { state: 'advancing' },
+    } as const
+    const invalidRecords = [
+      {
+        ...overviewRecord,
+        latestRun: { ...overviewRecord.latestRun, cancellationKind: 'operator_cancelled' },
+      },
+      {
+        ...overviewRecord,
+        latestRun: {
+          ...overviewRecord.latestRun,
+          cancellationKind: 'user_skipped',
+        },
+      },
+      {
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity: 'warning',
+          status: 'skipped',
+        },
+        latestRun: cancelledRun,
+      },
+      {
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity: 'warning',
+          status: 'cancelled',
+        },
+        latestRun: {
+          ...cancelledRun,
+          cancellationKind: 'user_skipped',
+        },
+      },
+    ] as const
+
+    for (const record of invalidRecords) {
+      expect(connectorOverviewRecordSchema.safeParse(record).success).toBe(false)
+    }
+  })
+
   it('allows authentication-required health over a prior caught-up run', () => {
     const authenticationRequired = {
       ...overviewRecord,
@@ -599,45 +670,36 @@ describe('connector overview record contract', () => {
     )
   })
 
-  it('rejects blocked overlays without blocked configuration evidence', () => {
-    expect(connectorOverviewRecordSchema.safeParse({
-      ...overviewRecord,
-      health: {
-        ...overviewRecord.health,
-        status: 'blocked',
-      },
-    }).success).toBe(false)
-    expect(connectorOverviewRecordSchema.safeParse({
-      ...overviewRecord,
-      health: {
-        ...overviewRecord.health,
-        severity: 'blocked',
-        status: 'blocked',
-      },
-      actionRequired: [{
-        id: 'manual-review-1',
-        kind: 'manual_review',
-        label: 'Review',
-        message: 'Review this connector.',
-        severity: 'blocked',
-      }],
-    }).success).toBe(false)
+  it('requires blocked overlays to carry public non-auth blocking evidence', () => {
+    const evidence = [
+      ['captcha', 'blocked'], ['configuration', 'blocked'],
+      ['manual_review', 'warning'], ['rate_limit', 'warning'],
+    ] as const
+    for (const [kind, severity] of evidence) {
+      expect(connectorOverviewRecordSchema.safeParse({
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity: 'blocked',
+          status: 'blocked',
+        },
+        actionRequired: [{ ...configurationAction, kind, severity }],
+      }).success).toBe(true)
+    }
+    for (const severity of ['healthy', 'blocked'] as const) {
+      expect(connectorOverviewRecordSchema.safeParse({
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity,
+          status: 'blocked',
+        },
+      }).success).toBe(false)
+    }
     expect(connectorOverviewRecordSchema.safeParse({
       ...overviewRecord,
       health: { ...overviewRecord.health, status: 'blocked' },
       actionRequired: [configurationAction],
-    }).success).toBe(false)
-  })
-
-  it('rejects configuration evidence under non-blocked health', () => {
-    expect(connectorOverviewRecordSchema.safeParse({
-      ...overviewRecord,
-      health: {
-        ...overviewRecord.health,
-        severity: 'blocked',
-        status: 'authentication_required',
-      },
-      actionRequired: [authAction, configurationAction],
     }).success).toBe(false)
   })
 

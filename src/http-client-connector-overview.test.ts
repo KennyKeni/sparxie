@@ -67,4 +67,39 @@ describe('HTTP connector overview client', () => {
     await expect(overview.list()).rejects.toThrow()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('accepts a sanitized user-skipped cancellation response', async () => {
+    const result = {
+      items: [{
+        id: 'connector-1', connectorId: 'jobright.resolver', connectorVersion: '0.1.0',
+        displayName: 'Jobright', enabled: true,
+        health: {
+          severity: 'warning', status: 'skipped', statusLabel: 'Skipped',
+          summary: 'Synchronization was skipped by the user.', warningCount: 0, warnings: [],
+        },
+        actionRequired: [], actions: [], cooldown: null,
+        latestRun: {
+          id: 'run-1', mode: 'manual', status: 'cancelled', outcome: 'cancelled',
+          cancellationKind: 'user_skipped', observationCount: 0, warningCount: 0,
+          newestFrontier: { state: 'not_started' },
+          historicalBackfill: {
+            state: 'not_started', boundary: { earliestDate: '2026-06-01' },
+          },
+          pendingResolutionCount: 0,
+          startedAt: '2026-07-13T14:00:00.000Z',
+          completedAt: '2026-07-13T14:00:01.000Z',
+        },
+      }],
+      nextCursor: null,
+    } as const
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(result))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const overview = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').connectors.overview
+
+    await expect(overview.list()).resolves.toEqual(result)
+  })
 })

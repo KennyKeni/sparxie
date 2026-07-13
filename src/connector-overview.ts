@@ -132,6 +132,7 @@ export interface ConnectorOverviewLatestRun {
   mode: ConnectorRunMode
   status: ConnectorRunStatus
   outcome: ConnectorOverviewRunOutcome
+  cancellationKind: 'user_skipped' | null
   observationCount: number
   warningCount: number
   newestFrontier: ConnectorNewestFrontierState
@@ -180,6 +181,7 @@ const latestRunSchema: z.ZodType<ConnectorOverviewLatestRun> = z.object({
   mode: z.enum(connectorRunModes),
   status: z.enum(connectorRunStatuses),
   outcome: z.enum(connectorOverviewRunOutcomes),
+  cancellationKind: z.literal('user_skipped').nullable(),
   observationCount: z.number().int().nonnegative(),
   warningCount: z.number().int().nonnegative(),
   newestFrontier: newestFrontierSchema,
@@ -242,13 +244,16 @@ export const connectorOverviewRecordSchema: z.ZodType<ConnectorOverviewRecord> =
         path: ['health', 'severity'],
       })
     }
-    const hasConfigurationAction = record.actionRequired.some(
-      (action) => action.kind === 'configuration',
+    const hasBlockingAction = record.actionRequired.some(
+      (action) => action.kind === 'captcha'
+        || action.kind === 'configuration'
+        || action.kind === 'manual_review'
+        || action.kind === 'rate_limit',
     )
-    if (hasConfigurationAction !== (record.health.status === 'blocked')) {
+    if (record.health.status === 'blocked' && !hasBlockingAction) {
       context.addIssue({
         code: 'custom',
-        message: 'blocked health and configuration evidence must agree',
+        message: 'blocked health requires non-auth blocking evidence',
         path: ['health', 'status'],
       })
     }
@@ -262,6 +267,16 @@ export const connectorOverviewRecordSchema: z.ZodType<ConnectorOverviewRecord> =
 
     const run = record.latestRun
     if (run !== null) {
+      if (
+        run.cancellationKind === 'user_skipped'
+        && (run.status !== 'cancelled' || run.outcome !== 'cancelled')
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'user-skipped cancellation kind requires a cancelled run',
+          path: ['latestRun', 'cancellationKind'],
+        })
+      }
       const active = run.status === 'queued' || run.status === 'running'
       if (active !== (run.outcome === 'in_progress') || active !== (run.completedAt === null)) {
         context.addIssue({

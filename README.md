@@ -57,6 +57,11 @@ configuration and filters, execution-scope and retry internals, raw provider
 payloads, and runner or deployment state. Existing connector inspect and
 run-list methods remain available for detail views.
 
+The compact run's required nullable `cancellationKind` is `user_skipped` only
+when a cancelled run represents an explicit user skip; otherwise it is `null`.
+It does not expose the full run's free-form cancellation reason or internal
+codes.
+
 Each overview row is an atomic projection. Unambiguous run-backed health uses
 this precedence and must agree in both directions with `latestRun`:
 
@@ -70,12 +75,14 @@ this precedence and must agree in both directions with `latestRun`:
 | Running before another progress signal is visible | `checking_newest` |
 | Caught up, boundary exhausted, or source exhausted | Matching outcome |
 | Cooling down with public `retryAt` | `cooling_down` |
-| Cancelled or failed | Matching run status |
+| Cancelled with `cancellationKind: null`, or failed | Matching run status |
+| Cancelled with `cancellationKind: user_skipped` | `skipped` |
 
-`authentication_required` with an auth action and generic `blocked` with a
-configuration action are independent overlays: current credentials or
-configuration may change after the latest run, so those states may replace a
-derived run-backed state. A yielded/skipped run remains intentionally
+`authentication_required` with an auth action and generic `blocked` with at
+least one `captcha`, `configuration`, `manual_review`, or `rate_limit` action
+are independent overlays: current blockers may change after the latest run, so
+those states may replace a derived run-backed state. Those non-auth actions do
+not conversely force blocked health. A yielded/skipped run remains intentionally
 ambiguous. A cooldown is present exactly when the row presents matching
 cooling-down health and run outcome.
 

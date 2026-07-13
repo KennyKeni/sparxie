@@ -10,8 +10,9 @@ export type ConnectorOverviewHealthClassification =
  * Exhaustive ownership model for overview health presentation.
  *
  * Run-backed states must equal the state derived from `latestRun`. Overlays may
- * replace a derived state because auth/configuration can change independently
- * after a run. `skipped` remains ambiguous for yielded/skipped run outcomes.
+ * replace a derived state because auth/blocking evidence can change
+ * independently after a run. `skipped` remains ambiguous for yielded/skipped
+ * outcomes and is also derived for user-skipped cancellations.
  */
 export const connectorOverviewHealthClassifications = {
   authentication_required: 'overlay',
@@ -40,8 +41,12 @@ export type ConnectorOverviewRunBackedHealth = {
       : never
 }[ConnectorStatusState]
 
+export type ConnectorOverviewDerivedHealth =
+  | ConnectorOverviewRunBackedHealth
+  | 'skipped'
+
 /**
- * Derive only unambiguous run-backed health.
+ * Derive health with an unambiguous compact latest-run representation.
  *
  * Active-run presentation precedence is newest advancement, historical
  * advancement, then pending resolution. A running invocation with none of
@@ -50,7 +55,7 @@ export type ConnectorOverviewRunBackedHealth = {
  */
 export function deriveRunBackedOverviewHealth(
   run: ConnectorOverviewLatestRun | null,
-): ConnectorOverviewRunBackedHealth | null {
+): ConnectorOverviewDerivedHealth | null {
   if (run === null) return 'never_run'
 
   if (run.status === 'queued' && run.outcome === 'in_progress') return 'queued'
@@ -63,7 +68,9 @@ export function deriveRunBackedOverviewHealth(
   }
 
   if (run.status === 'failed' && run.outcome === 'failed') return 'failed'
-  if (run.status === 'cancelled' && run.outcome === 'cancelled') return 'cancelled'
+  if (run.status === 'cancelled' && run.outcome === 'cancelled') {
+    return run.cancellationKind === 'user_skipped' ? 'skipped' : 'cancelled'
+  }
 
   if (run.outcome === 'caught_up') return 'caught_up'
   if (run.outcome === 'boundary_exhausted') return 'boundary_exhausted'
