@@ -57,6 +57,28 @@ configuration and filters, execution-scope and retry internals, raw provider
 payloads, and runner or deployment state. Existing connector inspect and
 run-list methods remain available for detail views.
 
+Each overview row is an atomic projection. Unambiguous run-backed health uses
+this precedence and must agree in both directions with `latestRun`:
+
+| Latest run signal | Required health status |
+| --- | --- |
+| No latest run | `never_run` |
+| Queued, in progress | `queued` |
+| Running with newest frontier advancing | `checking_newest` |
+| Otherwise running with historical backfill advancing | `backfilling` |
+| Otherwise running with pending resolutions | `resolving` |
+| Running before another progress signal is visible | `checking_newest` |
+| Caught up, boundary exhausted, or source exhausted | Matching outcome |
+| Cooling down with public `retryAt` | `cooling_down` |
+| Cancelled or failed | Matching run status |
+
+`authentication_required` with an auth action and generic `blocked` with a
+configuration action are independent overlays: current credentials or
+configuration may change after the latest run, so those states may replace a
+derived run-backed state. A yielded/skipped run remains intentionally
+ambiguous. A cooldown is present exactly when the row presents matching
+cooling-down health and run outcome.
+
 ## Sourcing destination provenance
 
 Sourcing finding reads expose projection-owned destination provenance through

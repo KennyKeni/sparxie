@@ -20,6 +20,10 @@ import {
 } from './connector.js'
 import { compareUtf8Bytewise } from './raw-sourcing-list.js'
 import { refineConnectorSynchronizationInvariants } from './connector-synchronization-invariants.js'
+import {
+  connectorOverviewHealthClassifications,
+  deriveRunBackedOverviewHealth,
+} from './connector-overview-health.js'
 
 export const connectorOverviewRunOutcomes = [
   'in_progress',
@@ -272,63 +276,26 @@ export const connectorOverviewRecordSchema: z.ZodType<ConnectorOverviewRecord> =
       }
     }
 
-    if (record.health.status === 'never_run' && run !== null) {
-      context.addIssue({
-        code: 'custom',
-        message: 'never-run health cannot include a latest run',
-        path: ['latestRun'],
-      })
-    }
+    const derivedHealth = deriveRunBackedOverviewHealth(run)
+    const healthClassification =
+      connectorOverviewHealthClassifications[record.health.status]
     if (
-      record.health.status === 'boundary_exhausted'
-      && run?.outcome !== 'boundary_exhausted'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'boundary-exhausted health requires a matching latest run',
-        path: ['health', 'status'],
-      })
-    }
-    if (
-      record.health.status === 'queued'
-      && (run?.status !== 'queued' || run.outcome !== 'in_progress')
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'queued health requires a queued in-progress latest run',
-        path: ['health', 'status'],
-      })
-    }
-    if (
-      record.health.status === 'resolving'
-      && (
-        run?.status !== 'running'
-        || run.outcome !== 'in_progress'
-        || run.pendingResolutionCount === 0
-        || run.newestFrontier.state !== 'caught_up'
-        || run.historicalBackfill.state !== 'caught_up'
+      (healthClassification === 'run_backed' && record.health.status !== derivedHealth)
+      || (
+        derivedHealth !== null
+        && healthClassification !== 'overlay'
+        && record.health.status !== derivedHealth
       )
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'resolving health requires pending work after frontier advancement',
-        path: ['health', 'status'],
-      })
-    }
-    if (
-      record.health.status === 'failed'
-      && (run?.status !== 'failed' || run.outcome !== 'failed')
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'failed health requires a failed latest run',
+        message: 'run-backed health must match the state derived from latest run',
         path: ['health', 'status'],
       })
     }
     if (record.health.status === 'caught_up' && (
       record.health.severity !== 'healthy'
       || record.actionRequired.length !== 0
-      || run?.outcome !== 'caught_up'
     )) {
       context.addIssue({
         code: 'custom',
@@ -337,12 +304,16 @@ export const connectorOverviewRecordSchema: z.ZodType<ConnectorOverviewRecord> =
       })
     }
 
-    const coolingDown = record.health.status === 'cooling_down'
-      && run?.outcome === 'cooling_down'
-    if (coolingDown !== (record.cooldown !== null)) {
+    const coolingDownHealth = record.health.status === 'cooling_down'
+    const coolingDownRun = run?.outcome === 'cooling_down'
+    const hasCooldown = record.cooldown !== null
+    if (
+      (coolingDownHealth && (!coolingDownRun || !hasCooldown))
+      || (hasCooldown && (!coolingDownHealth || !coolingDownRun))
+    ) {
       context.addIssue({
         code: 'custom',
-        message: 'cooldown is present only for a cooling-down current run',
+        message: 'cooldown health, run outcome, and public retry instant must agree',
         path: ['cooldown'],
       })
     }

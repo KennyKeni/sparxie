@@ -44,6 +44,130 @@ const overviewRecord = {
   cooldown: null,
 } as const
 
+function runBackedOverviewCases() {
+  const running = {
+    ...overviewRecord.latestRun,
+    status: 'running',
+    outcome: 'in_progress',
+    completedAt: null,
+  } as const
+
+  return [
+    { status: 'never_run', latestRun: null, cooldown: null },
+    {
+      status: 'queued',
+      latestRun: {
+        ...running,
+        status: 'queued',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+      cooldown: null,
+    },
+    {
+      status: 'checking_newest',
+      latestRun: {
+        ...running,
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+      cooldown: null,
+    },
+    {
+      status: 'checking_newest',
+      latestRun: {
+        ...running,
+        newestFrontier: { state: 'not_started' },
+      },
+      cooldown: null,
+    },
+    {
+      status: 'backfilling',
+      latestRun: {
+        ...running,
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+        pendingResolutionCount: 2,
+      },
+      cooldown: null,
+    },
+    {
+      status: 'resolving',
+      latestRun: { ...running, pendingResolutionCount: 2 },
+      cooldown: null,
+    },
+    {
+      status: 'caught_up',
+      latestRun: overviewRecord.latestRun,
+      cooldown: null,
+    },
+    {
+      status: 'boundary_exhausted',
+      latestRun: {
+        ...overviewRecord.latestRun,
+        outcome: 'boundary_exhausted',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'boundary_reached',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+      cooldown: null,
+    },
+    {
+      status: 'source_exhausted',
+      latestRun: {
+        ...overviewRecord.latestRun,
+        outcome: 'source_exhausted',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'source_exhausted',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+      cooldown: null,
+    },
+    {
+      status: 'cooling_down',
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'skipped',
+        outcome: 'cooling_down',
+        newestFrontier: { state: 'advancing' },
+      },
+      cooldown: { retryAt: '2026-07-13T14:05:00.000Z' },
+    },
+    {
+      status: 'cancelled',
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'cancelled',
+        outcome: 'cancelled',
+        newestFrontier: { state: 'advancing' },
+      },
+      cooldown: null,
+    },
+    {
+      status: 'failed',
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'failed',
+        outcome: 'failed',
+        newestFrontier: { state: 'advancing' },
+      },
+      cooldown: null,
+    },
+  ] as const
+}
+
 describe('connector overview record contract', () => {
   it('accepts one sanitized current connector synchronization projection', () => {
     expect(connectorOverviewRecordSchema.parse(overviewRecord)).toEqual(overviewRecord)
@@ -98,6 +222,20 @@ describe('connector overview record contract', () => {
     } as const
 
     expect(connectorOverviewRecordSchema.parse(coolingDown)).toEqual(coolingDown)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...coolingDown,
+      latestRun: overviewRecord.latestRun,
+      cooldown: null,
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...coolingDown,
+      latestRun: null,
+      cooldown: null,
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...overviewRecord,
+      cooldown: coolingDown.cooldown,
+    }).success).toBe(false)
   })
 
   it('rejects caught-up outcomes without caught-up progress and zero pending resolutions', () => {
@@ -217,6 +355,92 @@ describe('connector overview record contract', () => {
     }).success).toBe(false)
   })
 
+  it('accepts checking-newest health only while the newest frontier advances', () => {
+    const checkingNewest = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'checking_newest',
+        statusLabel: 'Checking newest',
+        summary: 'Checking the newest provider jobs.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'running',
+        outcome: 'in_progress',
+        newestFrontier: { state: 'advancing' },
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+        completedAt: null,
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(checkingNewest)).toEqual(
+      checkingNewest,
+    )
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...checkingNewest,
+      latestRun: {
+        ...checkingNewest.latestRun,
+        newestFrontier: { state: 'caught_up' },
+      },
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...checkingNewest,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
+  it('accepts backfilling health only after newest checks and during backfill advancement', () => {
+    const backfilling = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'backfilling',
+        statusLabel: 'Backfilling',
+        summary: 'Synchronizing historical provider jobs.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'running',
+        outcome: 'in_progress',
+        historicalBackfill: {
+          state: 'advancing',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+        pendingResolutionCount: 2,
+        completedAt: null,
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(backfilling)).toEqual(backfilling)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...backfilling,
+      latestRun: {
+        ...backfilling.latestRun,
+        newestFrontier: { state: 'advancing' },
+      },
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...backfilling,
+      latestRun: {
+        ...backfilling.latestRun,
+        historicalBackfill: {
+          state: 'caught_up',
+          boundary: { earliestDate: '2026-06-01' },
+        },
+      },
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...backfilling,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
   it('accepts resolving health only for pending work after frontier advancement', () => {
     const resolving = {
       ...overviewRecord,
@@ -292,6 +516,35 @@ describe('connector overview record contract', () => {
     }).success).toBe(false)
   })
 
+  it('accepts cancelled health only with a cancelled current run', () => {
+    const cancelled = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'cancelled',
+        statusLabel: 'Cancelled',
+        summary: 'Synchronization was cancelled.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'cancelled',
+        outcome: 'cancelled',
+        newestFrontier: { state: 'advancing' },
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(cancelled)).toEqual(cancelled)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...cancelled,
+      latestRun: overviewRecord.latestRun,
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...cancelled,
+      latestRun: null,
+    }).success).toBe(false)
+  })
+
   it('allows authentication-required health over a prior caught-up run', () => {
     const authenticationRequired = {
       ...overviewRecord,
@@ -342,6 +595,115 @@ describe('connector overview record contract', () => {
     )
   })
 
+  it('rejects unrelated skipped health for every unambiguous run-backed state', () => {
+    for (const item of runBackedOverviewCases()) {
+      expect(connectorOverviewRecordSchema.safeParse({
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity: 'warning',
+          status: 'skipped',
+          statusLabel: 'Skipped',
+          summary: 'Synchronization was skipped.',
+        },
+        latestRun: item.latestRun,
+        cooldown: null,
+      }).success).toBe(false)
+    }
+  })
+
+  it('accepts the complete table of derived run-backed health states', () => {
+    for (const item of runBackedOverviewCases()) {
+      const severity = item.status === 'caught_up'
+        ? 'healthy'
+        : item.status === 'failed'
+          ? 'blocked'
+          : 'warning'
+      const record = {
+        ...overviewRecord,
+        health: {
+          ...overviewRecord.health,
+          severity,
+          status: item.status,
+          statusLabel: item.status,
+          summary: `Derived ${item.status} health.`,
+        },
+        latestRun: item.latestRun,
+        cooldown: item.cooldown,
+      }
+
+      expect(connectorOverviewRecordSchema.parse(record)).toEqual(record)
+    }
+  })
+
+  it('allows explicit auth and configuration overlays over every derived state', () => {
+    for (const item of runBackedOverviewCases()) {
+      const base = {
+        ...overviewRecord,
+        latestRun: item.latestRun,
+        cooldown: null,
+      }
+      const authenticationRequired = {
+        ...base,
+        health: {
+          ...overviewRecord.health,
+          severity: 'blocked',
+          status: 'authentication_required',
+        },
+        actionRequired: [{
+          id: 'auth-overlay',
+          kind: 'auth',
+          label: 'Reconnect',
+          message: 'Reconnect the provider session.',
+          severity: 'blocked',
+        }],
+      } as const
+      const configurationBlocked = {
+        ...base,
+        health: {
+          ...overviewRecord.health,
+          severity: 'blocked',
+          status: 'blocked',
+        },
+        actionRequired: [{
+          id: 'configuration-overlay',
+          kind: 'configuration',
+          label: 'Configure',
+          message: 'Update connector configuration.',
+          severity: 'blocked',
+        }],
+      } as const
+
+      expect(connectorOverviewRecordSchema.parse(authenticationRequired)).toEqual(
+        authenticationRequired,
+      )
+      expect(connectorOverviewRecordSchema.parse(configurationBlocked)).toEqual(
+        configurationBlocked,
+      )
+    }
+  })
+
+  it('keeps yielded skipped runs intentionally ambiguous', () => {
+    const yielded = {
+      ...overviewRecord,
+      health: {
+        ...overviewRecord.health,
+        severity: 'warning',
+        status: 'skipped',
+        statusLabel: 'Yielded',
+        summary: 'Synchronization yielded for a later invocation.',
+      },
+      latestRun: {
+        ...overviewRecord.latestRun,
+        status: 'skipped',
+        outcome: 'yielded',
+        newestFrontier: { state: 'advancing' },
+      },
+    } as const
+
+    expect(connectorOverviewRecordSchema.parse(yielded)).toEqual(yielded)
+  })
+
   it('accepts source exhaustion only with exhausted historical source state', () => {
     const sourceExhausted = {
       ...overviewRecord,
@@ -375,6 +737,14 @@ describe('connector overview record contract', () => {
           boundary: { earliestDate: '2026-06-01' },
         },
       },
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...sourceExhausted,
+      latestRun: overviewRecord.latestRun,
+    }).success).toBe(false)
+    expect(connectorOverviewRecordSchema.safeParse({
+      ...sourceExhausted,
+      latestRun: null,
     }).success).toBe(false)
   })
 
