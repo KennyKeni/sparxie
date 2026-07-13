@@ -9,7 +9,6 @@ export const CONNECTOR_RUN_LIFECYCLE_COUNTS_VERSION =
 
 export const connectorRunLifecycleSources = [
   'live_current',
-  'derived_pre_feature',
   'frozen_terminal',
 ] as const
 
@@ -153,6 +152,17 @@ export const connectorRunLifecycleCountsSchema: z.ZodType<ConnectorRunLifecycleC
         path: ['provider', 'gaps'],
       })
     }
+    const expectedUnclassifiedRows = Math.max(
+      0,
+      counts.provider.returnedRows - providerClassified,
+    )
+    if (counts.provider.unclassifiedRows !== expectedUnclassifiedRows) {
+      context.addIssue({
+        code: 'custom',
+        message: 'unclassified rows must reconcile returned and classified rows',
+        path: ['provider', 'unclassifiedRows'],
+      })
+    }
     if (counts.provider.invariant === 'reconciled') {
       if (counts.provider.gaps.length !== 0) {
         context.addIssue({
@@ -168,19 +178,28 @@ export const connectorRunLifecycleCountsSchema: z.ZodType<ConnectorRunLifecycleC
           path: ['provider', 'returnedRows'],
         })
       }
-      if (counts.provider.unclassifiedRows !== 0) {
-        context.addIssue({
-          code: 'custom',
-          message: 'reconciled provider counts cannot have unclassified rows',
-          path: ['provider', 'unclassifiedRows'],
-        })
-      }
     } else if (counts.provider.gaps.length === 0) {
       context.addIssue({
         code: 'custom',
         message: 'unreconciled provider counts require a bounded gap code',
         path: ['provider', 'gaps'],
       })
+    } else {
+      const hasMissingGap = counts.provider.gaps.some((gap) => gap.startsWith('missing_'))
+      const hasInvalidGap = counts.provider.gaps.some((gap) => gap.startsWith('invalid_'))
+      const invariantMatchesGaps =
+        (counts.provider.invariant === 'reported_stats_missing' && hasMissingGap)
+        || (counts.provider.invariant === 'reported_stats_invalid'
+          && !hasMissingGap && hasInvalidGap)
+        || (counts.provider.invariant === 'reported_totals_inconsistent'
+          && !hasMissingGap && !hasInvalidGap)
+      if (!invariantMatchesGaps) {
+        context.addIssue({
+          code: 'custom',
+          message: 'provider invariant must match its bounded gap codes',
+          path: ['provider', 'invariant'],
+        })
+      }
     }
 
     const destination = counts.destination

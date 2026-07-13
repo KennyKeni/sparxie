@@ -140,6 +140,34 @@ describe('connector continuous synchronization contract', () => {
     }).success).toBe(false)
   })
 
+  it('requires provider unclassified rows and invariant gaps to explain each other', () => {
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        provider: {
+          ...lifecycleCounts.provider,
+          invariant: 'reported_stats_missing',
+          gaps: ['missing_provider_returned'],
+          returnedRows: 6,
+          captureShortfall: 2,
+          unclassifiedRows: 0,
+        },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        provider: {
+          ...lifecycleCounts.provider,
+          invariant: 'reported_stats_missing',
+          gaps: ['invalid_provider_returned'],
+        },
+      },
+    }).success).toBe(false)
+  })
+
   it('requires lifecycle provenance to match whether the invocation is active', () => {
     expect(connectorRunSummarySchema.safeParse({
       ...skippedNotDueRun,
@@ -151,6 +179,13 @@ describe('connector continuous synchronization contract', () => {
       outcome: { kind: 'in_progress' },
       completedAt: null,
       lifecycleCounts: { ...lifecycleCounts, source: 'frozen_terminal' },
+    }).success).toBe(false)
+  })
+
+  it('rejects stale pre-feature lifecycle provenance', () => {
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: { ...lifecycleCounts, source: 'derived_pre_feature' },
     }).success).toBe(false)
   })
 
