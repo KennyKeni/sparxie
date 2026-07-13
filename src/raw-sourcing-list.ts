@@ -128,6 +128,12 @@ export interface RawSourceRecordsListQuery {
   adapterId?: string
   adapterKind?: SourceAdapterProvenance['kind']
   connectorInstanceId?: string
+  /**
+   * Exact connector-run identity matched against any persisted occurrence.
+   * A record still matches when its latest occurrence belongs to another run.
+   * Servers apply this with every other filter before stable keyset pagination.
+   */
+  connectorRunId?: string
   receivedFrom?: string
   receivedTo?: string
   normalizationStatus?: RawSourceListNormalizationStatus
@@ -151,6 +157,7 @@ const rawSourceRecordsListQueryObjectSchema = z
     adapterId: listIdentifierSchema.optional(),
     adapterKind: z.enum(sourceAdapterKinds).optional(),
     connectorInstanceId: listIdentifierSchema.optional(),
+    connectorRunId: listIdentifierSchema.optional(),
     receivedFrom: listInstantSchema.optional(),
     receivedTo: listInstantSchema.optional(),
     normalizationStatus: z.enum(rawSourceListNormalizationStatuses).optional(),
@@ -228,6 +235,7 @@ export const rawSourceRecordsListQueryParamKeys = [
   'adapterId',
   'adapterKind',
   'connectorInstanceId',
+  'connectorRunId',
   'receivedFrom',
   'receivedTo',
   'normalizationStatus',

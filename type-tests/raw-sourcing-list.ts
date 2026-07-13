@@ -47,6 +47,11 @@ const queryOmitsOffset: IsExact<
   never
 > = true
 
+const queryHasOptionalConnectorRunId: IsExact<
+  RawSourceRecordsListQuery['connectorRunId'],
+  string | undefined
+> = true
+
 const resultOmitsOffset: IsExact<
   keyof RawSourceRecordsListResult & ('offset' | 'total' | 'hasMore' | 'limit'),
   never
@@ -246,6 +251,7 @@ void projectionStatusIsExhaustive
 void listReturnsContract
 void rootClientHasNoRawRecordList
 void queryOmitsOffset
+void queryHasOptionalConnectorRunId
 void resultOmitsOffset
 void idTieBreakIsUtf8Bytewise
 void summaryOmitsForbiddenFields
