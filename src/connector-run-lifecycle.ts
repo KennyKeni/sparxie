@@ -218,13 +218,19 @@ export const connectorRunLifecycleCountsSchema: z.ZodType<ConnectorRunLifecycleC
       + destination.pending
       + destination.gateRejected
       + destination.unclassified
-    if (
-      destination.invariant === 'reconciled'
-      && destinationClassified !== counts.provider.capturedRecords
-    ) {
+    const destinationReconciled =
+      destinationClassified === counts.provider.capturedRecords
+    if (destinationClassified > counts.provider.capturedRecords) {
       context.addIssue({
         code: 'custom',
-        message: 'reconciled destinations must classify every captured record',
+        message: 'destination outcomes cannot exceed captured records',
+        path: ['destination', 'invariant'],
+      })
+    }
+    if ((destination.invariant === 'reconciled') !== destinationReconciled) {
+      context.addIssue({
+        code: 'custom',
+        message: 'destination invariant must reflect whether lineage reconciles',
         path: ['destination', 'invariant'],
       })
     }
@@ -236,13 +242,18 @@ export const connectorRunLifecycleCountsSchema: z.ZodType<ConnectorRunLifecycleC
       + sourcing.rejected
       + sourcing.actionableReview
       + sourcing.unclassified
-    if (
-      sourcing.invariant === 'reconciled'
-      && sourcingClassified !== destination.normalized
-    ) {
+    const sourcingReconciled = sourcingClassified === destination.normalized
+    if (sourcingClassified > destination.normalized) {
       context.addIssue({
         code: 'custom',
-        message: 'reconciled sourcing outcomes must classify every normalized job',
+        message: 'sourcing outcomes cannot exceed normalized jobs',
+        path: ['sourcing', 'invariant'],
+      })
+    }
+    if ((sourcing.invariant === 'reconciled') !== sourcingReconciled) {
+      context.addIssue({
+        code: 'custom',
+        message: 'sourcing invariant must reflect whether lineage reconciles',
         path: ['sourcing', 'invariant'],
       })
     }

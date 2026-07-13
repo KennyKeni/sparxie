@@ -168,6 +168,47 @@ describe('connector continuous synchronization contract', () => {
     }).success).toBe(false)
   })
 
+  it('allows lineage shortfalls but rejects totals that exceed the upstream stage', () => {
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        destination: {
+          ...lifecycleCounts.destination,
+          unresolved: 100,
+          invariant: 'lineage_incomplete',
+        },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        sourcing: {
+          ...lifecycleCounts.sourcing,
+          findingsAdded: 100,
+          invariant: 'lineage_incomplete',
+        },
+      },
+    }).success).toBe(false)
+    expect(connectorRunSummarySchema.safeParse({
+      ...skippedNotDueRun,
+      lifecycleCounts: {
+        ...lifecycleCounts,
+        destination: {
+          ...lifecycleCounts.destination,
+          gateRejected: 0,
+          invariant: 'lineage_incomplete',
+        },
+        sourcing: {
+          ...lifecycleCounts.sourcing,
+          canonicalDuplicates: 0,
+          invariant: 'lineage_incomplete',
+        },
+      },
+    }).success).toBe(true)
+  })
+
   it('requires lifecycle provenance to match whether the invocation is active', () => {
     expect(connectorRunSummarySchema.safeParse({
       ...skippedNotDueRun,
