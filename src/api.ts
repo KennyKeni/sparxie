@@ -23,6 +23,7 @@ export const valedictorianApiPaths = {
   actionQueue: '/v1/action-queue',
   runs: '/v1/runs',
   connectors: '/v1/connectors',
+  connectorOverview: '/v1/connectors/overview',
   application(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}`
   },

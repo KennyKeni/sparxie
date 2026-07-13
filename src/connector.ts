@@ -216,7 +216,7 @@ export type ConnectorRunSummary =
       scheduleOccurrence: ConnectorRunScheduleOccurrenceLink & { admittedMode: 'catch_up' }
     })
 
-const connectorWarningSchema = z
+export const connectorWarningSchema = z
   .object({
     code: z.string(),
     label: z.string().nullable(),
@@ -471,7 +471,7 @@ const connectorAuthSummarySchema = z
   })
   .strict()
 
-const connectorActionRequiredSchema = z.object({
+export const connectorActionRequiredSchema = z.object({
   id: z.string(),
   kind: z.enum(connectorActionRequiredKinds),
   label: z.string(),
@@ -479,7 +479,7 @@ const connectorActionRequiredSchema = z.object({
   severity: z.enum(connectorStatusSeverities),
 }).strict()
 
-const connectorStatusActionSchema = z.object({
+export const connectorStatusActionSchema = z.object({
   id: z.enum(['configure', 'reconnect', 'review', 'skip', 'wait']),
   label: z.string(),
 }).strict()

@@ -31,6 +31,32 @@ console.log(applications.items)
 
 Connector create, update, and status DTOs carry secret references and auth metadata only. Plaintext credential values stay behind workspace write-only secret endpoints and are not returned by normal connector reads.
 
+## Connector overview
+
+Connector management views can fetch a bounded workspace page without issuing
+per-connector inspect and run-history requests:
+
+```ts
+const page = await workspace.connectors.overview.list({
+  enabled: true,
+  severity: 'warning',
+  limit: 50,
+})
+```
+
+Pages use opaque cursor continuation in stable UTF-8 bytewise connector-id
+order. `enabled`, `severity`, and `status` filters are conjunctive and must stay
+unchanged when continuing with `nextCursor`. The response intentionally has no
+total or offset, so backends can fetch a connector page and its latest run in
+work proportional to that page rather than run-history size.
+
+Rows contain connector identity and enabled state, existing public health and
+action projections, a compact latest-run summary when present, and only the
+public `retryAt` for cooldowns. They exclude credentials, auth/session data,
+configuration and filters, execution-scope and retry internals, raw provider
+payloads, and runner or deployment state. Existing connector inspect and
+run-list methods remain available for detail views.
+
 ## Sourcing destination provenance
 
 Sourcing finding reads expose projection-owned destination provenance through
