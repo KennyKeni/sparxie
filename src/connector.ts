@@ -69,6 +69,12 @@ export const connectorStatusStates = [
 
 export type ConnectorStatusState = (typeof connectorStatusStates)[number]
 
+/** Retired connector instances are excluded from normal instance lists. */
+export const connectorInstanceListLifecycleStates = ['enabled', 'disabled'] as const
+
+export type ConnectorInstanceListLifecycleState =
+  (typeof connectorInstanceListLifecycleStates)[number]
+
 export const connectorActionRequiredKinds = [
   'auth',
   'captcha',
@@ -157,6 +163,7 @@ export interface ConnectorInstanceSummary {
   connectorVersion: string
   displayName: string
   enabled: boolean
+  lifecycle: ConnectorInstanceListLifecycleState
   auth: ConnectorAuthSummary[]
   config: unknown
   filters: unknown
@@ -518,6 +525,7 @@ export const connectorInstanceSummarySchema: z.ZodType<ConnectorInstanceSummary>
     connectorVersion: z.string(),
     displayName: z.string(),
     enabled: z.boolean(),
+    lifecycle: z.enum(connectorInstanceListLifecycleStates),
     auth: z.array(connectorAuthSummarySchema),
     config: z.unknown(),
     filters: z.unknown(),
@@ -526,6 +534,15 @@ export const connectorInstanceSummarySchema: z.ZodType<ConnectorInstanceSummary>
     updatedAt: z.string(),
   })
   .strict()
+  .superRefine((instance, context) => {
+    if ((instance.lifecycle === 'enabled') !== instance.enabled) {
+      context.addIssue({
+        code: 'custom',
+        message: 'lifecycle must agree with enabled state',
+        path: ['lifecycle'],
+      })
+    }
+  })
 
 export const connectorInstancesListResultSchema: z.ZodType<ConnectorInstancesListResult> =
   z

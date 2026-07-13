@@ -627,6 +627,7 @@ describe('HTTP Valedictorian client', () => {
       connectorVersion: '0.1.0',
       displayName: 'Jobright',
       enabled: true,
+      lifecycle: 'enabled',
       auth: [
         {
           id: 'jobright-session',

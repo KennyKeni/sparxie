@@ -40,6 +40,10 @@ import type {
   UpdateConnectorInstanceInput,
 } from './connector.js'
 import type {
+  ConnectorRetirementResult,
+  RemoveConnectorInstanceInput,
+} from './connector-retirement.js'
+import type {
   ConnectorOverviewListQuery,
   ConnectorOverviewListResult,
 } from './connector-overview.js'
@@ -176,6 +180,7 @@ export interface ValedictorianWorkspaceClient {
     list(): Promise<ConnectorInstancesListResult>
     create(input: CreateConnectorInstanceInput): Promise<ConnectorInstanceSummary>
     update(input: UpdateConnectorInstanceInput): Promise<ConnectorInstanceSummary>
+    remove(input: RemoveConnectorInstanceInput): Promise<ConnectorRetirementResult>
     inspect(connectorInstanceId: string): Promise<ConnectorStatusSummary>
     overview: {
       list(query?: ConnectorOverviewListQuery): Promise<ConnectorOverviewListResult>
