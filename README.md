@@ -75,10 +75,10 @@ await workspace.sourcing.rawRecords.ingestBatch({
 `adapter` records how data entered Valedictorian; `reportedOrigin` records where
 the job was observed. Raw records may omit provider identity and every canonical
 job field. Payload and evidence values are JSON-safe and use the exported
-`MAX_RAW_SOURCE_*` transport limits. Read the immutable record/receipt with
-`rawRecords.get`, read normalization and gate outcomes with
-`rawRecords.normalization.get`, and request version-targeted reprocessing with
-`rawRecords.replay`.
+`MAX_RAW_SOURCE_*` transport limits. List sanitized raw-record summaries with
+`rawRecords.list`, read the immutable record/receipt with `rawRecords.get`,
+read normalization and gate outcomes with `rawRecords.normalization.get`, and
+request version-targeted reprocessing with `rawRecords.replay`.
 
 Every batch record requires a unique opaque `intakeItemId`. Receipts echo that
 transient identifier so the typed client can correlate reordered responses,

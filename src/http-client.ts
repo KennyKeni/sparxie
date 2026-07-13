@@ -44,7 +44,14 @@ import {
   rawSourceReplayReceiptSchema,
 } from './raw-sourcing.js'
 import { createBoundBatchRawSourceRecordsResultSchema } from './raw-sourcing-bound.js'
+import {
+  rawSourceRecordsListQuerySchema,
+  rawSourceRecordsListQueryToSearchParams,
+  rawSourceRecordsListResultSchema,
+} from './raw-sourcing-list.js'
 import { rawSourceProjectionResultSchema } from './sourcing-projection.js'
+
+export { rawSourceRecordsListQueryToSearchParams }
 
 export interface HttpValedictorianClientOptions {
   baseUrl?: string
@@ -738,6 +745,14 @@ export function createHttpValedictorianClient({
         },
       },
       rawRecords: {
+        async list(query) {
+          const parsedQuery = rawSourceRecordsListQuerySchema.parse(query ?? {})
+          return rawSourceRecordsListResultSchema.parse(
+            await request(pathFor(valedictorianApiPaths.sourcingRawRecords), {
+              query: rawSourceRecordsListQueryToSearchParams(parsedQuery),
+            }),
+          )
+        },
         async ingestBatch(input) {
           const body = batchRawSourceRecordsInputSchema.parse(input)
           return createBoundBatchRawSourceRecordsResultSchema(body).parse(

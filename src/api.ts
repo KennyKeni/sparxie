@@ -96,6 +96,7 @@ export const valedictorianApiPaths = {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/dispatch-due`
   },
   sourcingCandidatesProcess: '/v1/sourcing/candidates/process',
+  sourcingRawRecords: '/v1/sourcing/raw-records',
   sourcingRawRecordsBatch: '/v1/sourcing/raw-records/batch',
   sourcingRawRecordsReplay: '/v1/sourcing/raw-records/replay',
   sourcingRawRecord(rawRecordId: string) {
