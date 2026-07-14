@@ -36,6 +36,14 @@ import {
   createConnectorScheduleHttpMethods,
   connectorScheduleHistoryListQueryToSearchParams,
 } from './http-client-connector-schedules.js'
+import { createConnectorCapabilityHttpMethods } from './http-client-connector-capabilities.js'
+import {
+  connectorOptionQueryErrorBodySchema,
+  connectorOptionQueryErrorCodes,
+  connectorOptionQueryErrorStatusByCode,
+  type ConnectorOptionQueryErrorBody,
+  type ConnectorOptionQueryErrorCode,
+} from './connector-option-query.js'
 import { valedictorianCapabilitiesSchema } from './capabilities.js'
 
 export { connectorScheduleHistoryListQueryToSearchParams }
@@ -95,6 +103,17 @@ export class InvalidPersistedRawDetailHttpError
   }
 }
 
+export class ConnectorOptionQueryHttpError
+  extends ValedictorianHttpError<ConnectorOptionQueryErrorBody> {
+  readonly code: ConnectorOptionQueryErrorCode
+
+  constructor(body: ConnectorOptionQueryErrorBody, status: number) {
+    super({ body, message: body.message, status })
+    this.name = 'ConnectorOptionQueryHttpError'
+    this.code = body.code
+  }
+}
+
 export class ConnectorRetirementConflictError extends ValedictorianHttpError {
   readonly conflict: ConnectorRetirementActiveWorkConflict
 
@@ -131,6 +150,32 @@ function rethrowRawRecordDetailError(error: unknown): never {
       message: 'Request failed',
       status: error.status,
     })
+  }
+
+  throw error
+}
+
+function isConnectorOptionQueryErrorCode(value: unknown): value is ConnectorOptionQueryErrorCode {
+  return typeof value === 'string'
+    && (connectorOptionQueryErrorCodes as readonly string[]).includes(value)
+}
+
+function rethrowConnectorOptionQueryError(error: unknown): never {
+  if (!(error instanceof ValedictorianHttpError)) throw error
+
+  const parsed = connectorOptionQueryErrorBodySchema.safeParse(error.body)
+  if (parsed.success) {
+    if (connectorOptionQueryErrorStatusByCode[parsed.data.code] === error.status) {
+      throw new ConnectorOptionQueryHttpError(parsed.data, error.status)
+    }
+    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
+  }
+
+  if (typeof error.body === 'object'
+    && error.body !== null
+    && 'code' in error.body
+    && isConnectorOptionQueryErrorCode(error.body.code)) {
+    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
   }
 
   throw error
@@ -384,6 +429,7 @@ export function createHttpValedictorianClient({
       body?: unknown
       method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
       query?: URLSearchParams
+      signal?: AbortSignal
     } = {},
   ): Promise<T> {
     const url = new URL(path, baseUrl)
@@ -409,6 +455,8 @@ export function createHttpValedictorianClient({
       headers['content-type'] = 'application/json'
       init.body = JSON.stringify(options.body)
     }
+
+    if (options.signal !== undefined) init.signal = options.signal
 
     const response = await fetchImplementation(url.toString(), init)
     const body = await readResponseBody(response)
@@ -584,6 +632,11 @@ export function createHttpValedictorianClient({
       },
     },
     connectors: {
+      ...createConnectorCapabilityHttpMethods({
+        pathFor,
+        request,
+        rethrowOptionQueryError: rethrowConnectorOptionQueryError,
+      }),
       async list() {
         return connectorInstancesListResultSchema.parse(
           await request(pathFor(valedictorianApiPaths.connectors)),

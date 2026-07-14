@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add workspace-scoped installed connector descriptors and trusted dynamic
+  option queries with bounded declarative schemas, strict identity validation,
+  transport cancellation, and sanitized compatibility errors.
 - Add exact `connectorRunId` filtering to the workspace-scoped raw-source list;
   records match any persisted occurrence even when a later run is the latest.
 - Add a bounded workspace connector overview contract and typed client with

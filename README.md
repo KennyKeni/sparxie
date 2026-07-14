@@ -31,6 +31,50 @@ console.log(applications.items)
 
 Connector create, update, and status DTOs carry secret references and auth metadata only. Plaintext credential values stay behind workspace write-only secret endpoints and are not returned by normal connector reads.
 
+## Connector-declared settings
+
+Workspace clients can read sanitized installed connector descriptors and query
+only the dynamic option sources declared by those descriptors:
+
+```ts
+const descriptors = await workspace.connectors.descriptors.list()
+const descriptor = await workspace.connectors.descriptors.get(
+  'jobright.resolver',
+  '0.13.0',
+)
+const locationSource = descriptor.dynamicOptions!.sources.find(
+  (source) => source.id === 'jobright.location',
+)!
+
+const controller = new AbortController()
+const result = await workspace.connectors.options.query({
+  connectorInstanceId: 'jobright-session',
+  body: {
+    sourceId: 'jobright.location',
+    operation: { kind: 'search', search: 'New York', limit: 20 },
+    dependencies: { country: 'US' },
+  },
+  expectedIdentity: {
+    connectorId: descriptor.connectorId,
+    connectorVersion: descriptor.connectorVersion,
+    filterSchemaVersion: descriptor.filterSchema!.version,
+    catalogVersion: descriptor.dynamicOptions!.version,
+    sourceVersion: locationSource.version,
+  },
+}, { signal: controller.signal })
+
+void descriptors
+void result
+```
+
+Descriptor schemas and option catalogs are closed, finite declarative data.
+They never include credentials, auth grants, provider routes, modules, or
+executable callbacks. The query body contains only the declared source,
+operation, and dependencies; connector release identities are checked locally
+against the response but are not serialized. Aborting the signal cancels the
+transport request, while a server-returned `cancelled` status remains a normal
+settled result.
+
 ## Connector overview
 
 Connector management views can fetch a bounded workspace page without issuing

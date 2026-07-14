@@ -112,6 +112,14 @@ import type {
 } from './workspace.js'
 import type { ValedictorianCapabilities } from './capabilities.js'
 import type {
+  InstalledConnectorDescriptor,
+  InstalledConnectorDescriptorsListResult,
+} from './connector-capabilities.js'
+import type {
+  ConnectorOptionQueryBody,
+  ConnectorOptionQueryResult,
+} from './connector-option-query.js'
+import type {
   ProfileAgentContext,
   ProfileSecretSummary,
   ProfileSecretsListResult,
@@ -194,6 +202,26 @@ export interface ValedictorianWorkspaceClient {
     }
     observations: {
       list(input: ConnectorObservationsListInput): Promise<ConnectorObservationsListResult>
+    }
+    descriptors: {
+      list(): Promise<InstalledConnectorDescriptorsListResult>
+      get(connectorId: string, connectorVersion: string): Promise<InstalledConnectorDescriptor>
+    }
+    options: {
+      query(
+        input: {
+          connectorInstanceId: string
+          body: ConnectorOptionQueryBody
+          expectedIdentity: {
+            connectorId: string
+            connectorVersion: string
+            filterSchemaVersion: string
+            catalogVersion: string
+            sourceVersion: string
+          }
+        },
+        options?: { signal?: AbortSignal },
+      ): Promise<ConnectorOptionQueryResult>
     }
     schedules: {
       get(connectorInstanceId: string): Promise<ConnectorScheduleSummary | null>
