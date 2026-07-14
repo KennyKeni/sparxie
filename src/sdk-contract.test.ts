@@ -305,6 +305,13 @@ describe('SDK public contract', () => {
     expect(valedictorianApiPaths.runSteps('run 1')).toBe('/v1/runs/run%201/steps')
     expect(valedictorianApiPaths.runComplete('run 1')).toBe('/v1/runs/run%201/complete')
     expect(valedictorianApiPaths.connectors).toBe('/v1/connectors')
+    expect(valedictorianApiPaths.connectorDescriptors).toBe('/v1/connector-descriptors')
+    expect(
+      valedictorianApiPaths.connectorDescriptor('jobright/resolver', '0.13 beta'),
+    ).toBe('/v1/connector-descriptors/jobright%2Fresolver/versions/0.13%20beta')
+    expect(valedictorianApiPaths.connectorOptionQuery('jobright/session 1')).toBe(
+      '/v1/connectors/jobright%2Fsession%201/options/query',
+    )
     expect(valedictorianApiPaths.connector('jobright/session 1')).toBe(
       '/v1/connectors/jobright%2Fsession%201',
     )

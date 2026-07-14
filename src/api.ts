@@ -23,6 +23,7 @@ export const valedictorianApiPaths = {
   actionQueue: '/v1/action-queue',
   runs: '/v1/runs',
   connectors: '/v1/connectors',
+  connectorDescriptors: '/v1/connector-descriptors',
   connectorOverview: '/v1/connectors/overview',
   application(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}`
@@ -77,6 +78,12 @@ export const valedictorianApiPaths = {
   },
   connectorObservations(connectorInstanceId: string) {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/observations`
+  },
+  connectorDescriptor(connectorId: string, connectorVersion: string) {
+    return `/v1/connector-descriptors/${encodeURIComponent(connectorId)}/versions/${encodeURIComponent(connectorVersion)}`
+  },
+  connectorOptionQuery(connectorInstanceId: string) {
+    return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/options/query`
   },
   connectorSchedule(connectorInstanceId: string) {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule`
