@@ -38,6 +38,14 @@ import {
 } from './http-client-connector-schedules.js'
 import { createConnectorCapabilityHttpMethods } from './http-client-connector-capabilities.js'
 import { createProfileHttpMethods } from './http-client-profile.js'
+import { ValedictorianHttpError } from './http-client-error.js'
+import {
+  createLocalSecretResolveRequest,
+  createSecretsHttpMethods,
+} from './http-client-secrets.js'
+
+export { ValedictorianHttpError } from './http-client-error.js'
+export { LocalSecretResolutionHttpError } from './http-client-secrets.js'
 import {
   connectorOptionQueryErrorBodySchema,
   connectorOptionQueryErrorCodes,
@@ -89,18 +97,6 @@ export interface HttpValedictorianClientOptions {
   baseUrl?: string
   token?: string
   fetch?: typeof fetch
-}
-
-export class ValedictorianHttpError<Body = unknown> extends Error {
-  readonly status: number
-  readonly body: Body
-
-  constructor({ body, message, status }: { body: Body; message: string; status: number }) {
-    super(message)
-    this.name = 'ValedictorianHttpError'
-    this.status = status
-    this.body = body
-  }
 }
 
 export class InvalidPersistedRawDetailHttpError
@@ -473,6 +469,7 @@ export function createHttpValedictorianClient({
     path: string,
     options: {
       body?: unknown
+      headers?: Record<string, string>
       method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
       query?: URLSearchParams
       signal?: AbortSignal
@@ -486,6 +483,7 @@ export function createHttpValedictorianClient({
 
     const headers: Record<string, string> = {
       accept: 'application/json',
+      ...options.headers,
     }
 
     if (token) {
@@ -517,6 +515,14 @@ export function createHttpValedictorianClient({
 
     return body as T
   }
+
+  const resolveLocalSecret = createLocalSecretResolveRequest({
+    baseUrl,
+    fetchImplementation,
+    token,
+    readResponseBody,
+    responseMessage,
+  })
 
   function workspacePath(workspaceId: string, path: string) {
     return `/v1/workspaces/${encodeURIComponent(workspaceId)}${path.slice('/v1'.length)}`
@@ -868,24 +874,11 @@ export function createHttpValedictorianClient({
       request,
       rethrowDocumentError: rethrowProfileDocumentError,
     }),
-    secrets: {
-      delete(key) {
-        return request(pathFor(valedictorianApiPaths.secret(key)), {
-          method: 'DELETE',
-        })
-      },
-      list() {
-        return request(pathFor(valedictorianApiPaths.secrets))
-      },
-      upsert(input) {
-        const { key, ...body } = input
-
-        return request(pathFor(valedictorianApiPaths.secret(key)), {
-          body,
-          method: 'PUT',
-        })
-      },
-    },
+    secrets: createSecretsHttpMethods({
+      pathFor,
+      request,
+      resolveRequest: resolveLocalSecret,
+    }),
     runs: {
       list(query) {
         return request(pathFor(valedictorianApiPaths.runs), {

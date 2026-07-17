@@ -18,6 +18,7 @@ export interface ValedictorianCapabilities {
   hostedSync: boolean
   multiWorkspace: boolean
   billing: boolean
+  localSecretResolution: boolean
   connectorScheduling: ConnectorSchedulingCapability
 }
 
@@ -31,6 +32,7 @@ export const defaultLocalCapabilities: ValedictorianCapabilities = {
   hostedSync: false,
   multiWorkspace: true,
   billing: false,
+  localSecretResolution: false,
   connectorScheduling: unavailableConnectorSchedulingCapability,
 }
 
@@ -90,6 +92,7 @@ export const valedictorianCapabilitiesSchema: z.ZodType<ValedictorianCapabilitie
     hostedSync: z.boolean(),
     multiWorkspace: z.boolean(),
     billing: z.boolean(),
+    localSecretResolution: z.boolean(),
     connectorScheduling: connectorSchedulingCapabilitySchema,
   })
   .strict()

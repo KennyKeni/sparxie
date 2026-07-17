@@ -11,6 +11,27 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe('localSecretResolution capability contract', () => {
+  it('requires localSecretResolution and defaults local support to false', () => {
+    expect(defaultLocalCapabilities.localSecretResolution).toBe(false)
+    expect(valedictorianCapabilitiesSchema.parse(defaultLocalCapabilities)).toEqual(
+      defaultLocalCapabilities,
+    )
+    expect(
+      valedictorianCapabilitiesSchema.safeParse({
+        ...defaultLocalCapabilities,
+        localSecretResolution: undefined,
+      }).success,
+    ).toBe(false)
+    expect(
+      valedictorianCapabilitiesSchema.parse({
+        ...defaultLocalCapabilities,
+        localSecretResolution: true,
+      }).localSecretResolution,
+    ).toBe(true)
+  })
+})
+
 describe('connectorScheduling capability contract', () => {
   it('requires a discriminated connectorScheduling capability and defaults local to unavailable', () => {
     expect(defaultLocalCapabilities.connectorScheduling).toEqual({ available: false })

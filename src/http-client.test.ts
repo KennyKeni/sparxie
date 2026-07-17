@@ -717,6 +717,7 @@ describe('HTTP Valedictorian client', () => {
         hostedSync: false,
         multiWorkspace: true,
         billing: false,
+        localSecretResolution: false,
         connectorScheduling: { available: false },
       }),
     )
@@ -893,6 +894,12 @@ describe('HTTP Valedictorian client', () => {
       expect.objectContaining({ method: 'PATCH' }),
     )
     expect(workspace.secrets).not.toHaveProperty('reveal')
+    expect(workspace.secrets).not.toHaveProperty('get')
+    expect(workspace.secrets).not.toHaveProperty('query')
+    expect(workspace.secrets.local).toHaveProperty('resolve')
+    expect(workspace.secrets.local).not.toHaveProperty('get')
+    expect(workspace.secrets.local).not.toHaveProperty('reveal')
+    expect(workspace.secrets.local).not.toHaveProperty('query')
   })
 
   it('maps policy config, evidence, and evaluation methods to HTTP endpoints', async () => {

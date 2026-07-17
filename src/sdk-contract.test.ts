@@ -283,6 +283,7 @@ describe('SDK public contract', () => {
     expect(valedictorianApiPaths.applications).toBe('/v1/applications')
     expect(valedictorianApiPaths.profileSensitive).toBe('/v1/profile/sensitive')
     expect(valedictorianApiPaths.secrets).toBe('/v1/secrets')
+    expect(valedictorianApiPaths.secretsLocalResolve).toBe('/v1/secrets/local/resolve')
     expect(valedictorianApiPaths.secret('greenhouse password')).toBe(
       '/v1/secrets/greenhouse%20password',
     )
@@ -367,6 +368,7 @@ describe('SDK public contract', () => {
       hostedSync: false,
       multiWorkspace: true,
       billing: false,
+      localSecretResolution: false,
       connectorScheduling: { available: false },
     })
   })
