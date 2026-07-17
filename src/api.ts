@@ -9,7 +9,12 @@ export const valedictorianApiPaths = {
   applications: '/v1/applications',
   profile: '/v1/profile',
   profileAgentContext: '/v1/profile/agent-context',
+  /** @deprecated Compatibility sensitive-profile path for the cutover window. */
   profileSensitive: '/v1/profile/sensitive',
+  profileDocument: '/v1/profile/document',
+  profileDocumentValidate: '/v1/profile/document/validate',
+  profileDocumentFormat: '/v1/profile/document/format',
+  profileDocumentRestore: '/v1/profile/document/restore',
   secrets: '/v1/secrets',
   secret(secretKey: string) {
     return `/v1/secrets/${encodeURIComponent(secretKey)}`

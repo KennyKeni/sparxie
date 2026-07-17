@@ -15,10 +15,90 @@ import {
   profileVeteranStatusOptions,
   profileWorkAuthorizationOptions,
   toProfileAgentContext,
+  userProfileSchema,
   type UserProfile,
 } from './index'
 
 describe('profile contracts', () => {
+  it('projects every populated non-secret UserProfile scalar into agent-context basics', () => {
+    const profile: UserProfile = {
+      ...defaultUserProfile,
+      classStanding: 'Senior',
+      degree: 'BS Computer Science',
+      graduationDate: 'December 2027',
+      highSchool: 'Southold JR/SR High School',
+      major: 'Computer Science',
+      relocation: 'Open to relocate',
+      satScore: '1510',
+      school: 'University of Colorado Boulder',
+      transcriptPath: 'transcripts/Kenny_Lin_S26_Transcript.pdf',
+      travel: 'Under 25%',
+    }
+
+    expect(toProfileAgentContext(profile).basics).toMatchObject({
+      classStanding: 'Senior',
+      degree: 'BS Computer Science',
+      graduationDate: 'December 2027',
+      highSchool: 'Southold JR/SR High School',
+      major: 'Computer Science',
+      relocation: 'Open to relocate',
+      satScore: '1510',
+      school: 'University of Colorado Boulder',
+      transcriptPath: 'transcripts/Kenny_Lin_S26_Transcript.pdf',
+      travel: 'Under 25%',
+    })
+  })
+
+  it('includes canonical non-secret application facts on UserProfile defaults and agent context', () => {
+    expect(defaultUserProfile).toMatchObject({
+      dateOfBirth: null,
+      disabilityStatus: null,
+      gender: null,
+      hispanicLatino: null,
+      raceEthnicity: null,
+      veteranStatus: null,
+    })
+    expect(defaultUserProfile).not.toHaveProperty('ssn')
+    expect(defaultUserProfile).not.toHaveProperty('ssnLast4')
+
+    const profile: UserProfile = {
+      ...defaultUserProfile,
+      dateOfBirth: '1998-04-12',
+      disabilityStatus: 'No',
+      gender: 'Man',
+      hispanicLatino: 'No',
+      raceEthnicity: 'Asian',
+      veteranStatus: 'Not a protected veteran',
+      fullName: 'Kenny Lin',
+    }
+
+    expect(userProfileSchema.parse(profile)).toMatchObject({
+      dateOfBirth: '1998-04-12',
+      disabilityStatus: 'No',
+      gender: 'Man',
+      hispanicLatino: 'No',
+      raceEthnicity: 'Asian',
+      veteranStatus: 'Not a protected veteran',
+    })
+    expect(userProfileSchema.safeParse({ ...profile, dateOfBirth: '2023-02-29' }).success).toBe(
+      false,
+    )
+    expect(userProfileSchema.safeParse({ ...profile, dateOfBirth: '1998/04/12' }).success).toBe(
+      false,
+    )
+    expect(userProfileSchema.safeParse({ ...profile, ssnLast4: '5125' }).success).toBe(false)
+
+    expect(toProfileAgentContext(profile).basics).toMatchObject({
+      dateOfBirth: '1998-04-12',
+      disabilityStatus: 'No',
+      fullName: 'Kenny Lin',
+      gender: 'Man',
+      hispanicLatino: 'No',
+      raceEthnicity: 'Asian',
+      veteranStatus: 'Not a protected veteran',
+    })
+  })
+
   it('normalizes reusable answers and builds agent context without secrets', () => {
     const answer = normalizeProfileAnswerInput({
       answer: 'LinkedIn',

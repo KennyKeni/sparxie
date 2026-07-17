@@ -1,3 +1,6 @@
+import { z } from 'zod'
+import { canonicalDateOnlySchema, type CanonicalDateOnly } from './canonical-date.js'
+
 export const profileSecretKinds = ['password', 'token', 'identity', 'other'] as const
 export const profileEducationTypeOptions = [
   'High school',
@@ -127,13 +130,17 @@ export interface UserProfile {
   citizenship: string | null
   classStanding: string | null
   coverLetterPath: string | null
+  dateOfBirth: CanonicalDateOnly | null
   degree: string | null
+  disabilityStatus: ProfileSelfIdResponse | null
   education: ProfileEducation[]
   email: string | null
   fullName: string | null
+  gender: ProfileGender | null
   githubUrl: string | null
   graduationDate: string | null
   highSchool: string | null
+  hispanicLatino: ProfileSelfIdResponse | null
   language: string | null
   linkedinUrl: string | null
   major: string | null
@@ -141,6 +148,7 @@ export interface UserProfile {
   phoneDeviceType: string | null
   portfolioUrl: string | null
   preferredName: string | null
+  raceEthnicity: ProfileRaceEthnicity | null
   region: string | null
   relocation: string | null
   relocationNotes: string | null
@@ -151,6 +159,7 @@ export interface UserProfile {
   transcriptPath: string | null
   travel: string | null
   travelNotes: string | null
+  veteranStatus: ProfileVeteranStatus | null
   willingToRelocate: boolean | null
   willingToTravel: boolean | null
   workAuthorization: string | null
@@ -185,19 +194,33 @@ export interface UpsertProfileSecretInput {
   value: string
 }
 
-export interface ProfileSensitiveDetails {
+type ProfileSensitiveMovedKeys =
+  | 'dateOfBirth'
+  | 'disabilityStatus'
+  | 'gender'
+  | 'hispanicLatino'
+  | 'raceEthnicity'
+  | 'veteranStatus'
+
+type WidenLegacySensitiveField<Value> = Value extends string | null ? string | null : Value
+
+type ProfileSensitiveMovedCompatibility = {
+  [Key in ProfileSensitiveMovedKeys]: WidenLegacySensitiveField<UserProfile[Key]>
+}
+
+/**
+ * @deprecated Compatibility sensitive-profile surface for the cutover window.
+ * Non-secret application facts live on `UserProfile`; SSN remains identity-secret only.
+ */
+export type ProfileSensitiveDetails = Omit<ProfileSensitiveMovedCompatibility, 'dateOfBirth'> & {
+  dateOfBirth?: ProfileSensitiveMovedCompatibility['dateOfBirth']
   birthDay: string | null
   birthMonth: string | null
   birthYear: string | null
-  dateOfBirth?: string | null
-  disabilityStatus: string | null
-  gender: string | null
-  hispanicLatino: string | null
-  raceEthnicity: string | null
   ssnLast4: string | null
-  veteranStatus: string | null
 }
 
+/** @deprecated Use ordinary profile document updates after cutover. */
 export type ProfileSensitiveDetailsInput = Partial<ProfileSensitiveDetails>
 
 export const defaultUserProfile: UserProfile = {
@@ -209,13 +232,17 @@ export const defaultUserProfile: UserProfile = {
   citizenship: null,
   classStanding: null,
   coverLetterPath: null,
+  dateOfBirth: null,
   degree: null,
+  disabilityStatus: null,
   education: [],
   email: null,
   fullName: null,
+  gender: null,
   githubUrl: null,
   graduationDate: null,
   highSchool: null,
+  hispanicLatino: null,
   language: null,
   linkedinUrl: null,
   major: null,
@@ -223,6 +250,7 @@ export const defaultUserProfile: UserProfile = {
   phoneDeviceType: null,
   portfolioUrl: null,
   preferredName: null,
+  raceEthnicity: null,
   region: null,
   relocation: null,
   relocationNotes: null,
@@ -233,10 +261,13 @@ export const defaultUserProfile: UserProfile = {
   transcriptPath: null,
   travel: null,
   travelNotes: null,
+  veteranStatus: null,
   willingToRelocate: null,
   willingToTravel: null,
   workAuthorization: null,
 }
+
+type UserProfileScalarKey = keyof Omit<UserProfile, 'answers' | 'education'>
 
 const profileAgentContextFields = [
   'addressLine1',
@@ -244,25 +275,60 @@ const profileAgentContextFields = [
   'city',
   'country',
   'citizenship',
+  'classStanding',
   'coverLetterPath',
+  'dateOfBirth',
+  'degree',
+  'disabilityStatus',
   'email',
   'fullName',
+  'gender',
   'githubUrl',
+  'graduationDate',
+  'highSchool',
+  'hispanicLatino',
   'language',
   'linkedinUrl',
+  'major',
   'phone',
   'phoneDeviceType',
   'portfolioUrl',
   'preferredName',
+  'raceEthnicity',
   'region',
+  'relocation',
   'relocationNotes',
   'requireSponsorship',
   'requireSponsorshipFuture',
+  'satScore',
+  'school',
+  'transcriptPath',
+  'travel',
   'travelNotes',
+  'veteranStatus',
   'willingToRelocate',
   'willingToTravel',
   'workAuthorization',
-] as const
+] as const satisfies readonly UserProfileScalarKey[]
+
+type MissingProfileAgentContextField = Exclude<
+  UserProfileScalarKey,
+  (typeof profileAgentContextFields)[number]
+>
+type ExtraProfileAgentContextField = Exclude<
+  (typeof profileAgentContextFields)[number],
+  UserProfileScalarKey
+>
+
+const _assertProfileAgentContextFieldsExhaustive: [
+  MissingProfileAgentContextField,
+] extends [never]
+  ? [ExtraProfileAgentContextField] extends [never]
+    ? true
+    : ExtraProfileAgentContextField
+  : MissingProfileAgentContextField = true
+void _assertProfileAgentContextFieldsExhaustive
+
 
 export function normalizeProfileEducationInput(input: ProfileEducationInput): ProfileEducation {
   const educationType = requiredText(input.educationType, 'education type')
@@ -352,3 +418,100 @@ function requiredText(value: string | null | undefined, field: string) {
 
   return trimmed
 }
+
+const nullableStringSchema = z.string().nullable()
+const nullableBooleanSchema = z.boolean().nullable()
+const profileGenderSchema = z.enum(profileGenderOptions)
+const profileSelfIdResponseSchema = z.enum(profileSelfIdResponseOptions)
+const profileRaceEthnicitySchema = z.enum(profileRaceEthnicityOptions)
+const profileVeteranStatusSchema = z.enum(profileVeteranStatusOptions)
+
+const profileAnswerSchema = z
+  .object({
+    answer: z.string(),
+    category: nullableStringSchema,
+    includeInAgentContext: z.boolean(),
+    key: z.string(),
+    label: z.string(),
+    questionPattern: z.string(),
+  })
+  .strict()
+
+const profileEducationSchema = z
+  .object({
+    classStanding: nullableStringSchema,
+    degree: nullableStringSchema,
+    educationType: z.string(),
+    graduationDate: nullableStringSchema,
+    id: z.string(),
+    major: nullableStringSchema,
+    notes: nullableStringSchema,
+    satScore: nullableStringSchema,
+    school: z.string(),
+    transcriptPath: nullableStringSchema,
+  })
+  .strict()
+
+const userProfileScalarSchemas = {
+  addressLine1: nullableStringSchema,
+  addressLine2: nullableStringSchema,
+  city: nullableStringSchema,
+  country: nullableStringSchema,
+  citizenship: nullableStringSchema,
+  classStanding: nullableStringSchema,
+  coverLetterPath: nullableStringSchema,
+  dateOfBirth: canonicalDateOnlySchema.nullable(),
+  degree: nullableStringSchema,
+  disabilityStatus: profileSelfIdResponseSchema.nullable(),
+  email: nullableStringSchema,
+  fullName: nullableStringSchema,
+  gender: profileGenderSchema.nullable(),
+  githubUrl: nullableStringSchema,
+  graduationDate: nullableStringSchema,
+  highSchool: nullableStringSchema,
+  hispanicLatino: profileSelfIdResponseSchema.nullable(),
+  language: nullableStringSchema,
+  linkedinUrl: nullableStringSchema,
+  major: nullableStringSchema,
+  phone: nullableStringSchema,
+  phoneDeviceType: nullableStringSchema,
+  portfolioUrl: nullableStringSchema,
+  preferredName: nullableStringSchema,
+  raceEthnicity: profileRaceEthnicitySchema.nullable(),
+  region: nullableStringSchema,
+  relocation: nullableStringSchema,
+  relocationNotes: nullableStringSchema,
+  requireSponsorship: nullableStringSchema,
+  requireSponsorshipFuture: nullableStringSchema,
+  satScore: nullableStringSchema,
+  school: nullableStringSchema,
+  transcriptPath: nullableStringSchema,
+  travel: nullableStringSchema,
+  travelNotes: nullableStringSchema,
+  veteranStatus: profileVeteranStatusSchema.nullable(),
+  willingToRelocate: nullableBooleanSchema,
+  willingToTravel: nullableBooleanSchema,
+  workAuthorization: nullableStringSchema,
+} as const
+
+function optionalShape<Shape extends Record<string, z.ZodType>>(shape: Shape) {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, schema]) => [key, schema.optional()]),
+  ) as { [Key in keyof Shape]: z.ZodOptional<Shape[Key]> }
+}
+
+export const userProfileSchema: z.ZodType<UserProfile> = z
+  .object({
+    ...userProfileScalarSchemas,
+    answers: z.array(profileAnswerSchema),
+    education: z.array(profileEducationSchema),
+  })
+  .strict()
+
+export const profileAgentContextSchema: z.ZodType<ProfileAgentContext> = z
+  .object({
+    answers: z.array(profileAnswerSchema),
+    basics: z.object(optionalShape(userProfileScalarSchemas)).strict(),
+    education: z.array(profileEducationSchema),
+  })
+  .strict()

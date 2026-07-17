@@ -37,6 +37,7 @@ import {
   connectorScheduleHistoryListQueryToSearchParams,
 } from './http-client-connector-schedules.js'
 import { createConnectorCapabilityHttpMethods } from './http-client-connector-capabilities.js'
+import { createProfileHttpMethods } from './http-client-profile.js'
 import {
   connectorOptionQueryErrorBodySchema,
   connectorOptionQueryErrorCodes,
@@ -74,6 +75,13 @@ import {
   invalidPersistedRawDetailErrorBodySchema,
   type InvalidPersistedRawDetailErrorBody,
 } from './http-error-contract.js'
+import {
+  profileDocumentErrorBodySchema,
+  profileDocumentErrorCodes,
+  profileDocumentErrorStatusByCode,
+  type ProfileDocumentErrorBody,
+  type ProfileDocumentErrorCode,
+} from './profile-document.js'
 
 export { rawSourceRecordsListQueryToSearchParams }
 
@@ -122,6 +130,44 @@ export class ConnectorRetirementConflictError extends ValedictorianHttpError {
     this.name = 'ConnectorRetirementConflictError'
     this.conflict = conflict
   }
+}
+
+export class ProfileDocumentHttpError extends ValedictorianHttpError<ProfileDocumentErrorBody> {
+  readonly code: ProfileDocumentErrorCode
+
+  constructor(body: ProfileDocumentErrorBody, status: number) {
+    super({ body, message: body.message, status })
+    this.name = 'ProfileDocumentHttpError'
+    this.code = body.code
+  }
+}
+
+function isProfileDocumentErrorCode(value: unknown): value is ProfileDocumentErrorCode {
+  return typeof value === 'string'
+    && (profileDocumentErrorCodes as readonly string[]).includes(value)
+}
+
+function rethrowProfileDocumentError(error: unknown): never {
+  if (!(error instanceof ValedictorianHttpError)) throw error
+
+  const parsed = profileDocumentErrorBodySchema.safeParse(error.body)
+  if (parsed.success) {
+    if (profileDocumentErrorStatusByCode[parsed.data.code] === error.status) {
+      throw new ProfileDocumentHttpError(parsed.data, error.status)
+    }
+    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
+  }
+
+  if (
+    typeof error.body === 'object'
+    && error.body !== null
+    && 'code' in error.body
+    && isProfileDocumentErrorCode(error.body.code)
+  ) {
+    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
+  }
+
+  throw error
 }
 
 function rethrowRawRecordDetailError(error: unknown): never {
@@ -817,33 +863,11 @@ export function createHttpValedictorianClient({
         },
       },
     },
-    profile: {
-      get() {
-        return request(pathFor(valedictorianApiPaths.profile))
-      },
-      update(input) {
-        return request(pathFor(valedictorianApiPaths.profile), {
-          body: input,
-          method: 'PATCH',
-        })
-      },
-      agentContext: {
-        get() {
-          return request(pathFor(valedictorianApiPaths.profileAgentContext))
-        },
-      },
-      sensitive: {
-        get() {
-          return request(pathFor(valedictorianApiPaths.profileSensitive))
-        },
-        update(input) {
-          return request(pathFor(valedictorianApiPaths.profileSensitive), {
-            body: input,
-            method: 'PATCH',
-          })
-        },
-      },
-    },
+    profile: createProfileHttpMethods({
+      pathFor,
+      request,
+      rethrowDocumentError: rethrowProfileDocumentError,
+    }),
     secrets: {
       delete(key) {
         return request(pathFor(valedictorianApiPaths.secret(key)), {
