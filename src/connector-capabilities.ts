@@ -236,12 +236,218 @@ const boundedRendererSchema = connectorRendererSchema.refine(
   'renderer schema is too deeply nested',
 )
 
+function decodePointerSegment(segment: string): string {
+  return segment.replace(/~1/g, '/').replace(/~0/g, '~')
+}
+
+function rootPropertyPointerName(pointer: string): string | undefined {
+  if (!pointer.startsWith('/') || pointer.length < 2) return undefined
+  const rest = pointer.slice(1)
+  if (rest.includes('/')) return undefined
+  return decodePointerSegment(rest)
+}
+
+function containsControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code <= 0x1f || code === 0x7f || (code >= 0x80 && code <= 0x9f)) return true
+  }
+  return false
+}
+
+function isMarkupShapedHtml(value: string): boolean {
+  return /<[^>\s][^>]*>/.test(value)
+}
+
+const providerRouteAnySegmentPattern = /^(?:api|private|internal|v\d+|connectors?|options)$/i
+const providerRouteRootSegmentPattern = /^(?:api|v\d+|connectors?|options)$/i
+
+function containsProviderRoutePayload(value: string): boolean {
+  for (const match of value.matchAll(/(?:^|[\s(])(\/)?([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)+)/g)) {
+    const segments = match[2]!.split('/')
+    if (match[1] === '/') {
+      if (segments.some((segment) => providerRouteAnySegmentPattern.test(segment))) return true
+      continue
+    }
+    if (providerRouteRootSegmentPattern.test(segments[0]!)) return true
+  }
+  return false
+}
+
+function containsUriOrRoutePayload(value: string): boolean {
+  if (/:\/\//.test(value)) return true
+  if (/\b[a-z][a-z0-9+.-]*:[^\s]/i.test(value)) return true
+  if (/\bwww\./i.test(value)) return true
+  if (/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}\b(?:\/\S*)?/i.test(value)) return true
+  return containsProviderRoutePayload(value)
+}
+
+function containsAuthOrSecretMaterial(value: string): boolean {
+  return /\b(?:bearer|authorization|passwords?|tokens?|credentials?|cookies?|secrets?|session-secret|oauth|api\s*keys?|sessionids?|session\s*ids?)\b/i
+    .test(value)
+}
+
+function containsMarkupOrCodeForm(value: string): boolean {
+  if (isMarkupShapedHtml(value)) return true
+  if (/`/.test(value)) return true
+  if (/!\[[^\]]*]\([^)]*\)|\[[^\]]*]\([^)]*\)/.test(value)) return true
+  if (/\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~/.test(value)) return true
+  if (/(?<![\w*])\*[^*\s][^*]*\*(?![\w*])/.test(value)) return true
+  if (/(?<![\w_])_[^_\s][^_]*_(?![\w_])/.test(value)) return true
+  if (/^#{1,6}\s/m.test(value)) return true
+  if (/^([*+-]|\d+\.)\s/m.test(value)) return true
+  return /\{\s*\}/.test(value)
+}
+
+function isCodeShapedCallee(callee: string): boolean {
+  if (callee.startsWith('$')) return true
+  if (callee.includes('.') || callee.includes('_')) return true
+  return /[a-z][A-Z]/.test(callee)
+}
+
+function isExplicitExecutableName(callee: string): boolean {
+  return /^(?:eval|alert|Function|setTimeout|setInterval|fetch|require|import|exec|spawn)$/
+    .test(callee)
+}
+
+function isNaturalPluralMarker(callee: string, args: string): boolean {
+  return args.trim() === 's'
+    && /^[A-Za-z]+$/.test(callee)
+    && !isCodeShapedCallee(callee)
+}
+
+function hasTightCodeArgs(args: string): boolean {
+  const trimmed = args.trim()
+  if (trimmed.length === 0) return true
+  if (/^(['"]).*\1$/.test(trimmed)) return true
+  if (/"/.test(trimmed)) return true
+  if (/(?<![A-Za-z])'[^']+'(?![A-Za-z])/.test(trimmed)) return true
+  return /^[+-]?\d+(\.\d+)?$/.test(trimmed)
+}
+
+function containsExecutableForm(value: string): boolean {
+  if (/=>/.test(value)) return true
+  if (/\(\s*\)/.test(value)) return true
+  const callPattern = /\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)(\s*)\(([^)]*)\)/g
+  for (const match of value.matchAll(callPattern)) {
+    const callee = match[1]!
+    const whitespace = match[2]!
+    const args = match[3]!
+    if (isNaturalPluralMarker(callee, args)) continue
+    if (whitespace.length === 0) return true
+    if (isCodeShapedCallee(callee) || isExplicitExecutableName(callee) || hasTightCodeArgs(args)) {
+      return true
+    }
+  }
+  return false
+}
+
+function isDisallowedPresentationPlainText(value: string): boolean {
+  return containsUriOrRoutePayload(value)
+    || containsAuthOrSecretMaterial(value)
+    || containsMarkupOrCodeForm(value)
+    || containsExecutableForm(value)
+}
+
+const presentationPlainTextSchema = (maximum: number) => z.string()
+  .min(1)
+  .max(maximum)
+  .refine((value) => value.trim() === value, 'presentation text must be trimmed')
+  .refine((value) => !containsControlCharacter(value), 'presentation text must exclude control characters')
+  .refine((value) => !isDisallowedPresentationPlainText(value), 'presentation text must be plain declarative copy')
+
+export const connectorDescriptorMaxDescriptionLength = connectorDescriptorMaxStringLength
+export const connectorDescriptorMaxPresentationFields = connectorDescriptorMaxProperties
+
+const presentationOptionLabelSchema = presentationPlainTextSchema(connectorDescriptorMaxLabelLength)
+
+const presentationOptionSchema = z.object({
+  value: z.union([z.string().max(connectorDescriptorMaxStringLength), finiteNumberSchema]),
+  label: presentationOptionLabelSchema,
+}).strict()
+
+const presentationFieldSchema = z.object({
+  label: presentationPlainTextSchema(connectorDescriptorMaxLabelLength),
+  description: presentationPlainTextSchema(connectorDescriptorMaxDescriptionLength),
+  options: z.array(presentationOptionSchema)
+    .min(1)
+    .max(connectorDescriptorMaxEnumValues)
+    .optional(),
+  display: z.object({
+    kind: z.literal('duration'),
+    storageUnit: z.literal('milliseconds'),
+    displayUnit: z.literal('minutes'),
+  }).strict().optional(),
+}).strict()
+
+const presentationSchema = z.object({
+  fields: z.record(pointerSchema, presentationFieldSchema)
+    .refine((fields) => Object.keys(fields).length <= connectorDescriptorMaxPresentationFields,
+      'too many presentation fields'),
+}).strict()
+
+function schemaEnumValues(
+  schema: ConnectorRendererSchema,
+): Array<string | number> | undefined {
+  if ('oneOf' in schema) return undefined
+  if (schema.type === 'string' || schema.type === 'number' || schema.type === 'integer') {
+    return schema.enum === undefined ? undefined : [...schema.enum]
+  }
+  if (schema.type === 'array') {
+    const { items } = schema
+    if ('oneOf' in items) return undefined
+    if (items.type === 'string' || items.type === 'number' || items.type === 'integer') {
+      return items.enum === undefined ? undefined : [...items.enum]
+    }
+  }
+  return undefined
+}
+
+function optionValuesCoverEnum(
+  options: Array<{ value: string | number }>,
+  values: Array<string | number>,
+): boolean {
+  if (options.length !== values.length) return false
+  const seen = new Set<string | number>()
+  for (const option of options) {
+    if (seen.has(option.value)) return false
+    seen.add(option.value)
+  }
+  return values.every((value) => seen.has(value))
+}
+
 const versionedRendererSchemaSchema = z.object({
   version: versionSchema,
   schema: boundedRendererSchema,
+  presentation: presentationSchema.optional(),
 }).strict().superRefine((value, context) => {
   if (!('type' in value.schema) || value.schema.type !== 'object') {
     issue(context, 'renderer schema must have an object root')
+    return
+  }
+  if (value.presentation === undefined) return
+  const properties = value.schema.properties
+  for (const [pointer, field] of Object.entries(value.presentation.fields)) {
+    const name = rootPropertyPointerName(pointer)
+    if (name === undefined
+      || !Object.prototype.hasOwnProperty.call(properties, name)
+      || unsafeNames.has(name)) {
+      issue(context, 'presentation pointer is unresolved')
+      continue
+    }
+    const property = properties[name]!
+    if (field.options !== undefined) {
+      const enumValues = schemaEnumValues(property)
+      if (enumValues === undefined || !optionValuesCoverEnum(field.options, enumValues)) {
+        issue(context, 'presentation options must exactly cover the field enum')
+      }
+    }
+    if (field.display !== undefined) {
+      if ('oneOf' in property
+        || (property.type !== 'number' && property.type !== 'integer')) {
+        issue(context, 'presentation display is unsupported for this field')
+      }
+    }
   }
 })
 
@@ -452,6 +658,12 @@ const dynamicOptionsSchema = z.object({
 
 export type ConnectorVersionedRendererSchema = z.infer<typeof versionedRendererSchemaSchema>
 export type ConnectorDynamicOptions = z.infer<typeof dynamicOptionsSchema>
+export type ConnectorRendererPresentation = z.infer<typeof presentationSchema>
+export type ConnectorRendererPresentationField = z.infer<typeof presentationFieldSchema>
+export type ConnectorRendererPresentationOption = z.infer<typeof presentationOptionSchema>
+export type ConnectorRendererPresentationDisplay = NonNullable<
+  ConnectorRendererPresentationField['display']
+>
 
 export interface InstalledConnectorDescriptor {
   connectorId: string

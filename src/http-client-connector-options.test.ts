@@ -107,6 +107,62 @@ describe('installed connector descriptor HTTP client', () => {
     await expect(descriptors.get(descriptor.connectorId, descriptor.connectorVersion))
       .rejects.toThrow('response identity 9.9.9 does not match 0.13.0')
   })
+
+  it('round-trips presentation metadata through descriptor list and get', async () => {
+    const presented = {
+      connectorId: 'example.presentation',
+      connectorVersion: '1.0.0',
+      displayName: 'Presentation Example',
+      configSchema: {
+        version: '1',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            maxRunElapsedMs: {
+              type: 'integer', minimum: 1, maximum: 1_800_000, default: 120_000,
+            },
+            workModel: {
+              type: 'string',
+              enum: ['remote', 'hybrid', 'onsite'],
+            },
+          },
+        },
+        presentation: {
+          fields: {
+            '/maxRunElapsedMs': {
+              label: 'Maximum run duration',
+              description: 'How long a single connector run may run before stopping.',
+              display: {
+                kind: 'duration',
+                storageUnit: 'milliseconds',
+                displayUnit: 'minutes',
+              },
+            },
+            '/workModel': {
+              label: 'Work model',
+              description: 'Preferred workplace arrangement.',
+              options: [
+                { value: 'remote', label: 'Remote' },
+                { value: 'hybrid', label: 'Hybrid' },
+                { value: 'onsite', label: 'On-site' },
+              ],
+            },
+          },
+        },
+      },
+    } as const
+    const listPayload = { items: [presented] }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(listPayload))
+    fetchMock.mockResolvedValueOnce(jsonResponse(presented))
+    vi.stubGlobal('fetch', fetchMock)
+    const descriptors = workspaceConnectors().descriptors
+
+    await expect(descriptors.list()).resolves.toEqual(listPayload)
+    await expect(descriptors.get(presented.connectorId, presented.connectorVersion))
+      .resolves.toEqual(presented)
+  })
 })
 
 describe('trusted connector option-query HTTP client', () => {
