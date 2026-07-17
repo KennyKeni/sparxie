@@ -162,12 +162,12 @@ const impossibleCompletedReplay: RawSourceReplayReceipt = {
   acceptedAt: '2026-07-11T14:00:00.000Z',
   completedAt: '2026-07-11T14:00:01.000Z',
   matchedRawRevisionIds: ['revision-1'],
-  // @ts-expect-error Completed receipts cannot contain failed items.
   items: [
     {
       status: 'failed',
       rawRecordId: 'raw-1',
       rawRevisionId: 'revision-1',
+      // @ts-expect-error Completed receipts cannot contain failed items.
       failure: { code: 'normalization_failed', retryable: false },
     },
   ],
