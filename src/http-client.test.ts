@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createHttpValedictorianClient } from './index'
+import { createHttpValedictorianClient, defaultUserProfile } from './index'
 import { jsonResponse, mockFetch, connectorInstanceSummaryPayload } from './http-client.test-support.js'
 
 const continuousRunFields = {
@@ -800,10 +800,16 @@ describe('HTTP Valedictorian client', () => {
   })
 
   it('maps profile methods to non-secret HTTP endpoints', async () => {
+    const profile = {
+      ...defaultUserProfile,
+      fullName: 'Kenny Lin',
+    }
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    fetchMock.mockResolvedValueOnce(jsonResponse({ fullName: 'Kenny Lin', answers: [] }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ fullName: 'Kenny Lin', answers: [] }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ basics: { fullName: 'Kenny Lin' }, answers: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(profile))
+    fetchMock.mockResolvedValueOnce(jsonResponse(profile))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ basics: { fullName: 'Kenny Lin' }, answers: [], education: [] }),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
@@ -817,14 +823,14 @@ describe('HTTP Valedictorian client', () => {
       'http://127.0.0.1:4317/v1/workspaces/workspace-1/profile',
       expect.objectContaining({ method: 'GET' }),
     )
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
       'http://127.0.0.1:4317/v1/workspaces/workspace-1/profile',
-      expect.objectContaining({
-        body: '{"fullName":"Kenny Lin","answers":[]}',
-        method: 'PATCH',
-      }),
     )
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'PATCH' })
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      fullName: 'Kenny Lin',
+      answers: [],
+    })
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       'http://127.0.0.1:4317/v1/workspaces/workspace-1/profile/agent-context',

@@ -129,6 +129,13 @@ import type {
   UpsertProfileSecretInput,
   UserProfile,
 } from './profile.js'
+import type {
+  ProfileDocument,
+  ProfileDocumentFormatInput,
+  ProfileDocumentRestoreInput,
+  ProfileDocumentUpdateInput,
+  ProfileDocumentValidateResult,
+} from './profile-document.js'
 
 export interface ValedictorianHealth {
   ok: boolean
@@ -260,8 +267,18 @@ export interface ValedictorianWorkspaceClient {
     agentContext: {
       get(): Promise<ProfileAgentContext>
     }
+    document: {
+      get(): Promise<ProfileDocument>
+      update(input: ProfileDocumentUpdateInput): Promise<ProfileDocument>
+      validate(): Promise<ProfileDocumentValidateResult>
+      format(input: ProfileDocumentFormatInput): Promise<ProfileDocument>
+      restore(input: ProfileDocumentRestoreInput): Promise<ProfileDocument>
+    }
+    /** @deprecated Compatibility sensitive-profile surface for the cutover window. */
     sensitive: {
+      /** @deprecated */
       get(): Promise<ProfileSensitiveDetails>
+      /** @deprecated */
       update(input: ProfileSensitiveDetailsInput): Promise<ProfileSensitiveDetails>
     }
   }
