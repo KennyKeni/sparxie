@@ -136,6 +136,10 @@ import type {
   ProfileDocumentUpdateInput,
   ProfileDocumentValidateResult,
 } from './profile-document.js'
+import type {
+  LocalSecretResolutionInput,
+  LocalSecretResolutionResult,
+} from './secret-use.js'
 
 export interface ValedictorianHealth {
   ok: boolean
@@ -286,6 +290,9 @@ export interface ValedictorianWorkspaceClient {
     delete(key: string): Promise<void>
     list(): Promise<ProfileSecretsListResult>
     upsert(input: UpsertProfileSecretInput): Promise<ProfileSecretSummary>
+    local: {
+      resolve(input: LocalSecretResolutionInput): Promise<LocalSecretResolutionResult>
+    }
   }
   runs: {
     list(query?: WorkflowRunsListInput): Promise<WorkflowRunsListResult>

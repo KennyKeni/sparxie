@@ -16,6 +16,7 @@ export const valedictorianApiPaths = {
   profileDocumentFormat: '/v1/profile/document/format',
   profileDocumentRestore: '/v1/profile/document/restore',
   secrets: '/v1/secrets',
+  secretsLocalResolve: '/v1/secrets/local/resolve',
   secret(secretKey: string) {
     return `/v1/secrets/${encodeURIComponent(secretKey)}`
   },
