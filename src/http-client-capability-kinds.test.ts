@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  ConnectorCreateHttpError,
   ConnectorOptionQueryHttpError,
   ConnectorRetirementConflictError,
   ConnectorScheduleHttpError,
@@ -7,6 +8,10 @@ import {
   InvalidPersistedRawDetailHttpError,
   invalidPersistedRawDetailErrorBody,
   LocalSecretResolutionHttpError,
+  connectorCreateErrorBodies,
+  connectorCreateErrorCodes,
+  connectorCreateErrorKindByCode,
+  connectorCreateErrorStatusByCode,
   connectorOptionQueryErrorBodies,
   connectorOptionQueryErrorCodes,
   connectorOptionQueryErrorKindByCode,
@@ -77,6 +82,16 @@ describe('validated capability failure kinds', () => {
     )
     expect(Object.keys(connectorScheduleErrorStatusByCode).sort()).toEqual(
       [...connectorScheduleErrorCodes].sort(),
+    )
+
+    expect(connectorCreateErrorKindByCode).toEqual({
+      already_configured: 'conflict',
+    })
+    expect(Object.keys(connectorCreateErrorKindByCode).sort()).toEqual(
+      [...connectorCreateErrorCodes].sort(),
+    )
+    expect(Object.keys(connectorCreateErrorStatusByCode).sort()).toEqual(
+      [...connectorCreateErrorCodes].sort(),
     )
 
     expect(invalidPersistedRawDetailErrorKindByCode).toEqual({
@@ -251,6 +266,35 @@ describe('validated capability failure kinds', () => {
         code,
         kind: connectorScheduleErrorKindByCode[code],
         status: connectorScheduleErrorStatusByCode[code],
+      })
+    }
+
+    for (const code of connectorCreateErrorCodes) {
+      const body = connectorCreateErrorBodies[code]
+      const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse(body, { status: connectorCreateErrorStatusByCode[code] }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const error = await createHttpValedictorianClient({
+        baseUrl: 'https://valedictorian.test',
+      })
+        .forWorkspace('workspace-1')
+        .connectors.create({
+          id: 'jobright-a',
+          connectorId: 'jobright.resolver',
+          connectorVersion: '0.16.0',
+          displayName: 'Jobright',
+          enabled: true,
+        })
+        .catch((caught: unknown) => caught)
+
+      expect(error).toBeInstanceOf(ConnectorCreateHttpError)
+      expect(error).toMatchObject({
+        code,
+        kind: connectorCreateErrorKindByCode[code],
+        status: connectorCreateErrorStatusByCode[code],
       })
     }
   })

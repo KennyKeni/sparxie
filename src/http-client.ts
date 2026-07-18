@@ -40,6 +40,7 @@ import { createPolicyHttpMethods } from './http-client-policy.js'
 import { createProfileHttpMethods } from './http-client-profile.js'
 import {
   ConnectorRetirementConflictError,
+  rethrowConnectorCreateError,
   rethrowConnectorOptionQueryError,
   rethrowProfileDocumentError,
   rethrowRawRecordDetailError,
@@ -76,6 +77,7 @@ export {
 export { LocalSecretResolutionHttpError } from './http-client-secrets.js'
 export { ConnectorScheduleHttpError } from './http-client-connector-schedules.js'
 export {
+  ConnectorCreateHttpError,
   ConnectorOptionQueryHttpError,
   ConnectorRetirementConflictError,
   InvalidPersistedRawDetailHttpError,
@@ -444,14 +446,18 @@ export function createHttpValedictorianClient({
         )
       },
       async create(input) {
-        const summary = parseValedictorianContractValue(
-          connectorInstanceSummarySchema,
-          await request(pathFor(valedictorianApiPaths.connectors), {
-            body: input,
-            method: 'POST',
-          }),
-        )
-        return requireResponseIdentity(summary, summary.id, input.id)
+        try {
+          const summary = parseValedictorianContractValue(
+            connectorInstanceSummarySchema,
+            await request(pathFor(valedictorianApiPaths.connectors), {
+              body: input,
+              method: 'POST',
+            }),
+          )
+          return requireResponseIdentity(summary, summary.id, input.id)
+        } catch (error) {
+          rethrowConnectorCreateError(error)
+        }
       },
       async update(input) {
         const { connectorInstanceId, ...body } = input

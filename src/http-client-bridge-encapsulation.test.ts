@@ -18,10 +18,15 @@ describe('fail-closed body bridge encapsulation', () => {
     expect(Sparxie).not.toHaveProperty('getHttpErrorResponseBody')
     expect(Sparxie).not.toHaveProperty('createFailClosedHttpError')
     expect(Sparxie).not.toHaveProperty('rethrowConnectorScheduleError')
+    expect(Sparxie).not.toHaveProperty('rethrowConnectorCreateError')
     expect(Sparxie).toHaveProperty('ConnectorScheduleHttpError')
+    expect(Sparxie).toHaveProperty('ConnectorCreateHttpError')
     expect(Sparxie).toHaveProperty('connectorScheduleErrorBodies')
+    expect(Sparxie).toHaveProperty('connectorCreateErrorBodies')
     expect(Sparxie).toHaveProperty('connectorScheduleErrorStatusByCode')
+    expect(Sparxie).toHaveProperty('connectorCreateErrorStatusByCode')
     expect(Sparxie).toHaveProperty('connectorScheduleErrorKindByCode')
+    expect(Sparxie).toHaveProperty('connectorCreateErrorKindByCode')
   })
 
   it('does not leak unvalidated bodies through message, string, JSON, or cause', async () => {

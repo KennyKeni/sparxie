@@ -693,3 +693,54 @@ export interface ConnectorObservationsListResult {
   offset: number
   hasMore: boolean
 }
+
+export const connectorCreateErrorCodes = ['already_configured'] as const
+
+export type ConnectorCreateErrorCode = (typeof connectorCreateErrorCodes)[number]
+
+function freezeConnectorCreateErrorBodies<Value extends Record<string, object>>(
+  value: Value,
+): Readonly<Value> {
+  for (const nested of Object.values(value)) Object.freeze(nested)
+  return Object.freeze(value)
+}
+
+export const connectorCreateErrorBodies = freezeConnectorCreateErrorBodies({
+  already_configured: {
+    code: 'already_configured',
+    message: 'This connector is already configured. Manage the existing instance.',
+  },
+} as const)
+
+export type ConnectorCreateErrorBody =
+  (typeof connectorCreateErrorBodies)[ConnectorCreateErrorCode]
+
+export type ConnectorCreateErrorPayload = ConnectorCreateErrorBody
+
+export const connectorCreateErrorStatusByCode = Object.freeze({
+  already_configured: 409,
+} as const satisfies Record<ConnectorCreateErrorCode, 409>)
+
+export const connectorCreateErrorKindByCode = Object.freeze({
+  already_configured: 'conflict',
+} as const satisfies Record<ConnectorCreateErrorCode, 'conflict'>)
+
+const connectorCreateErrorBodyInnerSchema: z.ZodType<ConnectorCreateErrorBody> = z
+  .object({
+    code: z.enum(connectorCreateErrorCodes),
+    message: z.string(),
+  })
+  .strict()
+  .transform((value, context) => {
+    const canonical = connectorCreateErrorBodies[value.code]
+    if (value.message !== canonical.message) {
+      context.addIssue({ code: 'custom', message: 'invalid connector create error body' })
+      return z.NEVER
+    }
+    return { code: canonical.code, message: canonical.message } as ConnectorCreateErrorBody
+  })
+
+export const connectorCreateErrorBodySchema: z.ZodType<ConnectorCreateErrorBody> =
+  connectorCreateErrorBodyInnerSchema
+
+export const connectorCreateErrorPayloadSchema = connectorCreateErrorBodySchema
