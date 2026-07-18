@@ -53,6 +53,16 @@ export const valedictorianFailureKindMessages = Object.freeze({
   internal: 'An unexpected error occurred.',
 } as const satisfies Record<ValedictorianFailureKind, string>)
 
+export const valedictorianInternalErrorCode = 'internal_error'
+export const valedictorianInternalErrorStatus = 500
+export const valedictorianInternalErrorKind = 'internal'
+
+export interface ValedictorianInternalErrorBody {
+  readonly code: typeof valedictorianInternalErrorCode
+  readonly message: typeof valedictorianFailureKindMessages.internal
+  readonly requestId: string
+}
+
 export const valedictorianSafeRequestFailedMessage = 'Request failed'
 
 export interface ValedictorianErrorBody<
@@ -73,6 +83,25 @@ export const valedictorianRequestIdSchema = z
   .min(1)
   .max(valedictorianRequestIdMaxLength)
   .regex(valedictorianRequestIdPattern)
+
+export const valedictorianInternalErrorBodySchema:
+  z.ZodType<ValedictorianInternalErrorBody> = z
+  .object({
+    code: z.literal(valedictorianInternalErrorCode),
+    message: z.literal(valedictorianFailureKindMessages.internal),
+    requestId: valedictorianRequestIdSchema,
+  })
+  .strict()
+
+export function createValedictorianInternalErrorBody(
+  requestId: string,
+): ValedictorianInternalErrorBody {
+  return valedictorianInternalErrorBodySchema.parse({
+    code: valedictorianInternalErrorCode,
+    message: valedictorianFailureKindMessages.internal,
+    requestId,
+  })
+}
 
 export function parseValedictorianRequestId(value: unknown): string | undefined {
   const parsed = valedictorianRequestIdSchema.safeParse(value)

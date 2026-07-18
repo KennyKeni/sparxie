@@ -88,7 +88,7 @@ export function rethrowConnectorScheduleError(error: unknown): never {
     throw new ValedictorianProtocolError()
   }
 
-  throw createFailClosedHttpError(error.status)
+  throw createFailClosedHttpError(error.status, responseBody)
 }
 
 function mapConnectorScheduleGetFailure(error: unknown): null {
