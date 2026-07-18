@@ -140,10 +140,9 @@ import type {
   LocalSecretResolutionInput,
   LocalSecretResolutionResult,
 } from './secret-use.js'
+import type { ValedictorianHealth } from './health.js'
 
-export interface ValedictorianHealth {
-  ok: boolean
-}
+export type { ValedictorianHealth } from './health.js'
 
 export interface ValedictorianClient {
   capabilities: {

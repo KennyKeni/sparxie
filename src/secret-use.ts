@@ -95,6 +95,16 @@ export const localSecretResolutionErrorStatusByCode = Object.freeze({
   secure_storage_unavailable: 503,
 } as const satisfies Record<LocalSecretResolutionErrorCode, 403 | 404 | 409 | 503>)
 
+export const localSecretResolutionErrorKindByCode = Object.freeze({
+  secret_not_found: 'not_found',
+  local_secret_resolution_unsupported: 'conflict',
+  local_secret_resolution_unauthorized: 'authorization',
+  secure_storage_unavailable: 'unavailable',
+} as const satisfies Record<
+  LocalSecretResolutionErrorCode,
+  'not_found' | 'conflict' | 'authorization' | 'unavailable'
+>)
+
 const localSecretResolutionErrorBodyInnerSchema: z.ZodType<LocalSecretResolutionErrorBody> = z
   .object({
     code: z.enum(localSecretResolutionErrorCodes),

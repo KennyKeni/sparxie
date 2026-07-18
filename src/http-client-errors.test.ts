@@ -4,6 +4,8 @@ import {
   InvalidPersistedRawDetailHttpError,
   invalidPersistedRawDetailErrorBody,
   ValedictorianHttpError,
+  ValedictorianProtocolError,
+  ValedictorianTransportError,
 } from './index.js'
 import { jsonResponse } from './http-client.test-support.js'
 
@@ -28,7 +30,7 @@ describe('typed HTTP error handling', () => {
     })
   })
 
-  it('safely rejects a malformed integrity body without exposing diagnostics', async () => {
+  it('safely rejects a malformed integrity body as a protocol failure', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -44,15 +46,15 @@ describe('typed HTTP error handling', () => {
 
     const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
 
-    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).toBeInstanceOf(ValedictorianProtocolError)
     expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
-    expect(error).toMatchObject({ status: 500, body: null })
+    expect(error).not.toBeInstanceOf(ValedictorianHttpError)
     expect(JSON.stringify(error)).not.toContain('password')
     expect(String(error)).not.toContain('password')
     expect(JSON.stringify(error)).not.toContain('secret')
   })
 
-  it('keeps an unrelated server failure generic', async () => {
+  it('keeps an unrelated server failure generic and scrubbed', async () => {
     const body = { code: 'database_unavailable', message: 'Database unavailable.' }
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse(body, { status: 502 }))
@@ -65,7 +67,9 @@ describe('typed HTTP error handling', () => {
 
     expect(error).toBeInstanceOf(ValedictorianHttpError)
     expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
-    expect(error).toMatchObject({ status: 502, body })
+    expect(error).toMatchObject({ status: 502, body: null, message: 'Request failed' })
+    expect(JSON.stringify(error)).not.toContain('database_unavailable')
+    expect(String(error)).not.toContain('Database unavailable')
   })
 
   it('does not classify a client error as persisted-data corruption', async () => {
@@ -81,10 +85,10 @@ describe('typed HTTP error handling', () => {
 
     expect(error).toBeInstanceOf(ValedictorianHttpError)
     expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
-    expect(error).toMatchObject({ status: 400, body })
+    expect(error).toMatchObject({ status: 400, body: null, message: 'Request failed' })
   })
 
-  it('leaves transport failures distinct from HTTP errors', async () => {
+  it('wraps transport failures as ValedictorianTransportError', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'))
     vi.stubGlobal('fetch', fetchMock)
@@ -94,7 +98,7 @@ describe('typed HTTP error handling', () => {
 
     const error = await rawRecords.get('raw-1').catch((caught: unknown) => caught)
 
-    expect(error).toBeInstanceOf(TypeError)
+    expect(error).toBeInstanceOf(ValedictorianTransportError)
     expect(error).not.toBeInstanceOf(ValedictorianHttpError)
     expect(error).not.toBeInstanceOf(InvalidPersistedRawDetailHttpError)
   })

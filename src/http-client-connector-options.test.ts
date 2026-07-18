@@ -6,6 +6,7 @@ import {
   connectorOptionQueryErrorStatusByCode,
   createHttpValedictorianClient,
   ValedictorianHttpError,
+  ValedictorianProtocolError,
 } from './index.js'
 import { jsonResponse, mockFetch } from './http-client.test-support.js'
 
@@ -103,9 +104,9 @@ describe('installed connector descriptor HTTP client', () => {
       { headers: { accept: 'application/json' }, method: 'GET' },
     )
     await expect(descriptors.get(descriptor.connectorId, descriptor.connectorVersion))
-      .rejects.toThrow('response identity other does not match jobright.resolver')
+      .rejects.toBeInstanceOf(ValedictorianProtocolError)
     await expect(descriptors.get(descriptor.connectorId, descriptor.connectorVersion))
-      .rejects.toThrow('response identity 9.9.9 does not match 0.13.0')
+      .rejects.toThrow('Request failed')
   })
 
   it('round-trips presentation metadata through descriptor list and get', async () => {
@@ -207,8 +208,10 @@ describe('trusted connector option-query HTTP client', () => {
     const options = workspaceConnectors('workspace-1').options
 
     for (const [field, value] of identityCases) {
-      await expect(options.query(optionQueryInput())).rejects.toThrow(
-        `response identity ${value} does not match ${queryResult[field]}`,
+      void field
+      void value
+      await expect(options.query(optionQueryInput())).rejects.toBeInstanceOf(
+        ValedictorianProtocolError,
       )
     }
   })
@@ -269,12 +272,14 @@ describe('trusted connector option-query HTTP client', () => {
 
   it('passes a caller AbortError through unchanged', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError')
+    const controller = new AbortController()
+    controller.abort()
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockRejectedValueOnce(abortError)
     vi.stubGlobal('fetch', fetchMock)
 
     const caught = await workspaceConnectors('workspace-1').options
-      .query(optionQueryInput(), { signal: new AbortController().signal })
+      .query(optionQueryInput(), { signal: controller.signal })
       .catch((error: unknown) => error)
 
     expect(caught).toBe(abortError)
@@ -324,7 +329,7 @@ describe('connector option-query HTTP errors', () => {
     }
   })
 
-  it('scrubs malformed recognized bodies and status mismatches to a generic error', async () => {
+  it('scrubs malformed recognized bodies and status mismatches to a protocol failure', async () => {
     const code = 'unsupported_descriptor'
     const canonicalBody = connectorOptionQueryErrorBodies[code]
     const malformedBodies = [
@@ -344,15 +349,14 @@ describe('connector option-query HTTP errors', () => {
 
     for (const _body of [...malformedBodies, canonicalBody]) {
       const error = await options.query(optionQueryInput()).catch((caught: unknown) => caught)
-      expect(error).toBeInstanceOf(ValedictorianHttpError)
-      expect(error).toMatchObject({ body: null, message: 'Request failed' })
-      expect(error).not.toHaveProperty('code')
+      expect(error).toBeInstanceOf(ValedictorianProtocolError)
+      expect(error).not.toBeInstanceOf(ValedictorianHttpError)
       expect(JSON.stringify(error)).not.toContain('canary-')
       expect(String(error)).not.toContain('password')
     }
   })
 
-  it('retains existing generic semantics for unrelated HTTP failures', async () => {
+  it('scrubs unrelated HTTP failures to a safe generic client error', async () => {
     const body = { code: 'database_unavailable', message: 'Database unavailable.' }
     mockFetch(jsonResponse(body, { status: 503 }))
 
@@ -361,7 +365,9 @@ describe('connector option-query HTTP errors', () => {
       .catch((caught: unknown) => caught)
 
     expect(error).toBeInstanceOf(ValedictorianHttpError)
-    expect(error).toMatchObject({ body, message: body.message, status: 503 })
+    expect(error).toMatchObject({ body: null, message: 'Request failed', status: 503 })
+    expect(JSON.stringify(error)).not.toContain('database_unavailable')
+    expect(String(error)).not.toContain('Database unavailable')
   })
 })
 

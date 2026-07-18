@@ -1,6 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient, defaultUserProfile } from './index'
-import { jsonResponse, mockFetch, connectorInstanceSummaryPayload } from './http-client.test-support.js'
+import {
+  actionQueueListPayload,
+  applicationDetailPayload,
+  connectorInstanceSummaryPayload,
+  connectorObservationsListPayload,
+  defaultPolicyConfig,
+  jsonResponse,
+  mockFetch,
+  policyDecisionPayload,
+  policyEvidenceRecordPayload,
+  policyRunWindowDecisionPayload,
+  profileSecretSummaryPayload,
+  profileSensitiveDetailsPayload,
+} from './http-client.test-support.js'
 
 const continuousRunFields = {
   executionScopeId: 'scope_connector_1',
@@ -317,11 +330,11 @@ describe('HTTP Valedictorian client', () => {
     await expect(connectors.create({
       id: 'connector-1', connectorId: 'provider', connectorVersion: '1.0.0',
       displayName: 'Provider', enabled: true,
-    })).rejects.toThrow(/identity/)
-    await expect(connectors.update({ connectorInstanceId: 'connector-1' })).rejects.toThrow(/identity/)
-    await expect(connectors.inspect('connector-1')).rejects.toThrow(/identity/)
-    await expect(connectors.runs.trigger({ connectorInstanceId: 'connector-1' })).rejects.toThrow(/identity/)
-    await expect(connectors.runs.list({ connectorInstanceId: 'connector-1' })).rejects.toThrow(/identity/)
+    })).rejects.toThrow('Request failed')
+    await expect(connectors.update({ connectorInstanceId: 'connector-1' })).rejects.toThrow('Request failed')
+    await expect(connectors.inspect('connector-1')).rejects.toThrow('Request failed')
+    await expect(connectors.runs.trigger({ connectorInstanceId: 'connector-1' })).rejects.toThrow('Request failed')
+    await expect(connectors.runs.list({ connectorInstanceId: 'connector-1' })).rejects.toThrow('Request failed')
     expect(fetchMock).toHaveBeenCalledTimes(5)
   })
 
@@ -349,7 +362,7 @@ describe('HTTP Valedictorian client', () => {
       { ...connectorStatusPayload, id: 'jobright/session 1' },
       run,
       { items: [run], total: 1, limit: 25, offset: 5, hasMore: false },
-      { ok: true },
+      connectorObservationsListPayload(),
     ]) {
       fetchMock.mockResolvedValueOnce(jsonResponse(response))
     }
@@ -741,15 +754,14 @@ describe('HTTP Valedictorian client', () => {
 
   it('gets an application and returns null for 404', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'application 1' }))
+    const detail = applicationDetailPayload({ id: 'application 1' })
+    fetchMock.mockResolvedValueOnce(jsonResponse(detail))
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'not found' }, { status: 404 }))
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
 
-    await expect(workspace.applications.get('application 1')).resolves.toEqual({
-      id: 'application 1',
-    })
+    await expect(workspace.applications.get('application 1')).resolves.toEqual(detail)
     await expect(workspace.applications.get('missing')).resolves.toBeNull()
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -765,14 +777,8 @@ describe('HTTP Valedictorian client', () => {
   })
 
   it('lists action queue rows with query params and bearer auth', async () => {
-    const payload = {
-      items: [],
-      total: 0,
-      limit: 25,
-      offset: 5,
-      hasMore: false,
-      actionBucketCounts: { apply_now: 0 },
-    }
+    const payload = actionQueueListPayload()
+    payload.offset = 5
     const fetchMock = mockFetch(jsonResponse(payload))
     const client = createHttpValedictorianClient({
       baseUrl: 'https://valedictorian.test/base/',
@@ -842,10 +848,12 @@ describe('HTTP Valedictorian client', () => {
   it('maps workspace secrets and sensitive profile methods without plaintext reveal', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ items: [] }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ key: 'greenhouse_password' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(profileSecretSummaryPayload()))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ disabilityStatus: 'No' }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ disabilityStatus: 'No', ssnLast4: '5125' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(profileSensitiveDetailsPayload()))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(profileSensitiveDetailsPayload({ ssnLast4: '5125' })),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
@@ -904,8 +912,17 @@ describe('HTTP Valedictorian client', () => {
 
   it('maps policy config, evidence, and evaluation methods to HTTP endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 8; index += 1) {
-      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    for (const response of [
+      defaultPolicyConfig,
+      defaultPolicyConfig,
+      defaultPolicyConfig,
+      [policyEvidenceRecordPayload()],
+      policyEvidenceRecordPayload(),
+      policyDecisionPayload(),
+      policyDecisionPayload(),
+      policyRunWindowDecisionPayload(),
+    ]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(response))
     }
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })

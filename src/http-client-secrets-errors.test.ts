@@ -8,6 +8,8 @@ import {
   localSecretResolutionErrorStatusByCode,
   LocalSecretResolutionHttpError,
   ValedictorianHttpError,
+  ValedictorianProtocolError,
+  ValedictorianTransportError,
 } from './index.js'
 
 afterEach(() => {
@@ -67,7 +69,7 @@ describe('local secret resolution HTTP errors', () => {
     }
   })
 
-  it('scrubs malformed recognized bodies and status mismatches to a generic error', async () => {
+  it('scrubs malformed recognized bodies and status mismatches to a protocol failure', async () => {
     const code = 'secret_not_found'
     const canonicalBody = localSecretResolutionErrorBodies[code]
     const malformedBodies = [
@@ -88,10 +90,9 @@ describe('local secret resolution HTTP errors', () => {
 
     for (const _body of [...malformedBodies, canonicalBody]) {
       const error = await local.resolve(resolveInput()).catch((caught: unknown) => caught)
-      expect(error).toBeInstanceOf(ValedictorianHttpError)
+      expect(error).toBeInstanceOf(ValedictorianProtocolError)
       expect(error).not.toBeInstanceOf(LocalSecretResolutionHttpError)
-      expect(error).toMatchObject({ body: null, message: 'Request failed' })
-      expect(error).not.toHaveProperty('code')
+      expect(error).not.toBeInstanceOf(ValedictorianHttpError)
       expect(JSON.stringify(error)).not.toContain('canary-')
       expect(String(error)).not.toContain('password')
     }
@@ -120,7 +121,7 @@ describe('local secret resolution HTTP errors', () => {
     expect(String(error)).not.toContain('canary-')
   })
 
-  it('preserves non-HTTP transport failures without scrubbing them into Request failed', async () => {
+  it('preserves non-HTTP transport failures as ValedictorianTransportError without leaking causes', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockRejectedValueOnce(new TypeError('fetch failed: canary-transport'))
     vi.stubGlobal('fetch', fetchMock)
@@ -129,9 +130,10 @@ describe('local secret resolution HTTP errors', () => {
       .resolve(resolveInput())
       .catch((caught: unknown) => caught)
 
-    expect(error).toBeInstanceOf(TypeError)
+    expect(error).toBeInstanceOf(ValedictorianTransportError)
     expect(error).not.toBeInstanceOf(ValedictorianHttpError)
-    expect(String(error)).toContain('canary-transport')
+    expect(JSON.stringify(error)).not.toContain('canary-transport')
+    expect(String(error)).not.toContain('canary-transport')
   })
 
   it('scrubs a canonical closed error body returned with a 2xx status', async () => {
@@ -144,10 +146,9 @@ describe('local secret resolution HTTP errors', () => {
       .resolve(resolveInput())
       .catch((caught: unknown) => caught)
 
-    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).toBeInstanceOf(ValedictorianProtocolError)
     expect(error).not.toBeInstanceOf(LocalSecretResolutionHttpError)
-    expect(error).toMatchObject({ body: null, message: 'Request failed', status: 200 })
-    expect(error).not.toHaveProperty('code')
+    expect(error).not.toBeInstanceOf(ValedictorianHttpError)
     expect(JSON.stringify(error)).not.toContain('secret_not_found')
     expect(String(error)).not.toContain(canonicalBody.message)
   })

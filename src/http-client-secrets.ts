@@ -1,8 +1,28 @@
 import { valedictorianApiPaths } from './api.js'
 import type { ValedictorianWorkspaceClient } from './client.js'
-import { ValedictorianHttpError } from './http-client-error.js'
+import {
+  ValedictorianHttpError,
+  ValedictorianProtocolError,
+  ValedictorianTransportError,
+  createFailClosedHttpError,
+  getHttpErrorResponseBody,
+  getHttpErrorRetryAfterHeader,
+  isCallerAbortError,
+  parseValedictorianContractValue,
+} from './http-client-error.js'
+import {
+  validateValedictorianEndpointError,
+  type ValedictorianFailureKind,
+  type ValedictorianRetryAfter,
+} from './http-error-contract.js'
+import {
+  profileSecretSummarySchema,
+  profileSecretsListResultSchema,
+} from './http-response-contracts.js'
 import {
   localSecretResolutionErrorBodySchema,
+  localSecretResolutionErrorCodes,
+  localSecretResolutionErrorKindByCode,
   localSecretResolutionErrorStatusByCode,
   localSecretResolutionInputSchema,
   localSecretResolutionResultSchema,
@@ -13,9 +33,20 @@ import {
 export class LocalSecretResolutionHttpError
   extends ValedictorianHttpError<LocalSecretResolutionErrorBody> {
   readonly code: LocalSecretResolutionErrorCode
+  declare readonly kind: ValedictorianFailureKind
 
-  constructor(body: LocalSecretResolutionErrorBody, status: number) {
-    super({ body, message: body.message, status })
+  constructor(
+    body: LocalSecretResolutionErrorBody,
+    status: number,
+    options: { retryAfter?: ValedictorianRetryAfter } = {},
+  ) {
+    super({
+      body,
+      message: body.message,
+      status,
+      kind: localSecretResolutionErrorKindByCode[body.code],
+      retryAfter: options.retryAfter,
+    })
     this.name = 'LocalSecretResolutionHttpError'
     this.code = body.code
   }
@@ -43,14 +74,39 @@ type SecretsHttpResolve = (
 export function rethrowLocalSecretResolutionError(error: unknown): never {
   if (!(error instanceof ValedictorianHttpError)) throw error
 
-  const parsed = localSecretResolutionErrorBodySchema.safeParse(error.body)
-  if (parsed.success) {
-    if (localSecretResolutionErrorStatusByCode[parsed.data.code] === error.status) {
-      throw new LocalSecretResolutionHttpError(parsed.data, error.status)
-    }
+  const responseBody = getHttpErrorResponseBody(error)
+  const validated = validateValedictorianEndpointError({
+    body: responseBody,
+    status: error.status,
+    retryAfterHeader: getHttpErrorRetryAfterHeader(error),
+    spec: {
+      bodySchema: localSecretResolutionErrorBodySchema,
+      statusByCode: localSecretResolutionErrorStatusByCode,
+      kindByCode: localSecretResolutionErrorKindByCode,
+      supportsRetryAfter: true,
+    },
+  })
+  if (validated.ok) {
+    throw new LocalSecretResolutionHttpError(validated.body, validated.status, {
+      retryAfter: validated.retryAfter,
+    })
   }
 
-  throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
+  if (validated.reason === 'invalid_retry_after' || validated.reason === 'status_mismatch') {
+    throw new ValedictorianProtocolError()
+  }
+
+  if (
+    typeof responseBody === 'object'
+    && responseBody !== null
+    && 'code' in responseBody
+    && typeof responseBody.code === 'string'
+    && (localSecretResolutionErrorCodes as readonly string[]).includes(responseBody.code)
+  ) {
+    throw new ValedictorianProtocolError()
+  }
+
+  throw createFailClosedHttpError(error.status)
 }
 
 function splitCacheControlDirectives(header: string): string[] | null {
@@ -115,16 +171,21 @@ export function createSecretsHttpMethods({
         method: 'DELETE',
       })
     },
-    list() {
-      return request(pathFor(valedictorianApiPaths.secrets))
+    async list() {
+      return parseValedictorianContractValue(
+        profileSecretsListResultSchema,
+        await request(pathFor(valedictorianApiPaths.secrets)),
+      )
     },
-    upsert(input) {
+    async upsert(input) {
       const { key, ...body } = input
-
-      return request(pathFor(valedictorianApiPaths.secret(key)), {
-        body,
-        method: 'PUT',
-      })
+      return parseValedictorianContractValue(
+        profileSecretSummarySchema,
+        await request(pathFor(valedictorianApiPaths.secret(key)), {
+          body,
+          method: 'PUT',
+        }),
+      )
     },
     local: {
       async resolve(input) {
@@ -138,11 +199,7 @@ export function createSecretsHttpMethods({
               method: 'POST',
             },
           )
-          const parsed = localSecretResolutionResultSchema.safeParse(payload)
-          if (!parsed.success) {
-            throw new Error('Local secret resolution response is invalid')
-          }
-          return parsed.data
+          return parseValedictorianContractValue(localSecretResolutionResultSchema, payload)
         } catch (error) {
           rethrowLocalSecretResolutionError(error)
         }
@@ -156,13 +213,11 @@ export function createLocalSecretResolveRequest({
   fetchImplementation,
   token,
   readResponseBody,
-  responseMessage,
 }: {
   baseUrl: string
   fetchImplementation: typeof fetch
   token?: string
   readResponseBody: (response: Response) => Promise<unknown>
-  responseMessage: (body: unknown, fallback: string) => string
 }): SecretsHttpResolve {
   return async (path, options) => {
     const url = new URL(path, baseUrl)
@@ -173,34 +228,36 @@ export function createLocalSecretResolveRequest({
     }
     if (token) headers.authorization = `Bearer ${token}`
 
-    const response = await fetchImplementation(url.toString(), {
-      body: JSON.stringify(options.body),
-      headers,
-      method: options.method,
-    })
+    let response: Response
+    try {
+      response = await fetchImplementation(url.toString(), {
+        body: JSON.stringify(options.body),
+        headers,
+        method: options.method,
+      })
+    } catch (error) {
+      if (isCallerAbortError(error)) throw error
+      throw new ValedictorianTransportError({ cause: error })
+    }
 
     if (!response.ok) {
       const body = await readResponseBody(response)
-      throw new ValedictorianHttpError({
-        body,
-        message: responseMessage(body, response.statusText),
-        status: response.status,
+      throw createFailClosedHttpError(response.status, body, {
+        retryAfterHeader: response.headers.get('retry-after'),
       })
     }
 
     if (!cacheControlIncludesNoStore(response.headers.get('cache-control'))) {
       response.body?.cancel()
-      throw new Error('Sensitive response is missing Cache-Control: no-store')
+      throw new ValedictorianProtocolError({
+        cause: new Error('Sensitive response is missing Cache-Control: no-store'),
+      })
     }
 
     const body = await readResponseBody(response)
     const closedError = localSecretResolutionErrorBodySchema.safeParse(body)
     if (closedError.success) {
-      throw new ValedictorianHttpError({
-        body: closedError.data,
-        message: closedError.data.message,
-        status: response.status,
-      })
+      throw createFailClosedHttpError(response.status, closedError.data)
     }
 
     return body

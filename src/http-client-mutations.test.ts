@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient, ValedictorianHttpError } from './index'
-import { jsonResponse, mockFetch } from './http-client.test-support.js'
+import {
+  applicationAttemptPayload,
+  applicationAttemptStepPayload,
+  applicationDetailPayload,
+  applicationLinkRecordPayload,
+  jsonResponse,
+  mockFetch,
+} from './http-client.test-support.js'
 
 describe('HTTP Valedictorian client', () => {
   afterEach(() => {
@@ -23,7 +30,9 @@ describe('HTTP Valedictorian client', () => {
       id: 'score-1',
       createdAt: '2026-06-30T00:00:00.000Z',
     }
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'application-1', status: 'submitted' }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(applicationDetailPayload({ status: 'submitted' })),
+    )
     fetchMock.mockResolvedValueOnce(jsonResponse(scoreRecord))
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
@@ -78,8 +87,44 @@ describe('HTTP Valedictorian client', () => {
 
   it('maps application mutation methods to command endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 14; index += 1) {
-      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    const detail = applicationDetailPayload()
+    const link = applicationLinkRecordPayload()
+    const attempt = applicationAttemptPayload()
+    const step = applicationAttemptStepPayload()
+    const attemptList = { items: [attempt], total: 1, limit: 25, offset: 5, hasMore: false }
+    for (const response of [
+      detail,
+      detail,
+      detail,
+      {},
+      detail,
+      detail,
+      link,
+      link,
+      { items: [link], total: 1, limit: 25, offset: 5, hasMore: false },
+      {
+        items: [
+          {
+            id: 'event-1',
+            applicationId: 'application-1',
+            type: 'note',
+            message: 'Noted.',
+            payloadJson: '{}',
+            actor: 'user',
+            createdAt: '2026-07-11T14:00:00.000Z',
+          },
+        ],
+        total: 1,
+        limit: 50,
+        offset: 10,
+        hasMore: false,
+      },
+      attempt,
+      step,
+      attempt,
+      attemptList,
+    ]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(response))
     }
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
@@ -308,7 +353,7 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
-  it('throws useful errors for non-2xx responses', async () => {
+  it('throws scrubbed errors for non-2xx responses', async () => {
     mockFetch(jsonResponse({ message: 'bad status' }, { status: 422 }))
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
@@ -324,8 +369,11 @@ describe('HTTP Valedictorian client', () => {
     expect(thrown).toMatchObject({
       name: 'ValedictorianHttpError',
       status: 422,
-      message: 'bad status',
+      message: 'Request failed',
+      body: null,
     })
     expect(thrown).toBeInstanceOf(ValedictorianHttpError)
+    expect(JSON.stringify(thrown)).not.toContain('bad status')
+    expect(String(thrown)).not.toContain('bad status')
   })
 })

@@ -195,6 +195,14 @@ export const profileDocumentErrorStatusByCode = Object.freeze({
   profile_backup_unavailable: 404,
 } as const satisfies Record<ProfileDocumentErrorCode, 404 | 409 | 422>)
 
+export const profileDocumentErrorKindByCode = Object.freeze({
+  invalid_profile_document: 'validation',
+  unsupported_profile_schema_version: 'conflict',
+  profile_revision_conflict: 'conflict',
+  profile_document_unavailable: 'not_found',
+  profile_backup_unavailable: 'not_found',
+} as const satisfies Record<ProfileDocumentErrorCode, 'validation' | 'conflict' | 'not_found'>)
+
 const profileDocumentErrorPathSegmentSchema = z.union([z.string().min(1), z.number().int().nonnegative()])
 
 type ProfileDocumentInvalidErrorBody = {

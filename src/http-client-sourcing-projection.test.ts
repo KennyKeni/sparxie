@@ -45,7 +45,7 @@ describe('HTTP sourcing projection client', () => {
     const projection = createHttpValedictorianClient({ baseUrl: 'https://valedictorian.test' })
       .forWorkspace('workspace-1').sourcing.rawRevisions.projection
 
-    await expect(projection.get('revision-requested')).rejects.toThrow(/identity/)
+    await expect(projection.get('revision-requested')).rejects.toThrow('Request failed')
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -130,7 +130,7 @@ describe('HTTP sourcing projection client', () => {
     await expect(projection.get('revision-1')).rejects.toThrow()
   })
 
-  it('preserves standard 404 errors for unknown or cross-workspace revisions', async () => {
+  it('scrubs standard 404 errors for unknown or cross-workspace revisions', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ message: 'Raw revision not found' }, { status: 404 }),
@@ -144,7 +144,10 @@ describe('HTTP sourcing projection client', () => {
     expect(error).toBeInstanceOf(ValedictorianHttpError)
     expect(error).toMatchObject({
       status: 404,
-      body: { message: 'Raw revision not found' },
+      body: null,
+      message: 'Request failed',
     })
+    expect(JSON.stringify(error)).not.toContain('Raw revision not found')
+    expect(String(error)).not.toContain('Raw revision not found')
   })
 })

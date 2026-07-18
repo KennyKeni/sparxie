@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  ValedictorianProtocolError,
   createHttpValedictorianClient,
   createSecretReference,
   valedictorianApiPaths,
+  valedictorianSafeRequestFailedMessage,
 } from './index.js'
 
 afterEach(() => {
@@ -110,7 +112,7 @@ describe('local secret resolution HTTP success contract', () => {
         reference: createSecretReference('ok'),
         purpose: { kind: 'subprocess_injection' },
       }),
-    ).rejects.toThrow(/no-store/i)
+    ).rejects.toThrow('Request failed')
     expect(bodyRead).toBe(false)
 
     fetchMock.mockResolvedValueOnce(
@@ -202,10 +204,11 @@ describe('local secret resolution HTTP success contract', () => {
         })
         .catch((caught: unknown) => caught)
 
-      expect(error).toBeInstanceOf(Error)
-      expect(String(error)).toMatch(/no-store/i)
+      expect(error).toBeInstanceOf(ValedictorianProtocolError)
+      expect(error).toMatchObject({ message: valedictorianSafeRequestFailedMessage })
       expect(bodyRead).toBe(false)
       expect(String(error)).not.toContain('canary-')
+      expect(JSON.stringify(error)).not.toContain('canary-')
     }
   })
 

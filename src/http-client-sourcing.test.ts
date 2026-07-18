@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient } from './index'
-import { jsonResponse, mockFetch, sourcingFindingPayload } from './http-client.test-support.js'
+import {
+  jsonResponse,
+  mockFetch,
+  sourcingFindingPayload,
+  workflowRunPayload,
+  workflowRunStepPayload,
+} from './http-client.test-support.js'
 
 function rawReceipt(capture?: Record<string, string>, intakeItemId = 'item-1') {
   return {
@@ -17,17 +23,31 @@ describe('HTTP Valedictorian client', () => {
 
   it('maps workflow run and sourcing finding methods to HTTP endpoints', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 4; index += 1) {
-      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    }
+    const run = workflowRunPayload()
+    const step = workflowRunStepPayload()
     const finding = sourcingFindingPayload('US')
+    fetchMock.mockResolvedValueOnce(jsonResponse(run))
+    fetchMock.mockResolvedValueOnce(jsonResponse(step))
+    fetchMock.mockResolvedValueOnce(jsonResponse(workflowRunPayload({
+      status: 'completed',
+      completedAt: '2026-07-11T15:00:00.000Z',
+      outcome: 'full_coverage',
+      summary: 'Completed.',
+    })))
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      items: [run],
+      total: 1,
+      limit: 25,
+      offset: 0,
+      hasMore: false,
+    }))
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ items: [finding], total: 1, limit: 25, offset: 0, hasMore: false }),
     )
     for (let index = 0; index < 4; index += 1) {
       fetchMock.mockResolvedValueOnce(jsonResponse(finding))
     }
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(finding))
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
@@ -758,6 +778,6 @@ describe('HTTP Valedictorian client', () => {
         selector: { rawRevisionIds: ['revision-1'] },
         invalidate: {},
       }),
-    ).rejects.toThrow('completed_with_failures requires at least one failed item')
+    ).rejects.toThrow('Request failed')
   })
 })
