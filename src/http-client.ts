@@ -74,6 +74,7 @@ export {
   parseValedictorianContractValue,
 } from './http-client-error.js'
 export { LocalSecretResolutionHttpError } from './http-client-secrets.js'
+export { ConnectorScheduleHttpError } from './http-client-connector-schedules.js'
 export {
   ConnectorOptionQueryHttpError,
   ConnectorRetirementConflictError,
@@ -575,8 +576,6 @@ export function createHttpValedictorianClient({
         },
       },
       schedules: createConnectorScheduleHttpMethods({
-        isNotFound: (error) =>
-          error instanceof ValedictorianHttpError && error.status === 404,
         pathFor,
         request,
       }),

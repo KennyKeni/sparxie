@@ -5,7 +5,12 @@ import {
   connectorScheduleAuditListResultSchema,
   connectorScheduleCadenceSchema,
   connectorScheduleDstPolicy,
+  connectorScheduleErrorBodies,
+  connectorScheduleErrorBodySchema,
+  connectorScheduleErrorCodes,
+  connectorScheduleErrorKindByCode,
   connectorScheduleErrorPayloadSchema,
+  connectorScheduleErrorStatusByCode,
   connectorScheduleHistoryListInputSchema,
   connectorScheduleLastRunStatuses,
   connectorScheduleLastRunSummarySchema,
@@ -520,21 +525,88 @@ describe('connector schedule occurrence idempotency', () => {
 })
 
 describe('connector schedule error payload', () => {
-  it('accepts only the closed connector-schedule error codes with message and no extras', () => {
-    for (const code of [
+  it('exports canonical bodies, status, and kind maps for every closed code', () => {
+    expect([...connectorScheduleErrorCodes]).toEqual([
       'connector_scheduling_unavailable',
       'invalid_timezone',
       'invalid_cadence',
       'schedule_too_frequent',
       'stale_schedule_revision',
       'schedule_dispatch_conflict',
-    ] as const) {
+    ])
+    expect(connectorScheduleErrorBodies).toEqual({
+      connector_scheduling_unavailable: {
+        code: 'connector_scheduling_unavailable',
+        message: 'Connector scheduling is unavailable.',
+      },
+      invalid_timezone: {
+        code: 'invalid_timezone',
+        message: 'The connector schedule timezone is invalid.',
+      },
+      invalid_cadence: {
+        code: 'invalid_cadence',
+        message: 'The connector schedule cadence is invalid.',
+      },
+      schedule_too_frequent: {
+        code: 'schedule_too_frequent',
+        message: 'The connector schedule cadence is too frequent.',
+      },
+      stale_schedule_revision: {
+        code: 'stale_schedule_revision',
+        message: 'The connector schedule revision is stale.',
+      },
+      schedule_dispatch_conflict: {
+        code: 'schedule_dispatch_conflict',
+        message: 'The connector schedule changed during dispatch.',
+      },
+    })
+    expect(connectorScheduleErrorStatusByCode).toEqual({
+      connector_scheduling_unavailable: 503,
+      invalid_timezone: 422,
+      invalid_cadence: 422,
+      schedule_too_frequent: 422,
+      stale_schedule_revision: 409,
+      schedule_dispatch_conflict: 409,
+    })
+    expect(connectorScheduleErrorKindByCode).toEqual({
+      connector_scheduling_unavailable: 'unavailable',
+      invalid_timezone: 'validation',
+      invalid_cadence: 'validation',
+      schedule_too_frequent: 'validation',
+      stale_schedule_revision: 'conflict',
+      schedule_dispatch_conflict: 'conflict',
+    })
+    expect(Object.keys(connectorScheduleErrorStatusByCode).sort()).toEqual(
+      [...connectorScheduleErrorCodes].sort(),
+    )
+    expect(Object.keys(connectorScheduleErrorKindByCode).sort()).toEqual(
+      [...connectorScheduleErrorCodes].sort(),
+    )
+  })
+
+  it('accepts only canonical closed schedule error bodies and rejects free messages', () => {
+    for (const code of connectorScheduleErrorCodes) {
+      const body = connectorScheduleErrorBodies[code]
+      expect(connectorScheduleErrorBodySchema.parse(body)).toEqual(body)
+      expect(connectorScheduleErrorPayloadSchema.parse(body)).toEqual(body)
       expect(
-        connectorScheduleErrorPayloadSchema.parse({
+        connectorScheduleErrorPayloadSchema.safeParse({
           code,
           message: `error:${code}`,
-        }),
-      ).toEqual({ code, message: `error:${code}` })
+        }).success,
+      ).toBe(false)
+      expect(
+        connectorScheduleErrorBodySchema.safeParse({
+          ...body,
+          message: `${body.message} with detail`,
+        }).success,
+      ).toBe(false)
+      expect(
+        connectorScheduleErrorBodySchema.safeParse({
+          ...body,
+          detail: 'canary',
+        }).success,
+      ).toBe(false)
     }
 
     expect(

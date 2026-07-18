@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ConnectorOptionQueryHttpError,
   ConnectorRetirementConflictError,
+  ConnectorScheduleHttpError,
   createHttpValedictorianClient,
   InvalidPersistedRawDetailHttpError,
   invalidPersistedRawDetailErrorBody,
@@ -10,6 +11,10 @@ import {
   connectorOptionQueryErrorCodes,
   connectorOptionQueryErrorKindByCode,
   connectorOptionQueryErrorStatusByCode,
+  connectorScheduleErrorBodies,
+  connectorScheduleErrorCodes,
+  connectorScheduleErrorKindByCode,
+  connectorScheduleErrorStatusByCode,
   createSecretReference,
   localSecretResolutionErrorBodies,
   localSecretResolutionErrorCodes,
@@ -57,6 +62,21 @@ describe('validated capability failure kinds', () => {
     expect(connectorOptionQueryErrorKindByCode.option_query_unavailable).toBe('conflict')
     expect(Object.keys(connectorOptionQueryErrorKindByCode).sort()).toEqual(
       [...connectorOptionQueryErrorCodes].sort(),
+    )
+
+    expect(connectorScheduleErrorKindByCode).toEqual({
+      connector_scheduling_unavailable: 'unavailable',
+      invalid_timezone: 'validation',
+      invalid_cadence: 'validation',
+      schedule_too_frequent: 'validation',
+      stale_schedule_revision: 'conflict',
+      schedule_dispatch_conflict: 'conflict',
+    })
+    expect(Object.keys(connectorScheduleErrorKindByCode).sort()).toEqual(
+      [...connectorScheduleErrorCodes].sort(),
+    )
+    expect(Object.keys(connectorScheduleErrorStatusByCode).sort()).toEqual(
+      [...connectorScheduleErrorCodes].sort(),
     )
 
     expect(invalidPersistedRawDetailErrorKindByCode).toEqual({
@@ -203,6 +223,35 @@ describe('validated capability failure kinds', () => {
         .catch((caught: unknown) => caught)
       expect(error).toBeInstanceOf(ConnectorRetirementConflictError)
       expect(error).toMatchObject({ kind: 'conflict' })
+    }
+
+    for (const code of connectorScheduleErrorCodes) {
+      const body = connectorScheduleErrorBodies[code]
+      const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse(body, { status: connectorScheduleErrorStatusByCode[code] }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const error = await createHttpValedictorianClient({
+        baseUrl: 'https://valedictorian.test',
+      })
+        .forWorkspace('workspace-1')
+        .connectors.schedules.upsert({
+          connectorInstanceId: 'jobright/session 1',
+          expectedRevision: null,
+          state: 'enabled',
+          cadence: { kind: 'interval', everyMinutes: 60 },
+          timezone: 'America/New_York',
+        })
+        .catch((caught: unknown) => caught)
+
+      expect(error).toBeInstanceOf(ConnectorScheduleHttpError)
+      expect(error).toMatchObject({
+        code,
+        kind: connectorScheduleErrorKindByCode[code],
+        status: connectorScheduleErrorStatusByCode[code],
+      })
     }
   })
 })

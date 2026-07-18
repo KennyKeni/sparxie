@@ -254,7 +254,8 @@ subclass). No-response fetch failures become `ValedictorianTransportError`.
 Malformed, noncanonical, or status-inconsistent contracted responses become
 `ValedictorianProtocolError`. Unknown or unvalidated error payloads fail closed
 to a safe generic HTTP failure with no raw body text in `message` or serialized
-diagnostics.
+diagnostics. Connector schedule failures use the closed schedule error codes with
+canonical bodies, statuses, and `ConnectorScheduleHttpError` mapping.
 
 UI presentation choices (toast, banner, field placement) and backend
 implementation exception types are outside Sparxie ownership. Consumers map the
