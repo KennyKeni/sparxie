@@ -1,6 +1,8 @@
 import {
   InvalidPersistedRawDetailHttpError,
   invalidPersistedRawDetailErrorBody,
+  ConnectorScheduleHttpError,
+  connectorScheduleErrorBodies,
   LocalSecretResolutionHttpError,
   localSecretResolutionErrorBodies,
   ProfileDocumentHttpError,
@@ -67,6 +69,12 @@ const secretError = new LocalSecretResolutionHttpError(
 )
 const secretKind: ValedictorianFailureKind = secretError.kind
 
+const scheduleError = new ConnectorScheduleHttpError(
+  connectorScheduleErrorBodies.stale_schedule_revision,
+  409,
+)
+const scheduleKind: ValedictorianFailureKind = scheduleError.kind
+
 const transportError = new ValedictorianTransportError()
 const protocolError = new ValedictorianProtocolError()
 const retryAfter: ValedictorianRetryAfter | undefined = parseValedictorianRetryAfterHeader('12')
@@ -76,6 +84,7 @@ void integrityKind
 void httpError
 void profileKind
 void secretKind
+void scheduleKind
 void transportError
 void protocolError
 void retryAfter

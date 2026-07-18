@@ -1,14 +1,21 @@
 import type {
   ConnectorRunSummary,
+  ConnectorScheduleErrorBody,
+  ConnectorScheduleHttpError,
   ConnectorSchedulingCapability,
   DispatchConnectorScheduleDueResult,
   TriggerConnectorRunInput,
   UpsertConnectorScheduleInput,
   ValedictorianCapabilities,
   ValedictorianClient,
+  ValedictorianFailureKind,
 } from '../src/index.js'
 import {
   connectorScheduleDstPolicy,
+  connectorScheduleErrorBodies,
+  connectorScheduleErrorBodySchema,
+  connectorScheduleErrorKindByCode,
+  connectorScheduleErrorStatusByCode,
   defaultLocalCapabilities,
   dispatchConnectorScheduleDueResultSchema,
   unavailableConnectorSchedulingCapability,
@@ -135,6 +142,32 @@ async function scheduleApisStayWorkspaceScoped(client: ValedictorianClient) {
 
 const localDefaultsUseUnavailable = defaultLocalCapabilities.connectorScheduling
 
+const canonicalUnavailable = connectorScheduleErrorBodies.connector_scheduling_unavailable
+const unavailableMessageIsCanonical: 'Connector scheduling is unavailable.' =
+  canonicalUnavailable.message
+const unavailableStatus: 503 =
+  connectorScheduleErrorStatusByCode.connector_scheduling_unavailable
+const unavailableKind: 'unavailable' =
+  connectorScheduleErrorKindByCode.connector_scheduling_unavailable
+
+const incorrectCanonicalMessage: ConnectorScheduleErrorBody = {
+  code: 'invalid_timezone',
+  // @ts-expect-error Recognized schedule errors use fixed sanitized messages.
+  message: 'timezone America/New_York was rejected',
+}
+
+declare const scheduleHttpError: ConnectorScheduleHttpError
+const typedErrorExposesCanonicalFields: IsExact<
+  keyof ConnectorScheduleHttpError & ('code' | 'body' | 'message' | 'status' | 'kind'),
+  'code' | 'body' | 'message' | 'status' | 'kind'
+> = true
+const scheduleErrorKind: ValedictorianFailureKind = scheduleHttpError.kind
+const scheduleErrorBody: ConnectorScheduleErrorBody = scheduleHttpError.body
+
+connectorScheduleErrorBodySchema satisfies {
+  parse(value: unknown): ConnectorScheduleErrorBody
+}
+
 void unavailableCapabilityLiteral
 void capabilityRequiresScheduling
 void runProvenanceRequired
@@ -155,3 +188,10 @@ void connectorScheduleDstPolicy
 void dispatchConnectorScheduleDueResultSchema
 void upsertConnectorScheduleInputSchema
 void valedictorianCapabilitiesSchema
+void unavailableMessageIsCanonical
+void unavailableStatus
+void unavailableKind
+void incorrectCanonicalMessage
+void typedErrorExposesCanonicalFields
+void scheduleErrorKind
+void scheduleErrorBody

@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createHttpValedictorianClient } from './index'
+import * as Sparxie from './index'
+import {
+  ConnectorScheduleHttpError,
+  connectorScheduleErrorBodies,
+  connectorScheduleErrorCodes,
+  connectorScheduleErrorKindByCode,
+  connectorScheduleErrorStatusByCode,
+  createHttpValedictorianClient,
+  ValedictorianHttpError,
+  ValedictorianProtocolError,
+} from './index'
 import { jsonResponse } from './http-client.test-support'
 
 afterEach(() => {
@@ -416,5 +426,206 @@ describe('HTTP connector run trigger anti-spoof', () => {
     ).rejects.toThrow()
 
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('connector schedule HTTP errors', () => {
+  function workspaceSchedules(workspaceId = 'workspace 1') {
+    return createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace(workspaceId).connectors.schedules
+  }
+
+  const upsertInput = {
+    connectorInstanceId: 'jobright/session 1',
+    expectedRevision: null as string | null,
+    state: 'enabled' as const,
+    cadence: { kind: 'interval' as const, everyMinutes: 60 },
+    timezone: 'America/New_York',
+  }
+
+  it('maps every exact closed schedule error to ConnectorScheduleHttpError', async () => {
+    const errorConstructor = Reflect.get(Sparxie, 'ConnectorScheduleHttpError')
+    expect(errorConstructor).toBeTypeOf('function')
+
+    for (const code of connectorScheduleErrorCodes) {
+      const canonicalBody = connectorScheduleErrorBodies[code]
+      const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse(canonicalBody, {
+          status: connectorScheduleErrorStatusByCode[code],
+        }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const error = await workspaceSchedules()
+        .upsert(upsertInput)
+        .catch((caught: unknown) => caught)
+
+      expect(error).toBeInstanceOf(errorConstructor)
+      expect(error).toBeInstanceOf(ConnectorScheduleHttpError)
+      expect(error).toMatchObject({
+        body: canonicalBody,
+        code,
+        kind: connectorScheduleErrorKindByCode[code],
+        message: canonicalBody.message,
+        status: connectorScheduleErrorStatusByCode[code],
+      })
+      expect(error).toHaveProperty('kind')
+      expect(JSON.stringify(error)).not.toMatch(/stack|password|token=/i)
+    }
+  })
+
+  it('maps declared schedule failures across schedule HTTP operations', async () => {
+    const cases = [
+      {
+        call: () =>
+          workspaceSchedules().get('jobright/session 1'),
+        code: 'connector_scheduling_unavailable' as const,
+      },
+      {
+        call: () =>
+          workspaceSchedules().pause({
+            connectorInstanceId: 'jobright/session 1',
+            expectedRevision: 'rev-1',
+          }),
+        code: 'stale_schedule_revision' as const,
+      },
+      {
+        call: () =>
+          workspaceSchedules().resume({
+            connectorInstanceId: 'jobright/session 1',
+            expectedRevision: 'rev-1',
+          }),
+        code: 'stale_schedule_revision' as const,
+      },
+      {
+        call: () =>
+          workspaceSchedules().delete({
+            connectorInstanceId: 'jobright/session 1',
+            expectedRevision: 'rev-1',
+          }),
+        code: 'stale_schedule_revision' as const,
+      },
+      {
+        call: () =>
+          workspaceSchedules().listAudit({
+            connectorInstanceId: 'jobright/session 1',
+            limit: 25,
+            offset: 0,
+          }),
+        code: 'connector_scheduling_unavailable' as const,
+      },
+      {
+        call: () =>
+          workspaceSchedules().listOccurrences({
+            connectorInstanceId: 'jobright/session 1',
+            limit: 25,
+            offset: 0,
+          }),
+        code: 'connector_scheduling_unavailable' as const,
+      },
+      {
+        call: () =>
+          workspaceSchedules().dispatchDue({
+            connectorInstanceId: 'jobright/session 1',
+            expectedRevision: 'rev-1',
+          }),
+        code: 'schedule_dispatch_conflict' as const,
+      },
+    ] as const
+
+    for (const { call, code } of cases) {
+      const canonicalBody = connectorScheduleErrorBodies[code]
+      const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse(canonicalBody, {
+          status: connectorScheduleErrorStatusByCode[code],
+        }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const error = await call().catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(ConnectorScheduleHttpError)
+      expect(error).toMatchObject({
+        body: canonicalBody,
+        code,
+        kind: connectorScheduleErrorKindByCode[code],
+        status: connectorScheduleErrorStatusByCode[code],
+      })
+    }
+  })
+
+  it('maps noncanonical messages and status mismatches to ValedictorianProtocolError', async () => {
+    const code = 'invalid_timezone'
+    const canonicalBody = connectorScheduleErrorBodies[code]
+    const malformedBodies = [
+      { ...canonicalBody, message: 'timezone America/New_York rejected by provider' },
+      ...['secret', 'detail', 'stack', 'timezone'].map((field) => ({
+        ...canonicalBody,
+        [field]: `canary-${field}`,
+      })),
+      { code },
+    ]
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    for (const body of malformedBodies) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(body, { status: 422 }))
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse(canonicalBody, { status: 409 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const schedules = workspaceSchedules()
+
+    for (const _body of [...malformedBodies, canonicalBody]) {
+      const error = await schedules.upsert(upsertInput).catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(ValedictorianProtocolError)
+      expect(error).not.toBeInstanceOf(ConnectorScheduleHttpError)
+      expect(error).not.toBeInstanceOf(ValedictorianHttpError)
+      expect(JSON.stringify(error)).not.toContain('canary-')
+      expect(String(error)).not.toContain('America/New_York')
+    }
+  })
+
+  it('keeps generic schedule GET 404 as null and does not treat recognized wrong-status 404 as null', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ message: 'Not found' }, { status: 404 }),
+    )
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(connectorScheduleErrorBodies.invalid_timezone, { status: 404 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const schedules = workspaceSchedules()
+
+    await expect(schedules.get('jobright/session 1')).resolves.toBeNull()
+
+    const protocolError = await schedules
+      .get('jobright/session 1')
+      .catch((caught: unknown) => caught)
+    expect(protocolError).toBeInstanceOf(ValedictorianProtocolError)
+    expect(protocolError).not.toBeInstanceOf(ConnectorScheduleHttpError)
+    expect(protocolError).not.toBeInstanceOf(ValedictorianHttpError)
+  })
+
+  it('scrubs unrecognized schedule HTTP failures to a safe generic client error', async () => {
+    const body = {
+      code: 'database_unavailable',
+      message: 'schedule canary-plaintext leaked',
+      detail: 'SELECT password FROM schedules',
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(body, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const error = await workspaceSchedules()
+      .upsert(upsertInput)
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).not.toBeInstanceOf(ConnectorScheduleHttpError)
+    expect(error).toMatchObject({ body: null, message: 'Request failed', status: 503 })
+    expect(error).not.toHaveProperty('code')
+    expect(JSON.stringify(error)).not.toContain('canary-')
+    expect(String(error)).not.toContain('canary-')
+    expect(JSON.stringify(error)).not.toContain('password')
   })
 })

@@ -423,18 +423,83 @@ export const connectorScheduleErrorCodes = [
 
 export type ConnectorScheduleErrorCode = (typeof connectorScheduleErrorCodes)[number]
 
-export interface ConnectorScheduleErrorPayload {
-  code: ConnectorScheduleErrorCode
-  message: string
+function freezeValues<Value extends Record<string, object>>(value: Value): Readonly<Value> {
+  for (const nested of Object.values(value)) Object.freeze(nested)
+  return Object.freeze(value)
 }
 
-export const connectorScheduleErrorPayloadSchema: z.ZodType<ConnectorScheduleErrorPayload> =
-  z
-    .object({
-      code: z.enum(connectorScheduleErrorCodes),
-      message: z.string().min(1),
-    })
-    .strict()
+export const connectorScheduleErrorBodies = freezeValues({
+  connector_scheduling_unavailable: {
+    code: 'connector_scheduling_unavailable',
+    message: 'Connector scheduling is unavailable.',
+  },
+  invalid_timezone: {
+    code: 'invalid_timezone',
+    message: 'The connector schedule timezone is invalid.',
+  },
+  invalid_cadence: {
+    code: 'invalid_cadence',
+    message: 'The connector schedule cadence is invalid.',
+  },
+  schedule_too_frequent: {
+    code: 'schedule_too_frequent',
+    message: 'The connector schedule cadence is too frequent.',
+  },
+  stale_schedule_revision: {
+    code: 'stale_schedule_revision',
+    message: 'The connector schedule revision is stale.',
+  },
+  schedule_dispatch_conflict: {
+    code: 'schedule_dispatch_conflict',
+    message: 'The connector schedule changed during dispatch.',
+  },
+} as const)
+
+export type ConnectorScheduleErrorBody =
+  (typeof connectorScheduleErrorBodies)[ConnectorScheduleErrorCode]
+
+export type ConnectorScheduleErrorPayload = ConnectorScheduleErrorBody
+
+export const connectorScheduleErrorStatusByCode = Object.freeze({
+  connector_scheduling_unavailable: 503,
+  invalid_timezone: 422,
+  invalid_cadence: 422,
+  schedule_too_frequent: 422,
+  stale_schedule_revision: 409,
+  schedule_dispatch_conflict: 409,
+} as const satisfies Record<ConnectorScheduleErrorCode, 409 | 422 | 503>)
+
+export const connectorScheduleErrorKindByCode = Object.freeze({
+  connector_scheduling_unavailable: 'unavailable',
+  invalid_timezone: 'validation',
+  invalid_cadence: 'validation',
+  schedule_too_frequent: 'validation',
+  stale_schedule_revision: 'conflict',
+  schedule_dispatch_conflict: 'conflict',
+} as const satisfies Record<
+  ConnectorScheduleErrorCode,
+  'unavailable' | 'validation' | 'conflict'
+>)
+
+const connectorScheduleErrorBodyInnerSchema: z.ZodType<ConnectorScheduleErrorBody> = z
+  .object({
+    code: z.enum(connectorScheduleErrorCodes),
+    message: z.string(),
+  })
+  .strict()
+  .transform((value, context) => {
+    const canonical = connectorScheduleErrorBodies[value.code]
+    if (value.message !== canonical.message) {
+      context.addIssue({ code: 'custom', message: 'invalid connector schedule error body' })
+      return z.NEVER
+    }
+    return { code: canonical.code, message: canonical.message } as ConnectorScheduleErrorBody
+  })
+
+export const connectorScheduleErrorBodySchema: z.ZodType<ConnectorScheduleErrorBody> =
+  connectorScheduleErrorBodyInnerSchema
+
+export const connectorScheduleErrorPayloadSchema = connectorScheduleErrorBodySchema
 
 export const MAX_CONNECTOR_SCHEDULE_HISTORY_LIMIT = 200
 
