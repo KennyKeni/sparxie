@@ -9,6 +9,10 @@ import {
   connectorOptionQueryBodySchema,
   connectorOptionQueryResultSchema,
 } from './connector-option-query.js'
+import {
+  ValedictorianProtocolError,
+  parseValedictorianContractValue,
+} from './http-client-error.js'
 
 interface RequestOptions {
   body?: unknown
@@ -28,7 +32,9 @@ type ConnectorCapabilityMethods = Pick<
 >
 
 function requireIdentity<Result>(result: Result, actual: string, expected: string): Result {
-  if (actual !== expected) throw new Error(`response identity ${actual} does not match ${expected}`)
+  if (actual !== expected) {
+    throw new ValedictorianProtocolError({ cause: new Error('response identity mismatch') })
+  }
   return result
 }
 
@@ -48,7 +54,8 @@ export function createConnectorCapabilityHttpMethods({
   return {
     descriptors: {
       async list() {
-        return installedConnectorDescriptorsListResultSchema.parse(
+        return parseValedictorianContractValue(
+          installedConnectorDescriptorsListResultSchema,
           await request(pathFor(valedictorianApiPaths.connectorDescriptors)),
         )
       },
@@ -58,7 +65,8 @@ export function createConnectorCapabilityHttpMethods({
           connectorVersion,
           displayName: 'Requested connector',
         })
-        const descriptor = installedConnectorDescriptorSchema.parse(
+        const descriptor = parseValedictorianContractValue(
+          installedConnectorDescriptorSchema,
           await request(pathFor(valedictorianApiPaths.connectorDescriptor(
             inputIdentity.connectorId,
             inputIdentity.connectorVersion,
@@ -96,7 +104,7 @@ export function createConnectorCapabilityHttpMethods({
           rethrowOptionQueryError(error)
         }
 
-        const result = connectorOptionQueryResultSchema.parse(response)
+        const result = parseValedictorianContractValue(connectorOptionQueryResultSchema, response)
         requireIdentity(result, result.connectorInstanceId, expected.connectorInstanceId)
         requireIdentity(result, result.connectorId, expected.connectorId)
         requireIdentity(result, result.connectorVersion, expected.connectorVersion)

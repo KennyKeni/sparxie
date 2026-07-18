@@ -13,6 +13,7 @@ import {
   resumeConnectorScheduleInputSchema,
   upsertConnectorScheduleInputSchema,
 } from './connector-schedule.js'
+import { parseValedictorianContractValue } from './http-client-error.js'
 
 type ConnectorScheduleHttpRequest = <T>(
   path: string,
@@ -55,7 +56,8 @@ export function createConnectorScheduleHttpMethods({
       const id = z.string().min(1).parse(connectorInstanceId)
 
       try {
-        return connectorScheduleSummarySchema.parse(
+        return parseValedictorianContractValue(
+          connectorScheduleSummarySchema,
           await request(pathFor(valedictorianApiPaths.connectorSchedule(id))),
         )
       } catch (error) {
@@ -69,7 +71,8 @@ export function createConnectorScheduleHttpMethods({
     async upsert(input) {
       const { connectorInstanceId, ...body } = upsertConnectorScheduleInputSchema.parse(input)
 
-      return connectorScheduleSummarySchema.parse(
+      return parseValedictorianContractValue(
+        connectorScheduleSummarySchema,
         await request(pathFor(valedictorianApiPaths.connectorSchedule(connectorInstanceId)), {
           body,
           method: 'PUT',
@@ -79,7 +82,8 @@ export function createConnectorScheduleHttpMethods({
     async pause(input) {
       const { connectorInstanceId, ...body } = pauseConnectorScheduleInputSchema.parse(input)
 
-      return connectorScheduleSummarySchema.parse(
+      return parseValedictorianContractValue(
+        connectorScheduleSummarySchema,
         await request(pathFor(valedictorianApiPaths.connectorSchedulePause(connectorInstanceId)), {
           body,
           method: 'POST',
@@ -89,7 +93,8 @@ export function createConnectorScheduleHttpMethods({
     async resume(input) {
       const { connectorInstanceId, ...body } = resumeConnectorScheduleInputSchema.parse(input)
 
-      return connectorScheduleSummarySchema.parse(
+      return parseValedictorianContractValue(
+        connectorScheduleSummarySchema,
         await request(
           pathFor(valedictorianApiPaths.connectorScheduleResume(connectorInstanceId)),
           {
@@ -110,7 +115,8 @@ export function createConnectorScheduleHttpMethods({
     async listAudit(input) {
       const { connectorInstanceId, ...query } = connectorScheduleHistoryListInputSchema.parse(input)
 
-      return connectorScheduleAuditListResultSchema.parse(
+      return parseValedictorianContractValue(
+        connectorScheduleAuditListResultSchema,
         await request(pathFor(valedictorianApiPaths.connectorScheduleAudit(connectorInstanceId)), {
           query: connectorScheduleHistoryListQueryToSearchParams(query),
         }),
@@ -119,7 +125,8 @@ export function createConnectorScheduleHttpMethods({
     async listOccurrences(input) {
       const { connectorInstanceId, ...query } = connectorScheduleHistoryListInputSchema.parse(input)
 
-      return connectorScheduleOccurrenceListResultSchema.parse(
+      return parseValedictorianContractValue(
+        connectorScheduleOccurrenceListResultSchema,
         await request(
           pathFor(valedictorianApiPaths.connectorScheduleOccurrences(connectorInstanceId)),
           { query: connectorScheduleHistoryListQueryToSearchParams(query) },
@@ -129,7 +136,8 @@ export function createConnectorScheduleHttpMethods({
     async dispatchDue(input) {
       const { connectorInstanceId, ...body } = dispatchConnectorScheduleDueInputSchema.parse(input)
 
-      return dispatchConnectorScheduleDueResultSchema.parse(
+      return parseValedictorianContractValue(
+        dispatchConnectorScheduleDueResultSchema,
         await request(
           pathFor(valedictorianApiPaths.connectorScheduleDispatchDue(connectorInstanceId)),
           {

@@ -8,6 +8,14 @@ import {
   ValedictorianHttpError,
   ValedictorianSourceHttpClient,
 } from './index'
+import {
+  sourceLifecyclePayload,
+  sourceProbePayload,
+  sourceRegistrationPayload,
+  sourceRunOverridePayload,
+  sourceRunRequestPayload,
+  sourceSchedulePayload,
+} from './http-client.test-support.js'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -416,8 +424,21 @@ describe('Valedictorian source HTTP client', () => {
 
   it('maps operator-write methods to source API routes', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    for (let index = 0; index < 12; index += 1) {
-      fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    for (const response of [
+      sourceRegistrationPayload(),
+      sourceProbePayload(),
+      sourceProbePayload(),
+      sourceLifecyclePayload(),
+      sourceLifecyclePayload(),
+      sourceLifecyclePayload({ status: 'active' }),
+      sourceSchedulePayload(),
+      sourceSchedulePayload(),
+      { schedule: null },
+      sourceRunRequestPayload(),
+      sourceRunOverridePayload('accept_baseline'),
+      sourceRunOverridePayload('force_publish'),
+    ]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(response))
     }
     const client = new ValedictorianSourceHttpClient({
       baseUrl: 'https://source.test/api/',
@@ -557,7 +578,7 @@ describe('Valedictorian source HTTP client', () => {
     )
   })
 
-  it('maps source API errors to the shared HTTP error type', async () => {
+  it('maps source API errors to a scrubbed shared HTTP error', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValue(
       jsonResponse({ error: 'source_run_not_found' }, { status: 404, statusText: 'Not Found' }),
@@ -578,9 +599,11 @@ describe('Valedictorian source HTTP client', () => {
 
     expect(error).toBeInstanceOf(ValedictorianHttpError)
     expect(error).toMatchObject({
-      body: { error: 'source_run_not_found' },
-      message: 'source_run_not_found',
+      body: null,
+      message: 'Request failed',
       status: 404,
     })
+    expect(JSON.stringify(error)).not.toContain('source_run_not_found')
+    expect(String(error)).not.toContain('source_run_not_found')
   })
 })

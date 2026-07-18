@@ -4,6 +4,7 @@ import {
   profileDocumentErrorBodies,
   ProfileDocumentHttpError,
   ValedictorianHttpError,
+  ValedictorianProtocolError,
 } from './index.js'
 import { jsonResponse } from './http-client.test-support.js'
 
@@ -65,9 +66,9 @@ describe('profile document typed HTTP errors', () => {
       })
       .catch((caught: unknown) => caught)
 
-    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).toBeInstanceOf(ValedictorianProtocolError)
     expect(error).not.toBeInstanceOf(ProfileDocumentHttpError)
-    expect(error).toMatchObject({ status: 409, body: null })
+    expect(error).not.toBeInstanceOf(ValedictorianHttpError)
     expect(JSON.stringify(error)).not.toContain('secret-rev')
     expect(String(error)).not.toContain('secret-rev')
   })

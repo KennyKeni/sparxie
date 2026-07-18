@@ -1,4 +1,10 @@
-import { ValedictorianHttpError } from './http-client.js'
+import {
+  ValedictorianTransportError,
+  createFailClosedHttpError,
+  isCallerAbortError,
+  parseValedictorianContractValue,
+  readValedictorianResponseBody,
+} from './http-client-error.js'
 import type {
   CareerSourceRegistrationResponse,
   CareerSourceLifecycleInput,
@@ -23,6 +29,22 @@ import type {
   SourceSchedulesListQuery,
   SourceSchedulesListResponse,
 } from './source-ingestion.js'
+import {
+  careerSourceLifecycleResponseSchema,
+  careerSourceRegistrationResponseSchema,
+  careerSourcesListResponseSchema,
+  sourceCompaniesListResponseSchema,
+  sourceJobsListResponseSchema,
+  sourceProbeResponseSchema,
+  sourceRunOverrideResponseSchema,
+  sourceRunRequestResponseSchema,
+  sourceRunResponseSchema,
+  sourceRunsListResponseSchema,
+  sourceScheduleResponseSchema,
+  sourceSchedulesListResponseSchema,
+} from './source-ingestion-http-schemas.js'
+
+export { ValedictorianHttpError } from './http-client-error.js'
 
 export interface ValedictorianSourceHttpClientOptions {
   baseUrl: string
@@ -164,74 +186,104 @@ export class ValedictorianSourceHttpClient {
     this.token = token
   }
 
-  listJobs(query?: SourceJobsListQuery): Promise<SourceJobsListResponse> {
-    return this.request('/jobs', {
-      query: sourceJobsListQueryToSearchParams(query),
-    })
+  async listJobs(query?: SourceJobsListQuery): Promise<SourceJobsListResponse> {
+    return parseValedictorianContractValue(
+      sourceJobsListResponseSchema,
+      await this.request('/jobs', {
+        query: sourceJobsListQueryToSearchParams(query),
+      }),
+    )
   }
 
-  listCompanies(query?: SourceCompaniesListQuery): Promise<SourceCompaniesListResponse> {
-    return this.request('/companies', {
-      query: sourceCompaniesListQueryToSearchParams(query),
-    })
+  async listCompanies(query?: SourceCompaniesListQuery): Promise<SourceCompaniesListResponse> {
+    return parseValedictorianContractValue(
+      sourceCompaniesListResponseSchema,
+      await this.request('/companies', {
+        query: sourceCompaniesListQueryToSearchParams(query),
+      }),
+    )
   }
 
-  listRuns(query?: SourceRunsListQuery): Promise<SourceRunsListResponse> {
-    return this.request('/runs', {
-      query: sourceRunsListQueryToSearchParams(query),
-    })
+  async listRuns(query?: SourceRunsListQuery): Promise<SourceRunsListResponse> {
+    return parseValedictorianContractValue(
+      sourceRunsListResponseSchema,
+      await this.request('/runs', {
+        query: sourceRunsListQueryToSearchParams(query),
+      }),
+    )
   }
 
-  getRun(id: string): Promise<SourceRunResponse> {
-    return this.request(`/runs/${encodeURIComponent(id)}`)
+  async getRun(id: string): Promise<SourceRunResponse> {
+    return parseValedictorianContractValue(
+      sourceRunResponseSchema,
+      await this.request(`/runs/${encodeURIComponent(id)}`),
+    )
   }
 
-  listSources(query?: CareerSourcesListQuery): Promise<CareerSourcesListResponse> {
-    return this.request('/sources', {
-      query: careerSourcesListQueryToSearchParams(query),
-    })
+  async listSources(query?: CareerSourcesListQuery): Promise<CareerSourcesListResponse> {
+    return parseValedictorianContractValue(
+      careerSourcesListResponseSchema,
+      await this.request('/sources', {
+        query: careerSourcesListQueryToSearchParams(query),
+      }),
+    )
   }
 
-  listSchedules(query?: SourceSchedulesListQuery): Promise<SourceSchedulesListResponse> {
-    return this.request('/schedules', {
-      query: sourceSchedulesListQueryToSearchParams(query),
-    })
+  async listSchedules(query?: SourceSchedulesListQuery): Promise<SourceSchedulesListResponse> {
+    return parseValedictorianContractValue(
+      sourceSchedulesListResponseSchema,
+      await this.request('/schedules', {
+        query: sourceSchedulesListQueryToSearchParams(query),
+      }),
+    )
   }
 
-  createSource(input: CreateCareerSourceInput): Promise<CareerSourceRegistrationResponse> {
+  async createSource(input: CreateCareerSourceInput): Promise<CareerSourceRegistrationResponse> {
     const { templateKey, ...body } = input
 
-    return this.request('/sources', {
-      body: {
-        ...body,
-        ...(templateKey ? { template: templateKey } : {}),
-      },
-      method: 'POST',
-    })
+    return parseValedictorianContractValue(
+      careerSourceRegistrationResponseSchema,
+      await this.request('/sources', {
+        body: {
+          ...body,
+          ...(templateKey ? { template: templateKey } : {}),
+        },
+        method: 'POST',
+      }),
+    )
   }
 
-  probeSource(id: string): Promise<SourceProbeResponse> {
-    return this.request(`/sources/${encodeURIComponent(id)}/probe`, {
-      body: {},
-      method: 'POST',
-    })
+  async probeSource(id: string): Promise<SourceProbeResponse> {
+    return parseValedictorianContractValue(
+      sourceProbeResponseSchema,
+      await this.request(`/sources/${encodeURIComponent(id)}/probe`, {
+        body: {},
+        method: 'POST',
+      }),
+    )
   }
 
-  probeCareerUrl(input: SourceProbeUrlInput): Promise<SourceProbeResponse> {
-    return this.request('/source-probes', {
-      body: input,
-      method: 'POST',
-    })
+  async probeCareerUrl(input: SourceProbeUrlInput): Promise<SourceProbeResponse> {
+    return parseValedictorianContractValue(
+      sourceProbeResponseSchema,
+      await this.request('/source-probes', {
+        body: input,
+        method: 'POST',
+      }),
+    )
   }
 
-  updateSourceLifecycle(
+  async updateSourceLifecycle(
     id: string,
     input: CareerSourceLifecycleInput,
   ): Promise<CareerSourceLifecycleResponse> {
-    return this.request(`/sources/${encodeURIComponent(id)}/lifecycle`, {
-      body: input,
-      method: 'POST',
-    })
+    return parseValedictorianContractValue(
+      careerSourceLifecycleResponseSchema,
+      await this.request(`/sources/${encodeURIComponent(id)}/lifecycle`, {
+        body: input,
+        method: 'POST',
+      }),
+    )
   }
 
   pauseSource(id: string): Promise<CareerSourceLifecycleResponse> {
@@ -242,55 +294,73 @@ export class ValedictorianSourceHttpClient {
     return this.updateSourceLifecycle(id, { status: 'active' })
   }
 
-  getSchedule(id: string): Promise<SourceScheduleResponse> {
-    return this.request(`/sources/${encodeURIComponent(id)}/schedule`)
+  async getSchedule(id: string): Promise<SourceScheduleResponse> {
+    return parseValedictorianContractValue(
+      sourceScheduleResponseSchema,
+      await this.request(`/sources/${encodeURIComponent(id)}/schedule`),
+    )
   }
 
-  setSchedule(id: string, input: SourceScheduleInput): Promise<SourceScheduleResponse> {
-    return this.request(`/sources/${encodeURIComponent(id)}/schedule`, {
-      body: input,
-      method: 'POST',
-    })
+  async setSchedule(id: string, input: SourceScheduleInput): Promise<SourceScheduleResponse> {
+    return parseValedictorianContractValue(
+      sourceScheduleResponseSchema,
+      await this.request(`/sources/${encodeURIComponent(id)}/schedule`, {
+        body: input,
+        method: 'POST',
+      }),
+    )
   }
 
-  disableSchedule(id: string): Promise<SourceScheduleResponse> {
-    return this.request(`/sources/${encodeURIComponent(id)}/schedule`, {
-      method: 'DELETE',
-    })
+  async disableSchedule(id: string): Promise<SourceScheduleResponse> {
+    return parseValedictorianContractValue(
+      sourceScheduleResponseSchema,
+      await this.request(`/sources/${encodeURIComponent(id)}/schedule`, {
+        method: 'DELETE',
+      }),
+    )
   }
 
-  requestRun(
+  async requestRun(
     id: string,
     input: SourceRunRequestInput = {},
   ): Promise<SourceRunRequestResponse> {
-    return this.request(`/sources/${encodeURIComponent(id)}/run-requests`, {
-      body: input,
-      method: 'POST',
-    })
+    return parseValedictorianContractValue(
+      sourceRunRequestResponseSchema,
+      await this.request(`/sources/${encodeURIComponent(id)}/run-requests`, {
+        body: input,
+        method: 'POST',
+      }),
+    )
   }
 
-  acceptBaseline(runId: string, reason: string): Promise<SourceRunOverrideResponse> {
-    return this.request(`/runs/${encodeURIComponent(runId)}/accept-baseline`, {
-      body: { reason },
-      method: 'POST',
-    })
+  async acceptBaseline(runId: string, reason: string): Promise<SourceRunOverrideResponse> {
+    return parseValedictorianContractValue(
+      sourceRunOverrideResponseSchema,
+      await this.request(`/runs/${encodeURIComponent(runId)}/accept-baseline`, {
+        body: { reason },
+        method: 'POST',
+      }),
+    )
   }
 
-  forcePublish(runId: string, reason: string): Promise<SourceRunOverrideResponse> {
-    return this.request(`/runs/${encodeURIComponent(runId)}/force-publish`, {
-      body: { reason },
-      method: 'POST',
-    })
+  async forcePublish(runId: string, reason: string): Promise<SourceRunOverrideResponse> {
+    return parseValedictorianContractValue(
+      sourceRunOverrideResponseSchema,
+      await this.request(`/runs/${encodeURIComponent(runId)}/force-publish`, {
+        body: { reason },
+        method: 'POST',
+      }),
+    )
   }
 
-  private async request<T>(
+  private async request(
     path: string,
     options: {
       body?: unknown
       method?: 'DELETE' | 'GET' | 'POST'
       query?: URLSearchParams
     } = {},
-  ): Promise<T> {
+  ): Promise<unknown> {
     const url = new URL(path, this.baseUrl)
 
     if (options.query) {
@@ -311,43 +381,22 @@ export class ValedictorianSourceHttpClient {
       init.body = JSON.stringify(options.body)
     }
 
-    const response = await this.fetchImplementation(url.toString(), init)
-    const body = await readResponseBody(response)
+    let response: Response
+    try {
+      response = await this.fetchImplementation(url.toString(), init)
+    } catch (error) {
+      if (isCallerAbortError(error)) throw error
+      throw new ValedictorianTransportError({ cause: error })
+    }
+
+    const body = await readValedictorianResponseBody(response)
 
     if (!response.ok) {
-      throw new ValedictorianHttpError({
-        body,
-        message: responseMessage(body, response.statusText),
-        status: response.status,
+      throw createFailClosedHttpError(response.status, body, {
+        retryAfterHeader: response.headers.get('retry-after'),
       })
     }
 
-    return body as T
+    return body
   }
-}
-
-async function readResponseBody(response: Response) {
-  const text = await response.text()
-
-  if (!text) {
-    return undefined
-  }
-
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return text
-  }
-}
-
-function responseMessage(body: unknown, fallback: string) {
-  if (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string') {
-    return body.message
-  }
-
-  if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') {
-    return body.error
-  }
-
-  return fallback || 'Valedictorian source request failed'
 }

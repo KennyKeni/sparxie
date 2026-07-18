@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ConnectorRetirementConflictError,
   createHttpValedictorianClient,
+  ValedictorianProtocolError,
 } from './index.js'
 import { jsonResponse, mockFetch } from './http-client.test-support.js'
 
@@ -66,7 +67,7 @@ describe('connector retirement HTTP client', () => {
 
     await expect(connectors.remove({
       connectorInstanceId: 'jobright/session 1',
-    })).rejects.toThrow('response identity different-instance does not match jobright/session 1')
+    })).rejects.toBeInstanceOf(ValedictorianProtocolError)
   })
 
   it('rejects an empty connector identity before calling fetch', async () => {

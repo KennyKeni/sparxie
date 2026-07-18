@@ -39,13 +39,22 @@ export interface ConnectorRetirementResult {
 export interface ConnectorRetirementActiveWorkConflict {
   code: 'connector_retirement_active_work_conflict'
   connectorInstanceId: string
-  message: string
+  message: typeof connectorRetirementActiveWorkConflictMessage
   cancellationRequired: true
   activeRuns: Array<{
     connectorRunId: string
     status: 'queued' | 'running'
   }>
 }
+
+export const connectorRetirementActiveWorkConflictMessage =
+  'Cancel active connector runs before retirement.' as const
+
+export const connectorRetirementActiveWorkConflictBody = Object.freeze({
+  code: 'connector_retirement_active_work_conflict',
+  message: connectorRetirementActiveWorkConflictMessage,
+  cancellationRequired: true,
+} as const)
 
 export const removeConnectorInstanceInputSchema: z.ZodType<RemoveConnectorInstanceInput> = z
   .object({ connectorInstanceId: z.string().trim().min(1) })
@@ -90,7 +99,7 @@ export const connectorRetirementActiveWorkConflictSchema:
   .object({
     code: z.literal('connector_retirement_active_work_conflict'),
     connectorInstanceId: z.string().min(1),
-    message: z.string().min(1).max(512),
+    message: z.literal(connectorRetirementActiveWorkConflictMessage),
     cancellationRequired: z.literal(true),
     activeRuns: z
       .array(z
@@ -102,3 +111,7 @@ export const connectorRetirementActiveWorkConflictSchema:
       .min(1),
   })
   .strict()
+
+export const connectorRetirementActiveWorkConflictKind = 'conflict' as const
+
+export const connectorRetirementActiveWorkConflictStatus = 409 as const

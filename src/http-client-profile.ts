@@ -1,5 +1,6 @@
 import { valedictorianApiPaths } from './api.js'
 import type { ValedictorianWorkspaceClient } from './client.js'
+import { parseValedictorianContractValue } from './http-client-error.js'
 import {
   profileDocumentFormatInputSchema,
   profileDocumentRestoreInputSchema,
@@ -9,6 +10,7 @@ import {
   profileUpdateInputSchema,
 } from './profile-document.js'
 import { profileAgentContextSchema, userProfileSchema } from './profile.js'
+import { profileSensitiveDetailsSchema } from './http-response-contracts.js'
 
 type ProfileHttpRequest = <T>(
   path: string,
@@ -41,11 +43,15 @@ export function createProfileHttpMethods({
 }): ValedictorianWorkspaceClient['profile'] {
   return {
     async get() {
-      return userProfileSchema.parse(await request(pathFor(valedictorianApiPaths.profile)))
+      return parseValedictorianContractValue(
+        userProfileSchema,
+        await request(pathFor(valedictorianApiPaths.profile)),
+      )
     },
     async update(input) {
       const body = profileUpdateInputSchema.parse(input)
-      return userProfileSchema.parse(
+      return parseValedictorianContractValue(
+        userProfileSchema,
         await request(pathFor(valedictorianApiPaths.profile), {
           body,
           method: 'PATCH',
@@ -54,7 +60,8 @@ export function createProfileHttpMethods({
     },
     agentContext: {
       async get() {
-        return profileAgentContextSchema.parse(
+        return parseValedictorianContractValue(
+          profileAgentContextSchema,
           await request(pathFor(valedictorianApiPaths.profileAgentContext)),
         )
       },
@@ -63,7 +70,8 @@ export function createProfileHttpMethods({
       get() {
         return mapProfileDocumentRequest(
           async () =>
-            profileDocumentSchema.parse(
+            parseValedictorianContractValue(
+              profileDocumentSchema,
               await request(pathFor(valedictorianApiPaths.profileDocument)),
             ),
           rethrowDocumentError,
@@ -73,7 +81,8 @@ export function createProfileHttpMethods({
         const body = profileDocumentUpdateInputSchema.parse(input)
         return mapProfileDocumentRequest(
           async () =>
-            profileDocumentSchema.parse(
+            parseValedictorianContractValue(
+              profileDocumentSchema,
               await request(pathFor(valedictorianApiPaths.profileDocument), {
                 body,
                 method: 'PUT',
@@ -85,7 +94,8 @@ export function createProfileHttpMethods({
       validate() {
         return mapProfileDocumentRequest(
           async () =>
-            profileDocumentValidateResultSchema.parse(
+            parseValedictorianContractValue(
+              profileDocumentValidateResultSchema,
               await request(pathFor(valedictorianApiPaths.profileDocumentValidate), {
                 method: 'POST',
               }),
@@ -97,7 +107,8 @@ export function createProfileHttpMethods({
         const body = profileDocumentFormatInputSchema.parse(input)
         return mapProfileDocumentRequest(
           async () =>
-            profileDocumentSchema.parse(
+            parseValedictorianContractValue(
+              profileDocumentSchema,
               await request(pathFor(valedictorianApiPaths.profileDocumentFormat), {
                 body,
                 method: 'POST',
@@ -110,7 +121,8 @@ export function createProfileHttpMethods({
         const body = profileDocumentRestoreInputSchema.parse(input)
         return mapProfileDocumentRequest(
           async () =>
-            profileDocumentSchema.parse(
+            parseValedictorianContractValue(
+              profileDocumentSchema,
               await request(pathFor(valedictorianApiPaths.profileDocumentRestore), {
                 body,
                 method: 'POST',
@@ -121,14 +133,20 @@ export function createProfileHttpMethods({
       },
     },
     sensitive: {
-      get() {
-        return request(pathFor(valedictorianApiPaths.profileSensitive))
+      async get() {
+        return parseValedictorianContractValue(
+          profileSensitiveDetailsSchema,
+          await request(pathFor(valedictorianApiPaths.profileSensitive)),
+        )
       },
-      update(input) {
-        return request(pathFor(valedictorianApiPaths.profileSensitive), {
-          body: input,
-          method: 'PATCH',
-        })
+      async update(input) {
+        return parseValedictorianContractValue(
+          profileSensitiveDetailsSchema,
+          await request(pathFor(valedictorianApiPaths.profileSensitive), {
+            body: input,
+            method: 'PATCH',
+          }),
+        )
       },
     },
   }

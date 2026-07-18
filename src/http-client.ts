@@ -4,7 +4,6 @@ import type {
   ApplicationAttemptsListInput,
   ApplicationLinksListInput,
   ApplicationListQuery,
-  StatusUpdateInput,
 } from './application.js'
 import type { ValedictorianClient, ValedictorianWorkspaceClient } from './client.js'
 import type {
@@ -25,40 +24,67 @@ import {
   connectorRetirementActiveWorkConflictSchema,
   connectorRetirementResultSchema,
   removeConnectorInstanceInputSchema,
-  type ConnectorRetirementActiveWorkConflict,
 } from './connector-retirement.js'
 import {
   connectorOverviewListQuerySchema,
   connectorOverviewListQueryToSearchParams,
   connectorOverviewListResultSchema,
 } from './connector-overview.js'
+import { createApplicationsHttpMethods } from './http-client-applications.js'
 import {
   createConnectorScheduleHttpMethods,
   connectorScheduleHistoryListQueryToSearchParams,
 } from './http-client-connector-schedules.js'
 import { createConnectorCapabilityHttpMethods } from './http-client-connector-capabilities.js'
+import { createPolicyHttpMethods } from './http-client-policy.js'
 import { createProfileHttpMethods } from './http-client-profile.js'
-import { ValedictorianHttpError } from './http-client-error.js'
+import {
+  ConnectorRetirementConflictError,
+  rethrowConnectorOptionQueryError,
+  rethrowProfileDocumentError,
+  rethrowRawRecordDetailError,
+  requireResponseIdentity,
+} from './http-client-capability-errors.js'
+import {
+  ValedictorianHttpError,
+  ValedictorianProtocolError,
+  ValedictorianTransportError,
+  createFailClosedHttpError,
+  getHttpErrorResponseBody,
+  isCallerAbortError,
+  parseValedictorianContractValue,
+  readValedictorianResponseBody,
+} from './http-client-error.js'
 import {
   createLocalSecretResolveRequest,
   createSecretsHttpMethods,
 } from './http-client-secrets.js'
-
-export { ValedictorianHttpError } from './http-client-error.js'
-export { LocalSecretResolutionHttpError } from './http-client-secrets.js'
+import { createWorkflowRunsHttpMethods } from './http-client-workflow-runs.js'
+import { valedictorianHealthSchema } from './health.js'
 import {
-  connectorOptionQueryErrorBodySchema,
-  connectorOptionQueryErrorCodes,
-  connectorOptionQueryErrorStatusByCode,
-  type ConnectorOptionQueryErrorBody,
-  type ConnectorOptionQueryErrorCode,
-} from './connector-option-query.js'
+  connectorCheckpointsListResultSchema,
+  connectorObservationsListResultSchema,
+} from './http-response-contracts.js'
+import { workspaceListItemSchema, workspaceListResultSchema } from './workspace.js'
+
+export {
+  ValedictorianHttpError,
+  ValedictorianProtocolError,
+  ValedictorianTransportError,
+  parseValedictorianContractValue,
+} from './http-client-error.js'
+export { LocalSecretResolutionHttpError } from './http-client-secrets.js'
+export {
+  ConnectorOptionQueryHttpError,
+  ConnectorRetirementConflictError,
+  InvalidPersistedRawDetailHttpError,
+  ProfileDocumentHttpError,
+} from './http-client-capability-errors.js'
 import { valedictorianCapabilitiesSchema } from './capabilities.js'
 
 export { connectorScheduleHistoryListQueryToSearchParams }
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { ActionQueueListQuery } from './action-queue.js'
-import type { ScoreInput } from './scoring.js'
 import {
   sourcingFindingSchema,
   sourcingFindingsListResultSchema,
@@ -78,18 +104,6 @@ import {
   rawSourceRecordsListResultSchema,
 } from './raw-sourcing-list.js'
 import { rawSourceProjectionResultSchema } from './sourcing-projection.js'
-import {
-  invalidPersistedRawDetailErrorCode,
-  invalidPersistedRawDetailErrorBodySchema,
-  type InvalidPersistedRawDetailErrorBody,
-} from './http-error-contract.js'
-import {
-  profileDocumentErrorBodySchema,
-  profileDocumentErrorCodes,
-  profileDocumentErrorStatusByCode,
-  type ProfileDocumentErrorBody,
-  type ProfileDocumentErrorCode,
-} from './profile-document.js'
 
 export { rawSourceRecordsListQueryToSearchParams }
 
@@ -97,135 +111,6 @@ export interface HttpValedictorianClientOptions {
   baseUrl?: string
   token?: string
   fetch?: typeof fetch
-}
-
-export class InvalidPersistedRawDetailHttpError
-  extends ValedictorianHttpError<InvalidPersistedRawDetailErrorBody> {
-  constructor(body: InvalidPersistedRawDetailErrorBody, status: number) {
-    super({ body, message: body.message, status })
-    this.name = 'InvalidPersistedRawDetailHttpError'
-  }
-}
-
-export class ConnectorOptionQueryHttpError
-  extends ValedictorianHttpError<ConnectorOptionQueryErrorBody> {
-  readonly code: ConnectorOptionQueryErrorCode
-
-  constructor(body: ConnectorOptionQueryErrorBody, status: number) {
-    super({ body, message: body.message, status })
-    this.name = 'ConnectorOptionQueryHttpError'
-    this.code = body.code
-  }
-}
-
-export class ConnectorRetirementConflictError extends ValedictorianHttpError {
-  readonly conflict: ConnectorRetirementActiveWorkConflict
-
-  constructor(conflict: ConnectorRetirementActiveWorkConflict) {
-    super({ body: conflict, message: conflict.message, status: 409 })
-    this.name = 'ConnectorRetirementConflictError'
-    this.conflict = conflict
-  }
-}
-
-export class ProfileDocumentHttpError extends ValedictorianHttpError<ProfileDocumentErrorBody> {
-  readonly code: ProfileDocumentErrorCode
-
-  constructor(body: ProfileDocumentErrorBody, status: number) {
-    super({ body, message: body.message, status })
-    this.name = 'ProfileDocumentHttpError'
-    this.code = body.code
-  }
-}
-
-function isProfileDocumentErrorCode(value: unknown): value is ProfileDocumentErrorCode {
-  return typeof value === 'string'
-    && (profileDocumentErrorCodes as readonly string[]).includes(value)
-}
-
-function rethrowProfileDocumentError(error: unknown): never {
-  if (!(error instanceof ValedictorianHttpError)) throw error
-
-  const parsed = profileDocumentErrorBodySchema.safeParse(error.body)
-  if (parsed.success) {
-    if (profileDocumentErrorStatusByCode[parsed.data.code] === error.status) {
-      throw new ProfileDocumentHttpError(parsed.data, error.status)
-    }
-    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
-  }
-
-  if (
-    typeof error.body === 'object'
-    && error.body !== null
-    && 'code' in error.body
-    && isProfileDocumentErrorCode(error.body.code)
-  ) {
-    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
-  }
-
-  throw error
-}
-
-function rethrowRawRecordDetailError(error: unknown): never {
-  if (
-    !(error instanceof ValedictorianHttpError)
-    || error.status < 500
-    || error.status > 599
-  ) {
-    throw error
-  }
-
-  const integrityError = invalidPersistedRawDetailErrorBodySchema.safeParse(error.body)
-
-  if (integrityError.success) {
-    throw new InvalidPersistedRawDetailHttpError(integrityError.data, error.status)
-  }
-
-  if (
-    typeof error.body === 'object'
-    && error.body !== null
-    && 'code' in error.body
-    && error.body.code === invalidPersistedRawDetailErrorCode
-  ) {
-    throw new ValedictorianHttpError({
-      body: null,
-      message: 'Request failed',
-      status: error.status,
-    })
-  }
-
-  throw error
-}
-
-function isConnectorOptionQueryErrorCode(value: unknown): value is ConnectorOptionQueryErrorCode {
-  return typeof value === 'string'
-    && (connectorOptionQueryErrorCodes as readonly string[]).includes(value)
-}
-
-function rethrowConnectorOptionQueryError(error: unknown): never {
-  if (!(error instanceof ValedictorianHttpError)) throw error
-
-  const parsed = connectorOptionQueryErrorBodySchema.safeParse(error.body)
-  if (parsed.success) {
-    if (connectorOptionQueryErrorStatusByCode[parsed.data.code] === error.status) {
-      throw new ConnectorOptionQueryHttpError(parsed.data, error.status)
-    }
-    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
-  }
-
-  if (typeof error.body === 'object'
-    && error.body !== null
-    && 'code' in error.body
-    && isConnectorOptionQueryErrorCode(error.body.code)) {
-    throw new ValedictorianHttpError({ body: null, message: 'Request failed', status: error.status })
-  }
-
-  throw error
-}
-
-function requireResponseIdentity<T>(value: T, actual: string, expected: string): T {
-  if (actual !== expected) throw new Error(`response identity ${actual} does not match ${expected}`)
-  return value
 }
 
 const applicationListQueryParamKeys = [
@@ -502,14 +387,19 @@ export function createHttpValedictorianClient({
 
     if (options.signal !== undefined) init.signal = options.signal
 
-    const response = await fetchImplementation(url.toString(), init)
-    const body = await readResponseBody(response)
+    let response: Response
+    try {
+      response = await fetchImplementation(url.toString(), init)
+    } catch (error) {
+      if (isCallerAbortError(error, options.signal)) throw error
+      throw new ValedictorianTransportError({ cause: error })
+    }
+
+    const body = await readValedictorianResponseBody(response, options.signal)
 
     if (!response.ok) {
-      throw new ValedictorianHttpError({
-        body,
-        message: responseMessage(body, response.statusText),
-        status: response.status,
+      throw createFailClosedHttpError(response.status, body, {
+        retryAfterHeader: response.headers.get('retry-after'),
       })
     }
 
@@ -520,8 +410,7 @@ export function createHttpValedictorianClient({
     baseUrl,
     fetchImplementation,
     token,
-    readResponseBody,
-    responseMessage,
+    readResponseBody: readValedictorianResponseBody,
   })
 
   function workspacePath(workspaceId: string, path: string) {
@@ -532,157 +421,15 @@ export function createHttpValedictorianClient({
     const pathFor = (path: string) => workspacePath(workspaceId, path)
 
     return {
-    applications: {
-      list(query) {
-        return request(pathFor(valedictorianApiPaths.applications), {
-          query: applicationListQueryToSearchParams(query),
-        })
-      },
-      async get(id) {
-        try {
-          return await request(pathFor(valedictorianApiPaths.application(id)))
-        } catch (error) {
-          if (error instanceof ValedictorianHttpError && error.status === 404) {
-            return null
-          }
-
-          throw error
-        }
-      },
-      create(input) {
-        return request(pathFor(valedictorianApiPaths.applications), {
-          body: input,
-          method: 'POST',
-        })
-      },
-      update(input) {
-        const { applicationId, ...body } = input
-
-        return request(pathFor(valedictorianApiPaths.application(applicationId)), {
-          body,
-          method: 'PATCH',
-        })
-      },
-      updateStatus(input: StatusUpdateInput) {
-        return request(pathFor(valedictorianApiPaths.applicationStatus(input.applicationId)), {
-          body: {
-            status: input.status,
-            notes: input.notes,
-          },
-          method: 'PATCH',
-        })
-      },
-      archive(input) {
-        return request(pathFor(valedictorianApiPaths.applicationArchive(input.applicationId)), {
-          body: {
-            note: input.note,
-          },
-          method: 'PATCH',
-        })
-      },
-      workflow: {
-        update(input) {
-          const { applicationId, ...body } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationWorkflow(applicationId)), {
-            body,
-            method: 'PATCH',
-          })
-        },
-      },
-      notes: {
-        append(input) {
-          return request(pathFor(valedictorianApiPaths.applicationNotes(input.applicationId)), {
-            body: {
-              message: input.message,
-            },
-            method: 'POST',
-          })
-        },
-      },
-      links: {
-        list(input) {
-          const { applicationId, ...query } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationLinks(applicationId)), {
-            query: applicationLinksListQueryToSearchParams(query),
-          })
-        },
-        create(input) {
-          const { applicationId, ...body } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationLinks(applicationId)), {
-            body,
-            method: 'POST',
-          })
-        },
-        update(input) {
-          const { applicationId, linkId, ...body } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationLink(applicationId, linkId)), {
-            body,
-            method: 'PATCH',
-          })
-        },
-      },
-      events: {
-        list(input) {
-          const { applicationId, ...query } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationEvents(applicationId)), {
-            query: applicationEventsListQueryToSearchParams(query),
-          })
-        },
-      },
-      attempts: {
-        list(input) {
-          const { applicationId, ...query } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationAttempts(applicationId)), {
-            query: applicationAttemptsListQueryToSearchParams(query),
-          })
-        },
-        start(input) {
-          const { applicationId, ...body } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationAttempts(applicationId)), {
-            body,
-            method: 'POST',
-          })
-        },
-        step(input) {
-          const { applicationId, attemptId, ...body } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationAttemptSteps(applicationId, attemptId)), {
-            body,
-            method: 'POST',
-          })
-        },
-        complete(input) {
-          const { applicationId, attemptId, ...body } = input
-
-          return request(pathFor(valedictorianApiPaths.applicationAttemptComplete(applicationId, attemptId)), {
-            body,
-            method: 'PATCH',
-          })
-        },
-      },
-    },
-    scores: {
-      record(input: ScoreInput) {
-        return request(pathFor(valedictorianApiPaths.scores), {
-          body: input,
-          method: 'POST',
-        })
-      },
-    },
-    actionQueue: {
-      list(query) {
-        return request(pathFor(valedictorianApiPaths.actionQueue), {
-          query: actionQueueListQueryToSearchParams(query),
-        })
-      },
-    },
+    ...createApplicationsHttpMethods({
+      pathFor,
+      request,
+      applicationListQueryToSearchParams,
+      applicationLinksListQueryToSearchParams,
+      applicationEventsListQueryToSearchParams,
+      applicationAttemptsListQueryToSearchParams,
+      actionQueueListQueryToSearchParams,
+    }),
     connectors: {
       ...createConnectorCapabilityHttpMethods({
         pathFor,
@@ -690,12 +437,14 @@ export function createHttpValedictorianClient({
         rethrowOptionQueryError: rethrowConnectorOptionQueryError,
       }),
       async list() {
-        return connectorInstancesListResultSchema.parse(
+        return parseValedictorianContractValue(
+          connectorInstancesListResultSchema,
           await request(pathFor(valedictorianApiPaths.connectors)),
         )
       },
       async create(input) {
-        const summary = connectorInstanceSummarySchema.parse(
+        const summary = parseValedictorianContractValue(
+          connectorInstanceSummarySchema,
           await request(pathFor(valedictorianApiPaths.connectors), {
             body: input,
             method: 'POST',
@@ -706,7 +455,8 @@ export function createHttpValedictorianClient({
       async update(input) {
         const { connectorInstanceId, ...body } = input
 
-        const summary = connectorInstanceSummarySchema.parse(
+        const summary = parseValedictorianContractValue(
+          connectorInstanceSummarySchema,
           await request(pathFor(valedictorianApiPaths.connector(connectorInstanceId)), {
             body,
             method: 'PATCH',
@@ -723,15 +473,21 @@ export function createHttpValedictorianClient({
             { method: 'DELETE' },
           )
         } catch (error) {
+          if (!(error instanceof ValedictorianHttpError)) throw error
+          const responseBody = getHttpErrorResponseBody(error)
           if (
-            error instanceof ValedictorianHttpError
-            && error.status === 409
-            && typeof error.body === 'object'
-            && error.body !== null
-            && 'code' in error.body
-            && error.body.code === 'connector_retirement_active_work_conflict'
+            typeof responseBody === 'object'
+            && responseBody !== null
+            && 'code' in responseBody
+            && responseBody.code === 'connector_retirement_active_work_conflict'
           ) {
-            const conflict = connectorRetirementActiveWorkConflictSchema.parse(error.body)
+            if (error.status !== 409) {
+              throw new ValedictorianProtocolError()
+            }
+            const conflict = parseValedictorianContractValue(
+              connectorRetirementActiveWorkConflictSchema,
+              responseBody,
+            )
             requireResponseIdentity(
               conflict,
               conflict.connectorInstanceId,
@@ -741,7 +497,7 @@ export function createHttpValedictorianClient({
           }
           throw error
         }
-        const result = connectorRetirementResultSchema.parse(response)
+        const result = parseValedictorianContractValue(connectorRetirementResultSchema, response)
         return requireResponseIdentity(
           result,
           result.connectorInstanceId,
@@ -749,7 +505,8 @@ export function createHttpValedictorianClient({
         )
       },
       async inspect(connectorInstanceId) {
-        const summary = connectorStatusSummarySchema.parse(
+        const summary = parseValedictorianContractValue(
+          connectorStatusSummarySchema,
           await request(pathFor(valedictorianApiPaths.connectorStatus(connectorInstanceId))),
         )
         return requireResponseIdentity(summary, summary.id, connectorInstanceId)
@@ -757,7 +514,8 @@ export function createHttpValedictorianClient({
       overview: {
         async list(query = {}) {
           const parsedQuery = connectorOverviewListQuerySchema.parse(query)
-          return connectorOverviewListResultSchema.parse(
+          return parseValedictorianContractValue(
+            connectorOverviewListResultSchema,
             await request(pathFor(valedictorianApiPaths.connectorOverview), {
               query: connectorOverviewListQueryToSearchParams(parsedQuery),
             }),
@@ -768,7 +526,8 @@ export function createHttpValedictorianClient({
         async list(input) {
           const { connectorInstanceId, ...query } = connectorRunsListInputSchema.parse(input)
 
-          const result = connectorRunsListResultSchema.parse(
+          const result = parseValedictorianContractValue(
+            connectorRunsListResultSchema,
             await request(
               pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)),
               { query: connectorRunListQueryToSearchParams(query) },
@@ -780,7 +539,8 @@ export function createHttpValedictorianClient({
         async trigger(input) {
           const { connectorInstanceId, ...body } = triggerConnectorRunInputSchema.parse(input)
 
-          const run = connectorRunSummarySchema.parse(
+          const run = parseValedictorianContractValue(
+            connectorRunSummarySchema,
             await request(
               pathFor(valedictorianApiPaths.connectorRuns(connectorInstanceId)),
               {
@@ -793,21 +553,25 @@ export function createHttpValedictorianClient({
         },
       },
       checkpoints: {
-        list(input) {
+        async list(input) {
           const { connectorInstanceId, ...query } = input
-
-          return request(pathFor(valedictorianApiPaths.connectorCheckpoints(connectorInstanceId)), {
-            query: connectorCheckpointListQueryToSearchParams(query),
-          })
+          return parseValedictorianContractValue(
+            connectorCheckpointsListResultSchema,
+            await request(pathFor(valedictorianApiPaths.connectorCheckpoints(connectorInstanceId)), {
+              query: connectorCheckpointListQueryToSearchParams(query),
+            }),
+          )
         },
       },
       observations: {
-        list(input) {
+        async list(input) {
           const { connectorInstanceId, ...query } = input
-
-          return request(pathFor(valedictorianApiPaths.connectorObservations(connectorInstanceId)), {
-            query: connectorObservationListQueryToSearchParams(query),
-          })
+          return parseValedictorianContractValue(
+            connectorObservationsListResultSchema,
+            await request(pathFor(valedictorianApiPaths.connectorObservations(connectorInstanceId)), {
+              query: connectorObservationListQueryToSearchParams(query),
+            }),
+          )
         },
       },
       schedules: createConnectorScheduleHttpMethods({
@@ -817,58 +581,11 @@ export function createHttpValedictorianClient({
         request,
       }),
     },
-    policy: {
-      config: {
-        get() {
-          return request(pathFor(valedictorianApiPaths.policyConfig))
-        },
-        reset() {
-          return request(pathFor(valedictorianApiPaths.policyConfigReset), {
-            body: {},
-            method: 'POST',
-          })
-        },
-        update(patch) {
-          return request(pathFor(valedictorianApiPaths.policyConfig), {
-            body: patch,
-            method: 'PATCH',
-          })
-        },
-      },
-      evidence: {
-        list(query) {
-          return request(pathFor(valedictorianApiPaths.policyEvidence), {
-            query: policyEvidenceListQueryToSearchParams(query),
-          })
-        },
-        record(input) {
-          return request(pathFor(valedictorianApiPaths.policyEvidence), {
-            body: input,
-            method: 'POST',
-          })
-        },
-      },
-      evaluate: {
-        application(input) {
-          return request(pathFor(valedictorianApiPaths.policyEvaluateApplication), {
-            body: input,
-            method: 'POST',
-          })
-        },
-        sourcingCandidate(input) {
-          return request(pathFor(valedictorianApiPaths.policyEvaluateSourcingCandidate), {
-            body: input,
-            method: 'POST',
-          })
-        },
-        runWindow(input) {
-          return request(pathFor(valedictorianApiPaths.policyEvaluateRunWindow), {
-            body: input,
-            method: 'POST',
-          })
-        },
-      },
-    },
+    policy: createPolicyHttpMethods({
+      pathFor,
+      request,
+      policyEvidenceListQueryToSearchParams,
+    }),
     profile: createProfileHttpMethods({
       pathFor,
       request,
@@ -879,44 +596,19 @@ export function createHttpValedictorianClient({
       request,
       resolveRequest: resolveLocalSecret,
     }),
-    runs: {
-      list(query) {
-        return request(pathFor(valedictorianApiPaths.runs), {
-          query: workflowRunListQueryToSearchParams(query),
-        })
-      },
-      start(input) {
-        return request(pathFor(valedictorianApiPaths.runs), {
-          body: input,
-          method: 'POST',
-        })
-      },
-      step(input) {
-        const { workflowRunId, ...body } = input
-
-        return request(pathFor(valedictorianApiPaths.runSteps(workflowRunId)), {
-          body,
-          method: 'POST',
-        })
-      },
-      complete(input) {
-        const { workflowRunId, ...body } = input
-
-        return request(pathFor(valedictorianApiPaths.runComplete(workflowRunId)), {
-          body,
-          method: 'PATCH',
-        })
-      },
-    },
+    runs: createWorkflowRunsHttpMethods({
+      pathFor,
+      request,
+      workflowRunListQueryToSearchParams,
+    }),
     sourcing: {
       rawRevisions: {
         projection: {
           async get(rawRevisionId) {
-            const projection = rawSourceProjectionResultSchema.parse(
+            const projection = parseValedictorianContractValue(
+              rawSourceProjectionResultSchema,
               await request(
-                pathFor(
-                  valedictorianApiPaths.sourcingRawRevisionProjection(rawRevisionId),
-                ),
+                pathFor(valedictorianApiPaths.sourcingRawRevisionProjection(rawRevisionId)),
               ),
             )
             return requireResponseIdentity(projection, projection.rawRevisionId, rawRevisionId)
@@ -926,7 +618,8 @@ export function createHttpValedictorianClient({
       rawRecords: {
         async list(query) {
           const parsedQuery = rawSourceRecordsListQuerySchema.parse(query ?? {})
-          return rawSourceRecordsListResultSchema.parse(
+          return parseValedictorianContractValue(
+            rawSourceRecordsListResultSchema,
             await request(pathFor(valedictorianApiPaths.sourcingRawRecords), {
               query: rawSourceRecordsListQueryToSearchParams(parsedQuery),
             }),
@@ -934,10 +627,11 @@ export function createHttpValedictorianClient({
         },
         async ingestBatch(input) {
           const body = batchRawSourceRecordsInputSchema.parse(input)
-          return createBoundBatchRawSourceRecordsResultSchema(body).parse(
+          return parseValedictorianContractValue(
+            createBoundBatchRawSourceRecordsResultSchema(body),
             await request(pathFor(valedictorianApiPaths.sourcingRawRecordsBatch), {
-            body,
-            method: 'POST',
+              body,
+              method: 'POST',
             }),
           )
         },
@@ -950,9 +644,12 @@ export function createHttpValedictorianClient({
             rethrowRawRecordDetailError(error)
           }
 
-          return rawSourceRecordSchema.refine((record) => record.id === rawRecordId, {
-            message: 'raw record response must match the requested id', path: ['id'],
-          }).parse(body)
+          return parseValedictorianContractValue(
+            rawSourceRecordSchema.refine((record) => record.id === rawRecordId, {
+              message: 'raw record response must match the requested id', path: ['id'],
+            }),
+            body,
+          )
         },
         async replay(input) {
           const receipt = await request(
@@ -963,14 +660,15 @@ export function createHttpValedictorianClient({
             },
           )
 
-          return rawSourceReplayReceiptSchema.parse(receipt)
+          return parseValedictorianContractValue(rawSourceReplayReceiptSchema, receipt)
         },
         normalization: {
           async get(rawRecordId) {
-            return rawSourceNormalizationResultSchema.refine(
-              (result) => result.rawRecordId === rawRecordId,
-              { message: 'normalization response must match the requested raw record', path: ['rawRecordId'] },
-            ).parse(
+            return parseValedictorianContractValue(
+              rawSourceNormalizationResultSchema.refine(
+                (result) => result.rawRecordId === rawRecordId,
+                { message: 'normalization response must match the requested raw record', path: ['rawRecordId'] },
+              ),
               await request(
                 pathFor(
                   valedictorianApiPaths.sourcingRawRecordNormalization(rawRecordId),
@@ -981,11 +679,18 @@ export function createHttpValedictorianClient({
         },
       },
       candidates: {
-        process(input) {
-          return request(pathFor(valedictorianApiPaths.sourcingCandidatesProcess), {
-            body: sourcingMutationBody(input),
-            method: 'POST',
-          })
+        /**
+         * @deprecated Compatibility entry point for already-canonical producers.
+         * New producers should submit source-neutral records through rawRecords.ingestBatch.
+         */
+        async process(input) {
+          return parseValedictorianContractValue(
+            sourcingFindingSchema,
+            await request(pathFor(valedictorianApiPaths.sourcingCandidatesProcess), {
+              body: sourcingMutationBody(input),
+              method: 'POST',
+            }),
+          )
         },
       },
       findings: {
@@ -994,7 +699,7 @@ export function createHttpValedictorianClient({
             query: sourcingFindingListQueryToSearchParams(query),
           })
 
-          return sourcingFindingsListResultSchema.parse(result)
+          return parseValedictorianContractValue(sourcingFindingsListResultSchema, result)
         },
         async create(input) {
           const finding = await request(pathFor(valedictorianApiPaths.sourcingFindings), {
@@ -1002,7 +707,7 @@ export function createHttpValedictorianClient({
             method: 'POST',
           })
 
-          return sourcingFindingSchema.parse(finding)
+          return parseValedictorianContractValue(sourcingFindingSchema, finding)
         },
         async update(input) {
           const { findingId, ...body } = input
@@ -1012,7 +717,7 @@ export function createHttpValedictorianClient({
             method: 'PATCH',
           })
 
-          return sourcingFindingSchema.parse(finding)
+          return parseValedictorianContractValue(sourcingFindingSchema, finding)
         },
         async decide(input) {
           const { findingId, ...body } = input
@@ -1022,7 +727,7 @@ export function createHttpValedictorianClient({
             method: 'POST',
           })
 
-          return sourcingFindingSchema.parse(finding)
+          return parseValedictorianContractValue(sourcingFindingSchema, finding)
         },
         async promote(input) {
           const finding = await request(
@@ -1033,7 +738,7 @@ export function createHttpValedictorianClient({
             },
           )
 
-          return sourcingFindingSchema.parse(finding)
+          return parseValedictorianContractValue(sourcingFindingSchema, finding)
         },
       },
     },
@@ -1043,7 +748,8 @@ export function createHttpValedictorianClient({
   return {
     capabilities: {
       async get() {
-        return valedictorianCapabilitiesSchema.parse(
+        return parseValedictorianContractValue(
+          valedictorianCapabilitiesSchema,
           await request(valedictorianApiPaths.capabilities),
         )
       },
@@ -1052,48 +758,38 @@ export function createHttpValedictorianClient({
       return createWorkspaceClient(workspaceId)
     },
     health: {
-      get() {
-        return request(valedictorianApiPaths.health)
+      async get() {
+        return parseValedictorianContractValue(
+          valedictorianHealthSchema,
+          await request(valedictorianApiPaths.health),
+        )
       },
     },
     workspaces: {
-      create(input) {
-        return request(valedictorianApiPaths.workspaceCreate, {
-          body: input,
-          method: 'POST',
-        })
+      async create(input) {
+        return parseValedictorianContractValue(
+          workspaceListItemSchema,
+          await request(valedictorianApiPaths.workspaceCreate, {
+            body: input,
+            method: 'POST',
+          }),
+        )
       },
-      list() {
-        return request(valedictorianApiPaths.workspaces)
+      async list() {
+        return parseValedictorianContractValue(
+          workspaceListResultSchema,
+          await request(valedictorianApiPaths.workspaces),
+        )
       },
-      open(input) {
-        return request(valedictorianApiPaths.workspaceOpen, {
-          body: input,
-          method: 'POST',
-        })
+      async open(input) {
+        return parseValedictorianContractValue(
+          workspaceListItemSchema,
+          await request(valedictorianApiPaths.workspaceOpen, {
+            body: input,
+            method: 'POST',
+          }),
+        )
       },
     },
   }
-}
-
-async function readResponseBody(response: Response) {
-  const text = await response.text()
-
-  if (!text) {
-    return undefined
-  }
-
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return text
-  }
-}
-
-function responseMessage(body: unknown, fallback: string) {
-  if (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string') {
-    return body.message
-  }
-
-  return fallback || 'Valedictorian request failed'
 }

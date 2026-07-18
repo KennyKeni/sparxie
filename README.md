@@ -242,6 +242,25 @@ operations remain supported. New CLI, connector, manual-entry, and import
 producers should use raw intake so normalization evidence and gate decisions are
 auditable.
 
+## Error contracts
+
+`sparxie` owns the public error-body shapes, failure-kind taxonomy, validators,
+and typed HTTP/transport/protocol classification used by Valedictorian clients.
+Capability error codes remain endpoint-specific discriminated unions; this
+package does not introduce a global enum of every domain error code.
+
+Validated non-2xx responses become `ValedictorianHttpError` (or a capability
+subclass). No-response fetch failures become `ValedictorianTransportError`.
+Malformed, noncanonical, or status-inconsistent contracted responses become
+`ValedictorianProtocolError`. Unknown or unvalidated error payloads fail closed
+to a safe generic HTTP failure with no raw body text in `message` or serialized
+diagnostics.
+
+UI presentation choices (toast, banner, field placement) and backend
+implementation exception types are outside Sparxie ownership. Consumers map the
+typed failures into local presentation or logging without rendering untrusted
+server text.
+
 ## Development
 
 ```sh

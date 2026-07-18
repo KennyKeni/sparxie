@@ -437,6 +437,22 @@ export const connectorOptionQueryErrorStatusByCode = Object.freeze({
   option_query_unavailable: 409,
 } as const satisfies Record<ConnectorOptionQueryErrorCode, 409 | 422>)
 
+export const connectorOptionQueryErrorKindByCode = Object.freeze({
+  unsupported_descriptor: 'conflict',
+  connector_version_mismatch: 'conflict',
+  filter_schema_version_mismatch: 'conflict',
+  option_catalog_version_mismatch: 'conflict',
+  option_source_version_mismatch: 'conflict',
+  option_source_undeclared: 'validation',
+  option_dependency_undeclared: 'validation',
+  option_dependency_invalid: 'validation',
+  option_value_invalid: 'validation',
+  option_query_unavailable: 'conflict',
+} as const satisfies Record<
+  ConnectorOptionQueryErrorCode,
+  'conflict' | 'validation'
+>)
+
 const connectorOptionQueryErrorBodyInnerSchema: z.ZodType<ConnectorOptionQueryErrorBody> = z
   .object({
     code: z.enum(connectorOptionQueryErrorCodes),
