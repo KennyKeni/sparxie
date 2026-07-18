@@ -257,6 +257,33 @@ to a safe generic HTTP failure with no raw body text in `message` or serialized
 diagnostics. Connector schedule failures use the closed schedule error codes with
 canonical bodies, statuses, and `ConnectorScheduleHttpError` mapping.
 
+The one shared internal contract is strict and fixed:
+`{ code: 'internal_error', message: 'An unexpected error occurred.', requestId }`
+at status `500` with kind `internal`. `requestId` is required and schema-validated.
+Both generic clients preserve this validated body and identity; a noncanonical
+message, invalid or missing identity, extra key, or wrong status is a protocol
+failure. No other unknown response may contribute a request identity or diagnostic
+text to a client error.
+
+`ValedictorianSourceHttpClient` validates a closed contract selected for each
+source-service operation and throws `SourceIngestionHttpError` with validated
+`code`, `body`, `status`, `kind`, optional authoritative `retryAfter`, and optional
+shared internal `requestId`. Source error codes remain grouped by access, browse,
+CareerSource, SourceSchedule/run request, SourceRun/evidence/JobSnapshot, probe and
+extraction, ConfidenceRule attachment, and service infrastructure contracts; they
+are not added to a package-wide domain error enum. Malformed input/query contracts
+use `400`, semantic validation uses `422`, authentication and authorization use
+`401` and `403`, missing state uses `404`, conflicts use `409`, and the declared
+infrastructure contracts use `429` and `503`. Only `source_rate_limited` and
+`source_unavailable` authorize parsing `Retry-After`.
+
+Probe `not-ready`, a missing SourceSchedule represented by `schedule: null`,
+SourceRun request/admission results, and persisted SourceRun lifecycle statuses are
+successful DTOs rather than thrown failures. The source client also covers the
+dashboard detail routes for EvidenceBundle artifacts, JobSnapshots, effective
+ConfidenceRules, and ConfidenceRule attachment writes using their exported strict
+response schemas.
+
 UI presentation choices (toast, banner, field placement) and backend
 implementation exception types are outside Sparxie ownership. Consumers map the
 typed failures into local presentation or logging without rendering untrusted

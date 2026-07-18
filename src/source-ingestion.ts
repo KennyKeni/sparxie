@@ -406,3 +406,104 @@ export interface SourceRunsListResponse {
 export interface SourceRunResponse {
   run: SourceRunDetail
 }
+
+export interface SourceEvidenceArtifactResponse {
+  bytes: Uint8Array
+  contentType: string | null
+}
+
+export interface SourceNormalizedLocation {
+  city?: string
+  countryCode?: string
+  rawText: string
+  region?: string
+  remote?: boolean
+}
+
+export interface SourceJobSnapshotSample {
+  applyUrl: string | null
+  detailUrl: string | null
+  locations: SourceNormalizedLocation[]
+  stableJobKey: string
+  title: string
+}
+
+export interface SourceJobSnapshotInspection extends SourceRunDiff {
+  jobCount: number
+  publishedAt: string
+  sampleJobs: SourceJobSnapshotSample[]
+  snapshotId: string
+  sourceId: string
+  sourceRunId: string
+}
+
+export interface SourceJobSnapshotResponse {
+  snapshot: SourceJobSnapshotInspection
+}
+
+export const sourceConfidenceRuleKeys = [
+  'minimum_count',
+  'required_core_fields',
+  'extraction_integrity',
+  'duplicate_key_rate',
+  'identity_quality',
+  'reported_total_match',
+  'sharp_drop_guard',
+  'detail_url_sample',
+  'description_content_hash',
+  'identity_shift',
+] as const
+
+export type SourceConfidenceRuleKey = (typeof sourceConfidenceRuleKeys)[number]
+export type SourceConfidenceRuleSeverity = 'block_publish' | 'info' | 'warn'
+export type SourceConfidenceRuleScopeKind = 'global' | 'provider' | 'source'
+
+export interface SourceConfidenceRuleLayer {
+  attachmentId: string
+  scopeKind: SourceConfidenceRuleScopeKind
+  scopeRef: string | null
+}
+
+export interface SourceEffectiveConfidenceRule {
+  attachmentId: string | null
+  enabled: boolean
+  layers: SourceConfidenceRuleLayer[]
+  params: Record<string, number>
+  provenance: SourceConfidenceRuleLayer | null
+  ruleKey: SourceConfidenceRuleKey
+  severity: SourceConfidenceRuleSeverity
+  severityAttachmentId: string | null
+}
+
+export interface SourceEffectiveConfidenceRulesResponse {
+  providerKey: string
+  rules: SourceEffectiveConfidenceRule[]
+  sourceId: string
+  sourceSlug?: string
+}
+
+export interface SourceConfidenceRuleAttachment {
+  createdAt: string
+  createdBy: string
+  enabled: boolean
+  id: string
+  params: Record<string, number> | null
+  revokedAt: string | null
+  ruleKey: SourceConfidenceRuleKey
+  scopeKind: SourceConfidenceRuleScopeKind
+  scopeRef: string | null
+  severity: SourceConfidenceRuleSeverity | null
+}
+
+export interface SourceConfidenceRuleAttachmentInput {
+  enabled: boolean
+  params?: Record<string, number> | null
+  ruleKey: SourceConfidenceRuleKey
+  scopeKind: SourceConfidenceRuleScopeKind
+  scopeRef?: string | null
+  severity?: SourceConfidenceRuleSeverity | null
+}
+
+export interface SourceConfidenceRuleAttachmentResponse {
+  attachment: SourceConfidenceRuleAttachment
+}

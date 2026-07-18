@@ -129,7 +129,7 @@ export function rethrowProfileDocumentError(error: unknown): never {
     throw new ValedictorianProtocolError()
   }
 
-  throw createFailClosedHttpError(error.status)
+  throw createFailClosedHttpError(error.status, responseBody)
 }
 
 export function rethrowRawRecordDetailError(error: unknown): never {
@@ -139,7 +139,7 @@ export function rethrowRawRecordDetailError(error: unknown): never {
     || error.status > 599
   ) {
     if (error instanceof ValedictorianHttpError) {
-      throw createFailClosedHttpError(error.status)
+      throw createFailClosedHttpError(error.status, getHttpErrorResponseBody(error))
     }
     throw error
   }
@@ -160,7 +160,7 @@ export function rethrowRawRecordDetailError(error: unknown): never {
     throw new ValedictorianProtocolError()
   }
 
-  throw createFailClosedHttpError(error.status)
+  throw createFailClosedHttpError(error.status, responseBody)
 }
 
 function isConnectorOptionQueryErrorCode(value: unknown): value is ConnectorOptionQueryErrorCode {
@@ -192,7 +192,7 @@ export function rethrowConnectorOptionQueryError(error: unknown): never {
     throw new ValedictorianProtocolError()
   }
 
-  throw createFailClosedHttpError(error.status)
+  throw createFailClosedHttpError(error.status, responseBody)
 }
 
 export function requireResponseIdentity<T>(value: T, actual: string, expected: string): T {

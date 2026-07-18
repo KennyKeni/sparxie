@@ -1,11 +1,17 @@
 import { z } from 'zod'
 import {
   careerSourceLifecycleStatuses,
+  sourceConfidenceRuleKeys,
   sourceRunStatuses,
   type CareerSourceLifecycleResponse,
   type CareerSourceRegistrationResponse,
   type CareerSourcesListResponse,
   type SourceCompaniesListResponse,
+  type SourceConfidenceRuleAttachmentInput,
+  type SourceConfidenceRuleAttachmentResponse,
+  type SourceEffectiveConfidenceRulesResponse,
+  type SourceEvidenceArtifactResponse,
+  type SourceJobSnapshotResponse,
   type SourceJobsListResponse,
   type SourceProbeResponse,
   type SourceRunOverrideResponse,
@@ -286,6 +292,115 @@ export const sourceRunResponseSchema: z.ZodType<SourceRunResponse> = z
         confidenceResults: z.array(sourceRunConfidenceResultSchema),
         evidenceArtifacts: z.array(z.string()),
         evidenceBundleId: z.string().nullable(),
+      })
+      .strict(),
+  })
+  .strict()
+
+export const sourceEvidenceArtifactResponseSchema: z.ZodType<SourceEvidenceArtifactResponse> = z
+  .object({
+    bytes: z.instanceof(Uint8Array),
+    contentType: z.string().nullable(),
+  })
+  .strict()
+
+const sourceConfidenceRuleScopeKindSchema = z.enum(['global', 'provider', 'source'])
+const sourceConfidenceRuleSeveritySchema = z.enum(['block_publish', 'info', 'warn'])
+const sourceConfidenceRuleParamsSchema = z.record(z.string(), z.number())
+
+const sourceConfidenceRuleLayerSchema = z
+  .object({
+    attachmentId: z.string(),
+    scopeKind: sourceConfidenceRuleScopeKindSchema,
+    scopeRef: z.string().nullable(),
+  })
+  .strict()
+
+const sourceConfidenceRuleAttachmentSchema = z
+  .object({
+    createdAt: z.string(),
+    createdBy: z.string(),
+    enabled: z.boolean(),
+    id: z.string(),
+    params: sourceConfidenceRuleParamsSchema.nullable(),
+    revokedAt: z.string().nullable(),
+    ruleKey: z.enum(sourceConfidenceRuleKeys),
+    scopeKind: sourceConfidenceRuleScopeKindSchema,
+    scopeRef: z.string().nullable(),
+    severity: sourceConfidenceRuleSeveritySchema.nullable(),
+  })
+  .strict()
+
+export const sourceConfidenceRuleAttachmentInputSchema:
+  z.ZodType<SourceConfidenceRuleAttachmentInput> = z
+  .object({
+    enabled: z.boolean(),
+    params: sourceConfidenceRuleParamsSchema.nullable().optional(),
+    ruleKey: z.enum(sourceConfidenceRuleKeys),
+    scopeKind: sourceConfidenceRuleScopeKindSchema,
+    scopeRef: z.string().nullable().optional(),
+    severity: sourceConfidenceRuleSeveritySchema.nullable().optional(),
+  })
+  .strict()
+
+export const sourceConfidenceRuleAttachmentResponseSchema:
+  z.ZodType<SourceConfidenceRuleAttachmentResponse> = z
+  .object({ attachment: sourceConfidenceRuleAttachmentSchema })
+  .strict()
+
+export const sourceEffectiveConfidenceRulesResponseSchema:
+  z.ZodType<SourceEffectiveConfidenceRulesResponse> = z
+  .object({
+    providerKey: z.string(),
+    rules: z.array(z
+      .object({
+        attachmentId: z.string().nullable(),
+        enabled: z.boolean(),
+        layers: z.array(sourceConfidenceRuleLayerSchema),
+        params: sourceConfidenceRuleParamsSchema,
+        provenance: sourceConfidenceRuleLayerSchema.nullable(),
+        ruleKey: z.enum(sourceConfidenceRuleKeys),
+        severity: sourceConfidenceRuleSeveritySchema,
+        severityAttachmentId: z.string().nullable(),
+      })
+      .strict()),
+    sourceId: z.string(),
+    sourceSlug: z.string().optional(),
+  })
+  .strict()
+
+const sourceJobSnapshotSampleSchema = z
+  .object({
+    applyUrl: z.string().nullable(),
+    detailUrl: z.string().nullable(),
+    locations: z.array(z
+      .object({
+        city: z.string().optional(),
+        countryCode: z.string().optional(),
+        rawText: z.string(),
+        region: z.string().optional(),
+        remote: z.boolean().optional(),
+      })
+      .strict()),
+    stableJobKey: z.string(),
+    title: z.string(),
+  })
+  .strict()
+
+export const sourceJobSnapshotResponseSchema: z.ZodType<SourceJobSnapshotResponse> = z
+  .object({
+    snapshot: z
+      .object({
+        addedCount: z.number(),
+        changedCount: z.number(),
+        jobCount: z.number(),
+        previousSnapshotId: z.string().nullable(),
+        publishedAt: z.string(),
+        removedCount: z.number(),
+        sampleJobs: z.array(sourceJobSnapshotSampleSchema),
+        snapshotId: z.string(),
+        sourceId: z.string(),
+        sourceRunId: z.string(),
       })
       .strict(),
   })

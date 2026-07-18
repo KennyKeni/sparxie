@@ -106,7 +106,7 @@ export function rethrowLocalSecretResolutionError(error: unknown): never {
     throw new ValedictorianProtocolError()
   }
 
-  throw createFailClosedHttpError(error.status)
+  throw createFailClosedHttpError(error.status, responseBody)
 }
 
 function splitCacheControlDirectives(header: string): string[] | null {

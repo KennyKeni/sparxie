@@ -1,4 +1,8 @@
 import {
+  valedictorianInternalErrorBodySchema,
+  valedictorianInternalErrorCode,
+  valedictorianInternalErrorKind,
+  valedictorianInternalErrorStatus,
   valedictorianSafeRequestFailedMessage,
   type ValedictorianFailureKind,
   type ValedictorianRetryAfter,
@@ -109,7 +113,30 @@ export function createFailClosedHttpError(
   status: number,
   responseBody?: unknown,
   facts?: { retryAfterHeader?: string | null },
-): ValedictorianHttpError<null> {
+): ValedictorianHttpError | ValedictorianProtocolError {
+  const internal = valedictorianInternalErrorBodySchema.safeParse(responseBody)
+  if (internal.success) {
+    if (status !== valedictorianInternalErrorStatus) {
+      return new ValedictorianProtocolError()
+    }
+    return new ValedictorianHttpError({
+      body: internal.data,
+      kind: valedictorianInternalErrorKind,
+      message: internal.data.message,
+      requestId: internal.data.requestId,
+      status,
+    })
+  }
+
+  if (
+    typeof responseBody === 'object'
+    && responseBody !== null
+    && 'code' in responseBody
+    && responseBody.code === valedictorianInternalErrorCode
+  ) {
+    return new ValedictorianProtocolError()
+  }
+
   const error = new ValedictorianHttpError({
     body: null,
     message: valedictorianSafeRequestFailedMessage,
