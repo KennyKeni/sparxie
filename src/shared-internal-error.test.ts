@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  ConnectorCreateHttpError,
   ConnectorScheduleHttpError,
   SourceIngestionHttpError,
   ValedictorianHttpError,
@@ -99,6 +100,27 @@ describe('shared internal failure contract', () => {
 
     expect(error).toBeInstanceOf(ValedictorianHttpError)
     expect(error).not.toBeInstanceOf(ConnectorScheduleHttpError)
+    expect(error).toMatchObject({ body, kind: 'internal', requestId: body.requestId })
+  })
+
+  it('does not discard a validated internal failure in the connector create rethrow path', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(body, { status: 500 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const error = await createHttpValedictorianClient({ baseUrl: 'https://api.test/' })
+      .forWorkspace('workspace-1')
+      .connectors.create({
+        id: 'jobright-a',
+        connectorId: 'jobright.resolver',
+        connectorVersion: '0.16.0',
+        displayName: 'Jobright',
+        enabled: true,
+      })
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ValedictorianHttpError)
+    expect(error).not.toBeInstanceOf(ConnectorCreateHttpError)
     expect(error).toMatchObject({ body, kind: 'internal', requestId: body.requestId })
   })
 

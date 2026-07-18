@@ -1,6 +1,8 @@
 import {
   InvalidPersistedRawDetailHttpError,
   invalidPersistedRawDetailErrorBody,
+  ConnectorCreateHttpError,
+  connectorCreateErrorBodies,
   ConnectorScheduleHttpError,
   connectorScheduleErrorBodies,
   LocalSecretResolutionHttpError,
@@ -14,6 +16,7 @@ import {
   parseValedictorianRetryAfterHeader,
   valedictorianFailureKindMessages,
   valedictorianFailureKinds,
+  type ConnectorCreateErrorBody,
   type InvalidPersistedRawDetailErrorBody,
   type ValedictorianFailureKind,
   type ValedictorianErrorBody,
@@ -75,6 +78,13 @@ const scheduleError = new ConnectorScheduleHttpError(
 )
 const scheduleKind: ValedictorianFailureKind = scheduleError.kind
 
+const createError = new ConnectorCreateHttpError(
+  connectorCreateErrorBodies.already_configured,
+  409,
+)
+const createBody: ConnectorCreateErrorBody = createError.body
+const createKind: ValedictorianFailureKind = createError.kind
+
 const transportError = new ValedictorianTransportError()
 const protocolError = new ValedictorianProtocolError()
 const retryAfter: ValedictorianRetryAfter | undefined = parseValedictorianRetryAfterHeader('12')
@@ -85,6 +95,8 @@ void httpError
 void profileKind
 void secretKind
 void scheduleKind
+void createBody
+void createKind
 void transportError
 void protocolError
 void retryAfter

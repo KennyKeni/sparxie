@@ -255,7 +255,9 @@ Malformed, noncanonical, or status-inconsistent contracted responses become
 `ValedictorianProtocolError`. Unknown or unvalidated error payloads fail closed
 to a safe generic HTTP failure with no raw body text in `message` or serialized
 diagnostics. Connector schedule failures use the closed schedule error codes with
-canonical bodies, statuses, and `ConnectorScheduleHttpError` mapping.
+canonical bodies, statuses, and `ConnectorScheduleHttpError` mapping. Connector
+create conflicts use the closed `already_configured` body with
+`ConnectorCreateHttpError` mapping.
 
 The one shared internal contract is strict and fixed:
 `{ code: 'internal_error', message: 'An unexpected error occurred.', requestId }`

@@ -1,17 +1,11 @@
 import {
-  ValedictorianHttpError,
-  ValedictorianProtocolError,
-  createFailClosedHttpError,
-  getHttpErrorResponseBody,
-} from './http-client-error.js'
-import {
-  invalidPersistedRawDetailErrorCode,
-  invalidPersistedRawDetailErrorBodySchema,
-  invalidPersistedRawDetailErrorKindByCode,
-  validateValedictorianEndpointError,
-  type InvalidPersistedRawDetailErrorBody,
-  type ValedictorianFailureKind,
-} from './http-error-contract.js'
+  connectorCreateErrorBodySchema,
+  connectorCreateErrorCodes,
+  connectorCreateErrorKindByCode,
+  connectorCreateErrorStatusByCode,
+  type ConnectorCreateErrorBody,
+  type ConnectorCreateErrorCode,
+} from './connector.js'
 import {
   connectorOptionQueryErrorBodySchema,
   connectorOptionQueryErrorCodes,
@@ -25,6 +19,20 @@ import {
   connectorRetirementActiveWorkConflictStatus,
   type ConnectorRetirementActiveWorkConflict,
 } from './connector-retirement.js'
+import {
+  ValedictorianHttpError,
+  ValedictorianProtocolError,
+  createFailClosedHttpError,
+  getHttpErrorResponseBody,
+} from './http-client-error.js'
+import {
+  invalidPersistedRawDetailErrorCode,
+  invalidPersistedRawDetailErrorBodySchema,
+  invalidPersistedRawDetailErrorKindByCode,
+  validateValedictorianEndpointError,
+  type InvalidPersistedRawDetailErrorBody,
+  type ValedictorianFailureKind,
+} from './http-error-contract.js'
 import {
   profileDocumentErrorBodySchema,
   profileDocumentErrorCodes,
@@ -94,6 +102,22 @@ export class ProfileDocumentHttpError extends ValedictorianHttpError<ProfileDocu
       kind: profileDocumentErrorKindByCode[body.code],
     })
     this.name = 'ProfileDocumentHttpError'
+    this.code = body.code
+  }
+}
+
+export class ConnectorCreateHttpError extends ValedictorianHttpError<ConnectorCreateErrorBody> {
+  readonly code: ConnectorCreateErrorCode
+  declare readonly kind: ValedictorianFailureKind
+
+  constructor(body: ConnectorCreateErrorBody, status: number) {
+    super({
+      body,
+      message: body.message,
+      status,
+      kind: connectorCreateErrorKindByCode[body.code],
+    })
+    this.name = 'ConnectorCreateHttpError'
     this.code = body.code
   }
 }
@@ -189,6 +213,40 @@ export function rethrowConnectorOptionQueryError(error: unknown): never {
     && responseBody !== null
     && 'code' in responseBody
     && isConnectorOptionQueryErrorCode(responseBody.code)) {
+    throw new ValedictorianProtocolError()
+  }
+
+  throw createFailClosedHttpError(error.status, responseBody)
+}
+
+function isConnectorCreateErrorCode(value: unknown): value is ConnectorCreateErrorCode {
+  return typeof value === 'string'
+    && (connectorCreateErrorCodes as readonly string[]).includes(value)
+}
+
+export function rethrowConnectorCreateError(error: unknown): never {
+  if (!(error instanceof ValedictorianHttpError)) throw error
+
+  const responseBody = getHttpErrorResponseBody(error)
+  const validated = validateValedictorianEndpointError({
+    body: responseBody,
+    status: error.status,
+    spec: {
+      bodySchema: connectorCreateErrorBodySchema,
+      statusByCode: connectorCreateErrorStatusByCode,
+      kindByCode: connectorCreateErrorKindByCode,
+    },
+  })
+  if (validated.ok) {
+    throw new ConnectorCreateHttpError(validated.body, validated.status)
+  }
+
+  if (
+    typeof responseBody === 'object'
+    && responseBody !== null
+    && 'code' in responseBody
+    && isConnectorCreateErrorCode(responseBody.code)
+  ) {
     throw new ValedictorianProtocolError()
   }
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  connectorCreateErrorBodies,
+  connectorCreateErrorBodySchema,
+  connectorCreateErrorCodes,
+  connectorCreateErrorKindByCode,
+  connectorCreateErrorPayloadSchema,
+  connectorCreateErrorStatusByCode,
   connectorInstanceSummarySchema,
   connectorInstancesListResultSchema,
   connectorRunSummarySchema,
@@ -538,6 +544,70 @@ describe('connector run schedule provenance contract', () => {
           ...truthfulLink,
           idempotencyKey: 'arbitrary-client-key',
         },
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('connector create error payload', () => {
+  it('exports canonical bodies, status, and kind maps for every closed code', () => {
+    expect([...connectorCreateErrorCodes]).toEqual(['already_configured'])
+    expect(connectorCreateErrorBodies).toEqual({
+      already_configured: {
+        code: 'already_configured',
+        message: 'This connector is already configured. Manage the existing instance.',
+      },
+    })
+    expect(connectorCreateErrorStatusByCode).toEqual({
+      already_configured: 409,
+    })
+    expect(connectorCreateErrorKindByCode).toEqual({
+      already_configured: 'conflict',
+    })
+    expect(Object.keys(connectorCreateErrorStatusByCode).sort()).toEqual(
+      [...connectorCreateErrorCodes].sort(),
+    )
+    expect(Object.keys(connectorCreateErrorKindByCode).sort()).toEqual(
+      [...connectorCreateErrorCodes].sort(),
+    )
+  })
+
+  it('accepts only canonical closed create error bodies and rejects free messages', () => {
+    for (const code of connectorCreateErrorCodes) {
+      const body = connectorCreateErrorBodies[code]
+      expect(connectorCreateErrorBodySchema.parse(body)).toEqual(body)
+      expect(connectorCreateErrorPayloadSchema.parse(body)).toEqual(body)
+      expect(
+        connectorCreateErrorPayloadSchema.safeParse({
+          code,
+          message: `error:${code}`,
+        }).success,
+      ).toBe(false)
+      expect(
+        connectorCreateErrorBodySchema.safeParse({
+          ...body,
+          message: `${body.message} with detail`,
+        }).success,
+      ).toBe(false)
+      expect(
+        connectorCreateErrorBodySchema.safeParse({
+          ...body,
+          detail: 'canary',
+        }).success,
+      ).toBe(false)
+    }
+
+    expect(
+      connectorCreateErrorPayloadSchema.safeParse({
+        code: 'not_found',
+        message: 'missing',
+      }).success,
+    ).toBe(false)
+    expect(
+      connectorCreateErrorPayloadSchema.safeParse({
+        code: 'already_configured',
+        message: 'already there',
+        stack: 'secret',
       }).success,
     ).toBe(false)
   })
