@@ -86,6 +86,19 @@ describe('source ingestion HTTP error mapping', () => {
     expect(error).toMatchObject({ body, code: body.code, kind: 'conflict', status: 409 })
   })
 
+  it('maps a malformed requestRun body as its endpoint-specific HTTP error', async () => {
+    const body = sourceRunErrorBodies.invalid_run_request
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(response(body, 400))
+
+    const error = await client(fetchMock).requestRun('source-1', { admit: true })
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(SourceIngestionHttpError)
+    expect(error).not.toBeInstanceOf(ValedictorianProtocolError)
+    expect(error).toMatchObject({ body, code: body.code, kind: 'validation', status: 400 })
+  })
+
   it('maps a missing source-scoped rule attachment target as a canonical 404', async () => {
     const body = careerSourceErrorBodies.career_source_not_found
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()

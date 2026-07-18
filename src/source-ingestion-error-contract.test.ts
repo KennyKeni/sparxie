@@ -91,6 +91,8 @@ describe('source ingestion safe error contracts', () => {
     expect(careerSourceErrorStatusByCode.source_registration_validation_failed).toBe(422)
     expect(sourceScheduleErrorStatusByCode.source_schedule_validation_failed).toBe(422)
     expect(sourceRunErrorStatusByCode.run_override_validation_failed).toBe(422)
+    expect(sourceRunErrorStatusByCode.invalid_run_request).toBe(400)
+    expect(sourceRunErrorKindByCode.invalid_run_request).toBe('validation')
     expect(sourceRunErrorStatusByCode.source_run_not_found).toBe(404)
     expect(sourceRunErrorStatusByCode.run_admission_denied).toBe(409)
     expect(sourceInfrastructureErrorStatusByCode).toEqual({
@@ -157,6 +159,25 @@ describe('source ingestion safe error contracts', () => {
         status: 409,
       })).toEqual({ ok: false, reason: 'malformed_body' })
     }
+  })
+
+  it('declares malformed SourceRun requests only for requestRun', () => {
+    const body = sourceRunErrorBodies.invalid_run_request
+
+    expect(body).toEqual({
+      code: 'invalid_run_request',
+      message: 'The SourceRun request is malformed.',
+    })
+    expect(validateSourceIngestionEndpointError({
+      body,
+      endpoint: 'requestRun',
+      status: 400,
+    })).toMatchObject({ body, kind: 'validation', ok: true, status: 400 })
+    expect(validateSourceIngestionEndpointError({
+      body,
+      endpoint: 'getRun',
+      status: 400,
+    })).toEqual({ ok: false, reason: 'unexpected_code' })
   })
 
   it('accepts only errors declared for the selected endpoint', () => {

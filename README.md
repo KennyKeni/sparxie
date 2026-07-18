@@ -277,6 +277,9 @@ use `400`, semantic validation uses `422`, authentication and authorization use
 infrastructure contracts use `429` and `503`. Only `source_rate_limited` and
 `source_unavailable` authorize parsing `Retry-After`.
 
+`requestRun` accepts an optional JSON body, but a declared JSON body with invalid
+syntax uses the endpoint-specific `invalid_run_request` contract at `400`.
+
 Probe `not-ready`, a missing SourceSchedule represented by `schedule: null`,
 SourceRun request/admission results, and persisted SourceRun lifecycle statuses are
 successful DTOs rather than thrown failures. The source client also covers the

@@ -156,6 +156,10 @@ export const sourceRunErrorBodies = Object.freeze({
     code: 'evidence_artifact_not_found',
     message: 'The EvidenceBundle artifact was not found.',
   },
+  invalid_run_request: {
+    code: 'invalid_run_request',
+    message: 'The SourceRun request is malformed.',
+  },
   invalid_run_override: {
     code: 'invalid_run_override',
     message: 'The SourceRun override request is malformed.',
@@ -180,6 +184,7 @@ export const sourceRunErrorBodies = Object.freeze({
 
 export const sourceRunErrorStatusByCode = Object.freeze({
   evidence_artifact_not_found: 404,
+  invalid_run_request: 400,
   invalid_run_override: 400,
   job_snapshot_not_found: 404,
   run_admission_denied: 409,
@@ -189,6 +194,7 @@ export const sourceRunErrorStatusByCode = Object.freeze({
 
 export const sourceRunErrorKindByCode = Object.freeze({
   evidence_artifact_not_found: 'not_found',
+  invalid_run_request: 'validation',
   invalid_run_override: 'validation',
   job_snapshot_not_found: 'not_found',
   run_admission_denied: 'conflict',
@@ -455,7 +461,7 @@ export const sourceIngestionEndpointErrorCodes = Object.freeze({
     'source_extraction_validation_failed', 'source_extraction_unavailable'],
   putRuleAttachment: ['invalid_rule_attachment', 'rule_attachment_validation_failed',
     'rule_attachment_conflict', 'career_source_not_found'],
-  requestRun: ['career_source_not_found', 'career_source_not_runnable'],
+  requestRun: ['career_source_not_found', 'career_source_not_runnable', 'invalid_run_request'],
   setSchedule: ['career_source_not_found', 'invalid_source_schedule',
     'source_schedule_validation_failed'],
   updateSourceLifecycle: ['career_source_not_found', 'invalid_lifecycle_status',
