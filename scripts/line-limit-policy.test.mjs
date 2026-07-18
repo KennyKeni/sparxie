@@ -90,5 +90,10 @@ describe('line-limit policy', () => {
     expect(lefthook).toContain('pnpm run lint:line-limit-policy -- --staged')
     expect(lefthook).toContain('*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}')
     expect(ciWorkflow).toContain('run: pnpm lint')
+    expect(ciWorkflow).toContain(
+      'types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]',
+    )
+    expect(ciWorkflow).toContain('cancel-in-progress: true')
+    expect(ciWorkflow).toContain("github.event.pull_request.draft == false")
   })
 })
