@@ -1,6 +1,4 @@
 import {
-  InvalidPersistedRawDetailHttpError,
-  invalidPersistedRawDetailErrorBody,
   ConnectorCreateHttpError,
   connectorCreateErrorBodies,
   ConnectorScheduleHttpError,
@@ -17,19 +15,10 @@ import {
   valedictorianFailureKindMessages,
   valedictorianFailureKinds,
   type ConnectorCreateErrorBody,
-  type InvalidPersistedRawDetailErrorBody,
   type ValedictorianFailureKind,
   type ValedictorianErrorBody,
   type ValedictorianRetryAfter,
 } from '../src/index.js'
-
-const error = new InvalidPersistedRawDetailHttpError(
-  invalidPersistedRawDetailErrorBody,
-  503,
-)
-
-const canonicalBody: InvalidPersistedRawDetailErrorBody = error.body
-const integrityKind: ValedictorianFailureKind = error.kind
 
 const kinds: typeof valedictorianFailureKinds = [
   'validation',
@@ -89,8 +78,6 @@ const transportError = new ValedictorianTransportError()
 const protocolError = new ValedictorianProtocolError()
 const retryAfter: ValedictorianRetryAfter | undefined = parseValedictorianRetryAfterHeader('12')
 
-void canonicalBody
-void integrityKind
 void httpError
 void profileKind
 void secretKind

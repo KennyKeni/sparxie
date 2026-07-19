@@ -1,0 +1,108 @@
+import { z } from 'zod'
+import {
+  historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
+  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListPageShape, lifecycleUrlSchema,
+  mutationResultSchema, removalInputSchema, removalResultSchema, restoreInputSchema,
+  restoreResultSchema, uuidV7Schema,
+} from './lifecycle-shared.js'
+import {
+  jobDestinationSchema, jobLocationSchema, jobRoleKinds, jobTermSchema,
+  lifecycleJobTimingModes, jobWorkModes,
+} from './job.js'
+
+export const pursuitApplicationStatuses = ['active', 'submitted', 'interviewing', 'offered', 'withdrawn', 'rejected', 'accepted'] as const
+
+export const pursuitLinkInputSchema = z.object({
+  kind: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200), url: lifecycleUrlSchema,
+}).strict()
+
+export const pursuitLinkSchema = pursuitLinkInputSchema.extend({ id: lifecycleIdSchema, isPrimary: z.boolean() }).strict()
+export type PursuitLink = z.infer<typeof pursuitLinkSchema>
+
+export const applicationPursuitSnapshotSchema = z.object({
+  jobFactsRevision: z.number().int().positive(), capturedAt: lifecycleInstantSchema,
+  companyName: z.string().trim().min(1).max(500), roleTitle: z.string().trim().min(1).max(500),
+  sourceName: z.string().trim().min(1).max(500), roleKind: z.enum(jobRoleKinds),
+  term: z.string().trim().min(1).max(200).nullable(), terms: z.array(jobTermSchema).max(20),
+  timingMode: z.enum(lifecycleJobTimingModes), startDate: z.iso.date().nullable(), endDate: z.iso.date().nullable(),
+  location: jobLocationSchema.nullable(), workMode: z.enum(jobWorkModes),
+  initialDestination: jobDestinationSchema.nullable(), initialLinks: z.array(pursuitLinkInputSchema).max(50),
+}).strict()
+
+export type ApplicationPursuitSnapshot = z.infer<typeof applicationPursuitSnapshotSchema>
+
+export const applicationSchema = z.object({
+  id: lifecycleIdSchema, workspaceId: lifecycleIdSchema, opportunityId: lifecycleIdSchema, jobId: uuidV7Schema,
+  revision: z.number().int().positive(), status: z.enum(pursuitApplicationStatuses),
+  snapshot: applicationPursuitSnapshotSchema,
+  companyName: z.string().trim().min(1).max(500), sourceName: z.string().trim().min(1).max(500),
+  links: z.array(pursuitLinkSchema).max(100),
+  createdAt: lifecycleInstantSchema, updatedAt: lifecycleInstantSchema, removedAt: lifecycleInstantSchema.nullable(),
+}).strict()
+
+export type Application = z.infer<typeof applicationSchema>
+
+export const lifecycleApplicationListInputSchema = z.object({
+  opportunityId: lifecycleIdSchema.optional(), jobId: uuidV7Schema.optional(),
+  status: z.enum(pursuitApplicationStatuses).optional(), includeRemoved: z.boolean().optional(),
+  limit: z.number().int().min(1).max(200).optional(), cursor: lifecycleIdSchema.optional(),
+}).strict()
+export type LifecycleApplicationListInput = z.infer<typeof lifecycleApplicationListInputSchema>
+export const lifecycleApplicationListResultSchema = z.object({ items: z.array(applicationSchema), ...lifecycleListPageShape }).strict()
+export type LifecycleApplicationListResult = z.infer<typeof lifecycleApplicationListResultSchema>
+
+const applicationEditBase = {
+  applicationId: lifecycleIdSchema, expectedRevision: z.number().int().positive(), actor: lifecycleActorSchema,
+} as const
+
+export const updateApplicationCompanyInputSchema = z.object({
+  ...applicationEditBase, companyName: z.string().trim().min(1).max(500),
+  rationale: z.string().trim().min(1).max(1_000),
+}).strict()
+export type UpdateApplicationCompanyInput = z.infer<typeof updateApplicationCompanyInputSchema>
+
+export const updateApplicationSourceInputSchema = z.object({
+  ...applicationEditBase, sourceName: z.string().trim().min(1).max(500),
+  rationale: z.string().trim().min(1).max(1_000),
+}).strict()
+export type UpdateApplicationSourceInput = z.infer<typeof updateApplicationSourceInputSchema>
+
+export const updatePursuitApplicationStatusInputSchema = z.object({
+  ...applicationEditBase, status: z.enum(pursuitApplicationStatuses),
+  rationale: z.string().trim().min(1).max(1_000),
+}).strict()
+export type UpdatePursuitApplicationStatusInput = z.infer<typeof updatePursuitApplicationStatusInputSchema>
+
+export const createPursuitLinkInputSchema = z.object({ ...applicationEditBase, link: pursuitLinkInputSchema, primary: z.boolean() }).strict()
+export type CreatePursuitLinkInput = z.infer<typeof createPursuitLinkInputSchema>
+export const updatePursuitLinkInputSchema = z.object({ ...applicationEditBase, linkId: lifecycleIdSchema, link: pursuitLinkInputSchema, primary: z.boolean() }).strict()
+export type UpdatePursuitLinkInput = z.infer<typeof updatePursuitLinkInputSchema>
+export const removePursuitLinkInputSchema = z.object({
+  ...applicationEditBase, linkId: lifecycleIdSchema, rationale: z.string().trim().min(1).max(1_000),
+}).strict()
+export type RemovePursuitLinkInput = z.infer<typeof removePursuitLinkInputSchema>
+
+export const refreshApplicationSnapshotInputSchema = z.object({
+  ...applicationEditBase, expectedJobFactsRevision: z.number().int().positive(),
+  preserveCompanyEdit: z.boolean(), preserveSourceEdit: z.boolean(), preserveLinkEdits: z.boolean(),
+  rationale: z.string().trim().min(1).max(1_000),
+}).strict()
+export type RefreshApplicationSnapshotInput = z.infer<typeof refreshApplicationSnapshotInputSchema>
+
+export const applicationMutationResultSchema = mutationResultSchema(applicationSchema)
+export type ApplicationMutationResult = z.infer<typeof applicationMutationResultSchema>
+
+export const applicationHistoryKinds = ['created', 'status_changed', 'company_edited', 'source_edited', 'link_created', 'link_updated', 'link_removed', 'snapshot_refreshed', 'removed', 'restored'] as const
+export const applicationHistoryEntrySchema = z.object({
+  applicationId: lifecycleIdSchema, revision: z.number().int().positive(), kind: z.enum(applicationHistoryKinds),
+  snapshot: applicationSchema, audit: lifecycleAuditEvidenceSchema,
+}).strict()
+export type ApplicationHistoryEntry = z.infer<typeof applicationHistoryEntrySchema>
+export const lifecycleApplicationHistoryInputSchema = historyListInputSchema
+export const lifecycleApplicationHistoryResultSchema = z.object({ items: z.array(applicationHistoryEntrySchema), ...lifecycleListPageShape }).strict()
+export type LifecycleApplicationHistoryResult = z.infer<typeof lifecycleApplicationHistoryResultSchema>
+
+export const removeLifecycleApplicationInputSchema = removalInputSchema
+export const removeLifecycleApplicationResultSchema = removalResultSchema
+export const restoreLifecycleApplicationInputSchema = restoreInputSchema
+export const restoreLifecycleApplicationResultSchema = restoreResultSchema

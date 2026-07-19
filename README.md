@@ -130,117 +130,43 @@ not conversely force blocked health. A yielded/skipped run remains intentionally
 ambiguous. A cooldown is present exactly when the row presents matching
 cooling-down health and run outcome.
 
-## Sourcing destination provenance
+## Capture → Job → Opportunity → Application
 
-Sourcing finding reads expose projection-owned destination provenance through
-`destinationClass`, `destinationUrl`, `intermediaryUrl`, and `usability`.
-Projection-capable servers return all four fields. Their relationship to the
-compatibility fields is exact:
-
-| Finding kind | `destinationClass` | `destinationUrl` | `intermediaryUrl` | `usability` | `officialUrl` | `sourceUrl` |
-| --- | --- | --- | --- | --- | --- | --- |
-| Employer or ATS | `employer_or_ats` | Usable employer/ATS URL | Upstream intermediary URL or `null` | `usable` | Same as `destinationUrl` | Same as `intermediaryUrl` |
-| Third-party job posting | `third_party_job_posting` | Usable job-specific third-party URL | Upstream intermediary URL or `null` | `usable` | `null` | Same as `destinationUrl` |
-| Review-only or unresolved | `null` | `null` | Upstream intermediary URL or `null` | `review_only` | `null` | Same as `intermediaryUrl`; never a usable destination |
-
-The four new read properties are compatibility-optional in TypeScript for the
-`0.7.x` migration. An omitted property means the response came from a server
-that has not adopted this projection contract; it must not be inferred from
-`officialUrl`, `sourceUrl`, or the hostname, and it is distinct from an explicit
-`null`. Upgrade servers before requiring the fields in a consumer. Ordinary
-finding create, update, decision, and candidate-processing inputs cannot set
-these projection-owned properties, and the HTTP client strips them from
-untyped mutation payloads.
-
-## Raw sourcing intake
-
-New sourcing producers submit sparse observations through the workspace-scoped
-raw intake contract:
+The workspace client exposes the four lifecycle aggregates directly. There is
+no compatibility `sourcing` namespace.
 
 ```ts
-await workspace.sourcing.rawRecords.ingestBatch({
-  records: [
-    {
-      intakeItemId: 'batch-item-1',
-      adapter: { id: 'valedictorian-cli', kind: 'cli', version: '0.12.0' },
-      observedAt: new Date().toISOString(),
-      reportedOrigin: { kind: 'job_board', name: 'LinkedIn' },
-      payload: { url: 'https://www.linkedin.com/jobs/view/123' },
-    },
-  ],
+const created = await workspace.captures.create({
+  evidenceMode: 'reported',
+  adapter: { id: 'valedictorian-cli', kind: 'cli', version: '1.0.0' },
+  observedAt: new Date().toISOString(),
+  providerRecordId: 'opening-448',
+  providerSchema: 'job-opening/v1',
+  payload: { employer: 'Northstar Robotics', title: 'Controls Intern' },
+  evidence: [],
 })
 ```
 
-`adapter` records how data entered Valedictorian; `reportedOrigin` records where
-the job was observed. Raw records may omit provider identity and every canonical
-job field. Payload and evidence values are JSON-safe and use the exported
-`MAX_RAW_SOURCE_*` transport limits. List sanitized raw-record summaries with
-`rawRecords.list`, read the immutable record/receipt with `rawRecords.get`,
-read normalization and gate outcomes with `rawRecords.normalization.get`, and
-request version-targeted reprocessing with `rawRecords.replay`.
-`rawRecords.list({ connectorRunId })` matches exact run lineage on any persisted
-occurrence, including records whose latest occurrence belongs to a later run.
+A Capture preserves observed evidence and its immutable Evidence mode.
+Corrections, removals, and restores create attributable history revisions. A
+Job owns UUIDv7 identity, canonical fact and availability revisions, normalized
+external identities, and exact Capture/evidence references. An Opportunity
+references its Job and owns only workspace evaluation, rank, cutoff,
+disposition, and override state.
 
-Every batch record requires a unique opaque `intakeItemId`. Receipts echo that
-transient identifier so the typed client can correlate reordered responses,
-reject duplicate/missing/unknown items, and validate connector capture against
-the matching request without persisting the batch identity.
+An Application references both its Opportunity and Job. Promotion copies a
+stable pursuit snapshot containing company, role, source, term/timing,
+location/work-mode, and initial destination/link facts. Later Job revisions do
+not rewrite an active pursuit. `applications.refreshSnapshot` performs an
+explicit revision and lets callers preserve company, source, and link edits;
+those three edit categories also have dedicated commands.
 
-Connector adapters require a `capture` containing `connectorInstanceId`,
-`connectorRunId`, and opaque `executionScopeId`. Compatible servers resolve those references inside the
-workspace named by the HTTP route and validate the producer's adapter against
-the registered connector with `createBoundRawSourceRecordInputSchema`. A
-producer cannot supply a workspace or override the registered adapter lineage.
-The accepted capture is returned on the intake occurrence, so repeated runs can
-share a deduplicated raw record without conflating their run provenance.
-
-The execution scope is derived by the trusted host. The binding validator equality-checks it with the registered
-connector scope; it contains no workspace, account, credential, or session
-components. Provider normalization attempts carry that scope, while pure or
-generic attempts use `null`. Resolver declarations explicitly state a closed
-`scopeRequirement` of `source` or `none`; the bound normalization-result schema
-correlates source-scoped attempts with a trusted raw revision and execution
-scope. Authentication expiry and rate limiting are
-scope-level operation outcomes; transient and permanent record failures remain
-item-level outcomes and never leak raw provider responses.
-
-Connector runs report continuous synchronization rather than requested-result
-targets. `newestFrontier`, `historicalBackfill`, `pendingResolutionCount`, and
-the typed run `outcome` distinguish resumable yields, caught-up state,
-cooldowns, required action, and explicit boundary or source exhaustion.
-Provider checkpoints stay behind the separate checkpoint endpoint and are not
-included in public progress DTOs. A yielded invocation is not synchronization
-completion, and `caught_up` is valid only when both frontiers are caught up and
-no resolutions are pending.
-
-Invocation lifecycle is explicit: queued/running runs use `in_progress`, failed
-runs use `failed`, and cancelled runs use `cancelled`. Completed or skipped
-invocations may report the remaining non-in-progress synchronization outcomes
-according to backend admission behavior, but cannot masquerade as failure or
-cancellation. Run and connector-status warning counts exactly match their
-sanitized warning arrays.
-
-Intake receipts and raw-record reads expose the nullable source-entity identity;
-promoted canonical-candidate references always identify their source entity.
-Gate outcomes are `passed`, `needs_enrichment`, `rejected`, or `failed`.
-Canonical candidates use explicit `unknown` employment/seniority and `unclear`
-work-mode values instead of nullable enums, while optional structured location
-and compensation facts may be `null`.
-
-Canonical finding creation carries `rawRevisionId` and `canonicalCandidateId`
-together with typed `destination`, employment type, seniority, location,
-compensation, work mode, and posted time. Finding reads expose the same fields
-as compatibility-optional properties so existing persisted findings remain
-readable. An omitted property identifies a legacy projection; newly projected
-facts use explicit `unknown`, `unclear`, or `null` values and must never be
-guessed from titles, URLs, or location defaults.
-
-The existing `sourcing.candidates.process` and `sourcing.findings.create`
-methods remain wire-compatible for consumers that already produce canonical
-data, but are deprecated as producer entry points. Finding reads and lifecycle
-operations remain supported. New CLI, connector, manual-entry, and import
-producers should use raw intake so normalization evidence and gate decisions are
-auditable.
+`captures.promoteToJob`, `jobs.promoteToOpportunity`, and
+`opportunities.promoteToApplication` are idempotent and accept bounded
+idempotency keys. Structural failures use the closed lifecycle blocker codes;
+policy outcomes use typed warnings. Warning overrides require actor, warning
+codes, and rationale. Removal commands require an explicit dependent-handling
+choice and return typed affected or blocking lineage.
 
 ## Error contracts
 

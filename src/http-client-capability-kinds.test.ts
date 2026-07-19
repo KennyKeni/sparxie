@@ -5,8 +5,6 @@ import {
   ConnectorRetirementConflictError,
   ConnectorScheduleHttpError,
   createHttpValedictorianClient,
-  InvalidPersistedRawDetailHttpError,
-  invalidPersistedRawDetailErrorBody,
   LocalSecretResolutionHttpError,
   connectorCreateErrorBodies,
   connectorCreateErrorCodes,
@@ -30,7 +28,6 @@ import {
   profileDocumentErrorKindByCode,
   profileDocumentErrorStatusByCode,
   ProfileDocumentHttpError,
-  invalidPersistedRawDetailErrorKindByCode,
 } from './index.js'
 import { jsonResponse } from './http-client.test-support.js'
 
@@ -94,9 +91,6 @@ describe('validated capability failure kinds', () => {
       [...connectorCreateErrorCodes].sort(),
     )
 
-    expect(invalidPersistedRawDetailErrorKindByCode).toEqual({
-      invalid_persisted_raw_detail: 'integrity',
-    })
   })
 
   it('attaches non-optional kind on validated profile document HTTP failures', async () => {
@@ -131,7 +125,7 @@ describe('validated capability failure kinds', () => {
     }
   })
 
-  it('attaches kind on validated local-secret, option-query, raw-detail, and retirement failures', async () => {
+  it('attaches kind on validated local-secret, option-query, and retirement failures', async () => {
     for (const code of localSecretResolutionErrorCodes) {
       const body = localSecretResolutionErrorBodies[code]
       const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
@@ -198,24 +192,6 @@ describe('validated capability failure kinds', () => {
         code,
         kind: connectorOptionQueryErrorKindByCode[code],
         status: connectorOptionQueryErrorStatusByCode[code],
-      })
-    }
-
-    {
-      const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      fetchMock.mockResolvedValueOnce(
-        jsonResponse(invalidPersistedRawDetailErrorBody, { status: 503 }),
-      )
-      vi.stubGlobal('fetch', fetchMock)
-      const error = await createHttpValedictorianClient({
-        baseUrl: 'https://valedictorian.test',
-      })
-        .forWorkspace('workspace-1')
-        .sourcing.rawRecords.get('raw-1')
-        .catch((caught: unknown) => caught)
-      expect(error).toBeInstanceOf(InvalidPersistedRawDetailHttpError)
-      expect(error).toMatchObject({
-        kind: invalidPersistedRawDetailErrorKindByCode.invalid_persisted_raw_detail,
       })
     }
 
