@@ -29,10 +29,10 @@ export interface ConnectorRetirementResult {
   }
   preservedLineage: {
     connectorRuns: true
-    rawSourceRecords: true
+    captures: true
     normalizationAttempts: true
-    canonicalCandidates: true
-    sourcingFindings: true
+    jobs: true
+    opportunities: true
   }
 }
 
@@ -85,10 +85,10 @@ export const connectorRetirementResultSchema: z.ZodType<ConnectorRetirementResul
     preservedLineage: z
       .object({
         connectorRuns: z.literal(true),
-        rawSourceRecords: z.literal(true),
+        captures: z.literal(true),
         normalizationAttempts: z.literal(true),
-        canonicalCandidates: z.literal(true),
-        sourcingFindings: z.literal(true),
+        jobs: z.literal(true),
+        opportunities: z.literal(true),
       })
       .strict(),
   })

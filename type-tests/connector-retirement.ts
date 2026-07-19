@@ -32,10 +32,10 @@ const retirementResult: ConnectorRetirementResult = {
   },
   preservedLineage: {
     connectorRuns: true,
-    rawSourceRecords: true,
+    captures: true,
     normalizationAttempts: true,
-    canonicalCandidates: true,
-    sourcingFindings: true,
+    jobs: true,
+    opportunities: true,
   },
 }
 

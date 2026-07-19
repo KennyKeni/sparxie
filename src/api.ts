@@ -27,7 +27,7 @@ export const valedictorianApiPaths = {
   policyConfigReset: '/v1/policy/config/reset',
   policyEvidence: '/v1/policy/evidence',
   policyEvaluateApplication: '/v1/policy/evaluate/application',
-  policyEvaluateSourcingCandidate: '/v1/policy/evaluate/sourcing-candidate',
+  policyEvaluateOpportunity: '/v1/policy/evaluate/opportunity',
   policyEvaluateRunWindow: '/v1/policy/evaluate/run-window',
   actionQueue: '/v1/action-queue',
   runs: '/v1/runs',
@@ -36,6 +36,12 @@ export const valedictorianApiPaths = {
   connectorOverview: '/v1/connectors/overview',
   application(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}`
+  },
+  applicationAttempts(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/attempts`
+  },
+  applicationEvents(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/events`
   },
   applicationCompany(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}/company`

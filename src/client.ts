@@ -37,7 +37,7 @@ import type {
 import type {
   EvaluateApplicationPolicyInput,
   EvaluateRunWindowPolicyInput,
-  EvaluateSourcingCandidatePolicyInput,
+  EvaluateOpportunityPolicyInput,
   PolicyConfig,
   PolicyConfigPatch,
   PolicyDecision,
@@ -185,7 +185,7 @@ export interface ValedictorianWorkspaceClient extends LifecycleWorkspaceClient {
     }
     evaluate: {
       application(input: EvaluateApplicationPolicyInput): Promise<PolicyDecision>
-      sourcingCandidate(input: EvaluateSourcingCandidatePolicyInput): Promise<PolicyDecision>
+      opportunity(input: EvaluateOpportunityPolicyInput): Promise<PolicyDecision>
       runWindow(input: EvaluateRunWindowPolicyInput): Promise<PolicyRunWindowDecision>
     }
   }

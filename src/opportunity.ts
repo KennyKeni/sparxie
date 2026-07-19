@@ -1,17 +1,18 @@
 import { z } from 'zod'
 import {
-  historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
-  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListPageShape, mutationResultSchema,
+  duplicateResolutionSchema, historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
+  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListResultSchema, mutationResultSchema,
   removalInputSchema, removalResultSchema, restoreInputSchema, restoreResultSchema,
-  uuidV7Schema, warningOverrideSchema,
+  warningOverrideSchema,
 } from './lifecycle-shared.js'
+import { jobIdSchema } from './job.js'
 
 export const opportunityFitStates = ['fit', 'possible', 'not_fit', 'unknown'] as const
 export const opportunityCutoffStates = ['above', 'below', 'not_evaluated'] as const
 export const opportunityDispositions = ['reviewing', 'pursue', 'hold', 'declined', 'archived'] as const
 
 export const opportunitySchema = z.object({
-  id: lifecycleIdSchema, workspaceId: lifecycleIdSchema, jobId: uuidV7Schema,
+  id: lifecycleIdSchema, workspaceId: lifecycleIdSchema, jobId: jobIdSchema,
   revision: z.number().int().positive(), fit: z.enum(opportunityFitStates),
   rank: z.number().int().positive().nullable(), cutoff: z.enum(opportunityCutoffStates),
   disposition: z.enum(opportunityDispositions), override: warningOverrideSchema.nullable(),
@@ -22,13 +23,22 @@ export const opportunitySchema = z.object({
 export type Opportunity = z.infer<typeof opportunitySchema>
 
 export const opportunityListInputSchema = z.object({
-  jobId: uuidV7Schema.optional(), fit: z.enum(opportunityFitStates).optional(),
+  jobId: jobIdSchema.optional(), fit: z.enum(opportunityFitStates).optional(),
   disposition: z.enum(opportunityDispositions).optional(), includeRemoved: z.boolean().optional(),
   limit: z.number().int().min(1).max(200).optional(), cursor: lifecycleIdSchema.optional(),
 }).strict()
 export type OpportunityListInput = z.infer<typeof opportunityListInputSchema>
-export const opportunityListResultSchema = z.object({ items: z.array(opportunitySchema), ...lifecycleListPageShape }).strict()
+export const opportunityListResultSchema = lifecycleListResultSchema(opportunitySchema)
 export type OpportunityListResult = z.infer<typeof opportunityListResultSchema>
+
+export const createOpportunityInputSchema = z.object({
+  idempotencyKey: lifecycleIdSchema, actor: lifecycleActorSchema,
+  jobId: jobIdSchema, expectedJobFactsRevision: z.number().int().positive(),
+  fit: z.enum(opportunityFitStates), rank: z.number().int().positive().nullable(),
+  cutoff: z.enum(opportunityCutoffStates), disposition: z.enum(opportunityDispositions),
+  override: warningOverrideSchema.optional(), duplicateResolution: duplicateResolutionSchema.optional(),
+}).strict()
+export type CreateOpportunityInput = z.infer<typeof createOpportunityInputSchema>
 
 export const updateOpportunityEvaluationInputSchema = z.object({
   opportunityId: lifecycleIdSchema, expectedRevision: z.number().int().positive(), actor: lifecycleActorSchema,
@@ -54,7 +64,7 @@ export const opportunityHistoryEntrySchema = z.object({
 }).strict()
 export type OpportunityHistoryEntry = z.infer<typeof opportunityHistoryEntrySchema>
 export const opportunityHistoryInputSchema = historyListInputSchema
-export const opportunityHistoryResultSchema = z.object({ items: z.array(opportunityHistoryEntrySchema), ...lifecycleListPageShape }).strict()
+export const opportunityHistoryResultSchema = lifecycleListResultSchema(opportunityHistoryEntrySchema)
 export type OpportunityHistoryResult = z.infer<typeof opportunityHistoryResultSchema>
 
 export const removeOpportunityInputSchema = removalInputSchema

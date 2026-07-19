@@ -275,7 +275,7 @@ export function createHttpValedictorianClient({
       request,
       actionQueueListQueryToSearchParams,
     }),
-    ...createLifecycleHttpMethods({ pathFor, request }),
+    ...createLifecycleHttpMethods({ pathFor, request, workspaceId }),
     connectors: {
       ...createConnectorCapabilityHttpMethods({
         pathFor,

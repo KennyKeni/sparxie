@@ -7,7 +7,9 @@ import {
 } from './capture.js'
 import type { LifecycleWorkspaceClient } from './lifecycle-client.js'
 import {
-  applicationMutationResultSchema, applicationSchema, createPursuitLinkInputSchema,
+  applicationAttemptsListResultSchema, applicationEventsListResultSchema,
+  applicationMutationResultSchema, applicationSchema, applicationTechnicalListInputSchema,
+  createApplicationInputSchema, createPursuitLinkInputSchema,
   lifecycleApplicationHistoryInputSchema, lifecycleApplicationHistoryResultSchema,
   lifecycleApplicationListInputSchema, lifecycleApplicationListResultSchema,
   refreshApplicationSnapshotInputSchema, removePursuitLinkInputSchema,
@@ -20,17 +22,18 @@ import {
   promoteOpportunityToApplicationInputSchema, promoteOpportunityToApplicationResultSchema,
 } from './lifecycle-promotions.js'
 import {
-  addJobExternalIdentityInputSchema, correctJobFactsInputSchema, jobHistoryInputSchema,
+  addJobExternalIdentityInputSchema, correctJobFactsInputSchema, createJobInputSchema, jobHistoryInputSchema,
   jobHistoryResultSchema, jobListInputSchema, jobListResultSchema, jobMutationResultSchema,
-  jobSchema, removeJobExternalIdentityInputSchema, updateJobAvailabilityInputSchema,
+  jobIdSchema, jobSchema, removeJobExternalIdentityInputSchema, removeJobInputSchema, restoreJobInputSchema,
+  updateJobAvailabilityInputSchema,
 } from './job.js'
-import { ValedictorianHttpError, parseValedictorianContractValue } from './http-client-error.js'
+import { ValedictorianHttpError, ValedictorianProtocolError, parseValedictorianContractValue } from './http-client-error.js'
 import {
   removalInputSchema, removalResultSchema,
   restoreInputSchema, restoreResultSchema,
 } from './lifecycle-shared.js'
 import {
-  opportunityHistoryInputSchema, opportunityHistoryResultSchema, opportunityListInputSchema,
+  createOpportunityInputSchema, opportunityHistoryInputSchema, opportunityHistoryResultSchema, opportunityListInputSchema,
   opportunityListResultSchema, opportunityMutationResultSchema, opportunitySchema,
   updateOpportunityDispositionInputSchema, updateOpportunityEvaluationInputSchema,
 } from './opportunity.js'
@@ -58,9 +61,11 @@ function bodyWithout(input: Record<string, unknown>, ...keys: string[]) {
 export function createLifecycleHttpMethods({
   pathFor,
   request,
+  workspaceId,
 }: {
   pathFor: (path: string) => string
   request: LifecycleRequest
+  workspaceId: string
 }): LifecycleWorkspaceClient {
   const parse = <T>(schema: z.ZodType<T>, value: unknown) =>
     parseValedictorianContractValue(schema, value)
@@ -74,223 +79,354 @@ export function createLifecycleHttpMethods({
     }
   }
 
+  function requireResource<T extends { id: string; workspaceId: string }>(resource: T, expectedId?: string) {
+    if (resource.workspaceId !== workspaceId || (expectedId !== undefined && resource.id !== expectedId)) {
+      throw new ValedictorianProtocolError()
+    }
+    return resource
+  }
+
+  function requireMutation<T extends { status: string; resource?: { id: string; workspaceId: string } }>(result: T, expectedId?: string) {
+    if (result.status === 'succeeded' && result.resource) requireResource(result.resource, expectedId)
+    return result
+  }
+
+  function requireResultId<T extends { id: string }>(result: T, expectedId: string) {
+    if (result.id !== expectedId) throw new ValedictorianProtocolError()
+    return result
+  }
+
+  function requireAppliedChoices<T extends {
+    status: string; duplicateResolution?: unknown; override?: unknown; audit?: { override?: unknown }
+  }>(
+    result: T,
+    input: object,
+  ): T {
+    if (result.status !== 'succeeded' && result.status !== 'promoted') return result
+    const inputRecord = input as Record<string, unknown>
+    const expectedDuplicate = inputRecord.duplicateResolution ?? null
+    const expectedOverride = inputRecord.override ?? null
+    const reportedOverride = 'override' in result ? result.override : result.audit?.override ?? null
+    if (JSON.stringify(result.duplicateResolution ?? null) !== JSON.stringify(expectedDuplicate)
+      || JSON.stringify(reportedOverride ?? null) !== JSON.stringify(expectedOverride)) {
+      throw new ValedictorianProtocolError()
+    }
+    return result
+  }
+
   return {
     captures: {
       async list(input = {}) {
         const query = captureListInputSchema.parse(input)
-        return parse(captureListResultSchema, await request(pathFor(valedictorianApiPaths.captures), { query: queryFrom(query) }))
+        const result = parse(captureListResultSchema, await request(pathFor(valedictorianApiPaths.captures), { query: queryFrom(query) }))
+        result.items.forEach((item) => requireResource(item))
+        return result
       },
-      get(captureId) {
-        return getOrNull(captureSchema, valedictorianApiPaths.capture(captureId))
+      async get(captureId) {
+        const resource = await getOrNull(captureSchema, valedictorianApiPaths.capture(captureId))
+        return resource === null ? null : requireResource(resource, captureId)
       },
       async create(input) {
         const body = createCaptureInputSchema.parse(input)
-        return parse(captureMutationResultSchema, await request(pathFor(valedictorianApiPaths.captures), { body, method: 'POST' }))
+        const result = requireMutation(parse(captureMutationResultSchema, await request(pathFor(valedictorianApiPaths.captures), { body, method: 'POST' })))
+        return requireAppliedChoices(result, body)
       },
       async correct(input) {
         const parsed = correctCaptureInputSchema.parse(input)
-        return parse(captureMutationResultSchema, await request(pathFor(valedictorianApiPaths.capture(parsed.captureId)), {
+        const result = requireMutation(parse(captureMutationResultSchema, await request(pathFor(valedictorianApiPaths.capture(parsed.captureId)), {
           body: bodyWithout(parsed, 'captureId'), method: 'PATCH',
-        }))
+        })), parsed.captureId)
+        return requireAppliedChoices(result, parsed)
       },
       async remove(input) {
         const parsed = removalInputSchema.parse(input)
-        return parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.captureRemove(parsed.id)), {
+        return requireResultId(parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.captureRemove(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async restore(input) {
         const parsed = restoreInputSchema.parse(input)
-        return parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.captureRestore(parsed.id)), {
+        return requireResultId(parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.captureRestore(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async history(input) {
         const parsed = captureHistoryInputSchema.parse(input)
-        return parse(captureHistoryResultSchema, await request(pathFor(valedictorianApiPaths.captureHistory(parsed.id)), {
+        const result = parse(captureHistoryResultSchema, await request(pathFor(valedictorianApiPaths.captureHistory(parsed.id)), {
           query: queryFrom(bodyWithout(parsed, 'id')),
         }))
+        result.items.forEach((item) => requireResource(item.snapshot, parsed.id))
+        return result
       },
       async promoteToJob(input) {
         const parsed = promoteCaptureToJobInputSchema.parse(input)
-        return parse(promoteCaptureToJobResultSchema, await request(pathFor(valedictorianApiPaths.capturePromoteToJob(parsed.captureId)), {
+        const result = parse(promoteCaptureToJobResultSchema, await request(pathFor(valedictorianApiPaths.capturePromoteToJob(parsed.captureId)), {
           body: bodyWithout(parsed, 'captureId'), method: 'POST',
         }))
+        if (result.status === 'promoted') {
+          requireResource(result.resource)
+          if (!result.resource.captureEvidenceReferences.some((reference) =>
+            reference.captureId === parsed.captureId && reference.captureRevision === parsed.captureRevision)) {
+            throw new ValedictorianProtocolError()
+          }
+        }
+        return requireAppliedChoices(result, parsed)
       },
     },
     jobs: {
       async list(input = {}) {
         const query = jobListInputSchema.parse(input)
-        return parse(jobListResultSchema, await request(pathFor(valedictorianApiPaths.jobs), { query: queryFrom(query) }))
+        const result = parse(jobListResultSchema, await request(pathFor(valedictorianApiPaths.jobs), { query: queryFrom(query) }))
+        result.items.forEach((item) => requireResource(item))
+        return result
       },
-      get(jobId) {
-        return getOrNull(jobSchema, valedictorianApiPaths.job(jobId))
+      async get(jobId) {
+        const parsedId = jobIdSchema.parse(jobId)
+        const resource = await getOrNull(jobSchema, valedictorianApiPaths.job(parsedId))
+        return resource === null ? null : requireResource(resource, parsedId)
+      },
+      async create(input) {
+        const body = createJobInputSchema.parse(input)
+        const result = requireMutation(parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobs), { body, method: 'POST' })))
+        if (result.status === 'succeeded' && body.evidenceReferences.some((requested) =>
+          !result.resource.captureEvidenceReferences.some((reported) =>
+            reported.captureId === requested.captureId && reported.captureRevision === requested.captureRevision))) {
+          throw new ValedictorianProtocolError()
+        }
+        return requireAppliedChoices(result, body)
       },
       async correctFacts(input) {
         const parsed = correctJobFactsInputSchema.parse(input)
-        return parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobFacts(parsed.jobId)), {
+        const result = requireMutation(parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobFacts(parsed.jobId)), {
           body: bodyWithout(parsed, 'jobId'), method: 'PATCH',
-        }))
+        })), parsed.jobId)
+        return requireAppliedChoices(result, parsed)
       },
       async updateAvailability(input) {
         const parsed = updateJobAvailabilityInputSchema.parse(input)
-        return parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobAvailability(parsed.jobId)), {
+        const result = requireMutation(parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobAvailability(parsed.jobId)), {
           body: bodyWithout(parsed, 'jobId'), method: 'PATCH',
-        }))
+        })), parsed.jobId)
+        return requireAppliedChoices(result, parsed)
       },
       externalIdentities: {
         async add(input) {
           const parsed = addJobExternalIdentityInputSchema.parse(input)
-          return parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobExternalIdentities(parsed.jobId)), {
+          const result = requireMutation(parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobExternalIdentities(parsed.jobId)), {
             body: bodyWithout(parsed, 'jobId'), method: 'POST',
-          }))
+          })), parsed.jobId)
+          return requireAppliedChoices(result, parsed)
         },
         async remove(input) {
           const parsed = removeJobExternalIdentityInputSchema.parse(input)
-          return parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobExternalIdentityRemove(parsed.jobId)), {
+          const result = requireMutation(parse(jobMutationResultSchema, await request(pathFor(valedictorianApiPaths.jobExternalIdentityRemove(parsed.jobId)), {
             body: bodyWithout(parsed, 'jobId'), method: 'POST',
-          }))
+          })), parsed.jobId)
+          return requireAppliedChoices(result, parsed)
         },
       },
       async remove(input) {
-        const parsed = removalInputSchema.parse(input)
-        return parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.jobRemove(parsed.id)), {
+        const parsed = removeJobInputSchema.parse(input)
+        return requireResultId(parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.jobRemove(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async restore(input) {
-        const parsed = restoreInputSchema.parse(input)
-        return parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.jobRestore(parsed.id)), {
+        const parsed = restoreJobInputSchema.parse(input)
+        return requireResultId(parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.jobRestore(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async history(input) {
         const parsed = jobHistoryInputSchema.parse(input)
-        return parse(jobHistoryResultSchema, await request(pathFor(valedictorianApiPaths.jobHistory(parsed.id)), {
+        const result = parse(jobHistoryResultSchema, await request(pathFor(valedictorianApiPaths.jobHistory(parsed.id)), {
           query: queryFrom(bodyWithout(parsed, 'id')),
         }))
+        result.items.forEach((item) => requireResource(item.snapshot, parsed.id))
+        return result
       },
       async promoteToOpportunity(input) {
         const parsed = promoteJobToOpportunityInputSchema.parse(input)
-        return parse(promoteJobToOpportunityResultSchema, await request(pathFor(valedictorianApiPaths.jobPromoteToOpportunity(parsed.jobId)), {
+        const result = parse(promoteJobToOpportunityResultSchema, await request(pathFor(valedictorianApiPaths.jobPromoteToOpportunity(parsed.jobId)), {
           body: bodyWithout(parsed, 'jobId'), method: 'POST',
         }))
+        if (result.status === 'promoted') {
+          requireResource(result.resource)
+          if (result.resource.jobId !== parsed.jobId) throw new ValedictorianProtocolError()
+        }
+        return requireAppliedChoices(result, parsed)
       },
     },
     opportunities: {
       async list(input = {}) {
         const query = opportunityListInputSchema.parse(input)
-        return parse(opportunityListResultSchema, await request(pathFor(valedictorianApiPaths.opportunities), { query: queryFrom(query) }))
+        const result = parse(opportunityListResultSchema, await request(pathFor(valedictorianApiPaths.opportunities), { query: queryFrom(query) }))
+        result.items.forEach((item) => requireResource(item))
+        return result
       },
-      get(opportunityId) {
-        return getOrNull(opportunitySchema, valedictorianApiPaths.opportunity(opportunityId))
+      async get(opportunityId) {
+        const resource = await getOrNull(opportunitySchema, valedictorianApiPaths.opportunity(opportunityId))
+        return resource === null ? null : requireResource(resource, opportunityId)
+      },
+      async create(input) {
+        const body = createOpportunityInputSchema.parse(input)
+        const result = requireMutation(parse(opportunityMutationResultSchema, await request(pathFor(valedictorianApiPaths.opportunities), { body, method: 'POST' })))
+        if (result.status === 'succeeded' && result.resource.jobId !== body.jobId) throw new ValedictorianProtocolError()
+        return requireAppliedChoices(result, body)
       },
       async updateEvaluation(input) {
         const parsed = updateOpportunityEvaluationInputSchema.parse(input)
-        return parse(opportunityMutationResultSchema, await request(pathFor(valedictorianApiPaths.opportunityEvaluation(parsed.opportunityId)), {
+        const result = requireMutation(parse(opportunityMutationResultSchema, await request(pathFor(valedictorianApiPaths.opportunityEvaluation(parsed.opportunityId)), {
           body: bodyWithout(parsed, 'opportunityId'), method: 'PATCH',
-        }))
+        })), parsed.opportunityId)
+        return requireAppliedChoices(result, parsed)
       },
       async updateDisposition(input) {
         const parsed = updateOpportunityDispositionInputSchema.parse(input)
-        return parse(opportunityMutationResultSchema, await request(pathFor(valedictorianApiPaths.opportunityDisposition(parsed.opportunityId)), {
+        const result = requireMutation(parse(opportunityMutationResultSchema, await request(pathFor(valedictorianApiPaths.opportunityDisposition(parsed.opportunityId)), {
           body: bodyWithout(parsed, 'opportunityId'), method: 'PATCH',
-        }))
+        })), parsed.opportunityId)
+        return requireAppliedChoices(result, parsed)
       },
       async remove(input) {
         const parsed = removalInputSchema.parse(input)
-        return parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.opportunityRemove(parsed.id)), {
+        return requireResultId(parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.opportunityRemove(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async restore(input) {
         const parsed = restoreInputSchema.parse(input)
-        return parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.opportunityRestore(parsed.id)), {
+        return requireResultId(parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.opportunityRestore(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async history(input) {
         const parsed = opportunityHistoryInputSchema.parse(input)
-        return parse(opportunityHistoryResultSchema, await request(pathFor(valedictorianApiPaths.opportunityHistory(parsed.id)), {
+        const result = parse(opportunityHistoryResultSchema, await request(pathFor(valedictorianApiPaths.opportunityHistory(parsed.id)), {
           query: queryFrom(bodyWithout(parsed, 'id')),
         }))
+        result.items.forEach((item) => requireResource(item.snapshot, parsed.id))
+        return result
       },
       async promoteToApplication(input) {
         const parsed = promoteOpportunityToApplicationInputSchema.parse(input)
-        return parse(promoteOpportunityToApplicationResultSchema, await request(pathFor(valedictorianApiPaths.opportunityPromoteToApplication(parsed.opportunityId)), {
+        const result = parse(promoteOpportunityToApplicationResultSchema, await request(pathFor(valedictorianApiPaths.opportunityPromoteToApplication(parsed.opportunityId)), {
           body: bodyWithout(parsed, 'opportunityId'), method: 'POST',
         }))
+        if (result.status === 'promoted') {
+          requireResource(result.resource)
+          if (result.resource.opportunityId !== parsed.opportunityId || result.resource.jobId !== parsed.expectedJobId) throw new ValedictorianProtocolError()
+        }
+        return requireAppliedChoices(result, parsed)
       },
     },
     applications: {
       async list(input = {}) {
         const query = lifecycleApplicationListInputSchema.parse(input)
-        return parse(lifecycleApplicationListResultSchema, await request(pathFor(valedictorianApiPaths.applications), { query: queryFrom(query) }))
+        const result = parse(lifecycleApplicationListResultSchema, await request(pathFor(valedictorianApiPaths.applications), { query: queryFrom(query) }))
+        result.items.forEach((item) => requireResource(item))
+        return result
       },
-      get(applicationId) {
-        return getOrNull(applicationSchema, valedictorianApiPaths.application(applicationId))
+      async get(applicationId) {
+        const resource = await getOrNull(applicationSchema, valedictorianApiPaths.application(applicationId))
+        return resource === null ? null : requireResource(resource, applicationId)
+      },
+      async create(input) {
+        const body = createApplicationInputSchema.parse(input)
+        const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applications), { body, method: 'POST' })))
+        if (result.status === 'succeeded' && (result.resource.opportunityId !== body.opportunityId || result.resource.jobId !== body.jobId)) throw new ValedictorianProtocolError()
+        return requireAppliedChoices(result, body)
       },
       async updateStatus(input) {
         const parsed = updatePursuitApplicationStatusInputSchema.parse(input)
-        return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationStatus(parsed.applicationId)), {
+        const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationStatus(parsed.applicationId)), {
           body: bodyWithout(parsed, 'applicationId'), method: 'PATCH',
-        }))
+        })), parsed.applicationId)
+        return requireAppliedChoices(result, parsed)
       },
       async updateCompany(input) {
         const parsed = updateApplicationCompanyInputSchema.parse(input)
-        return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationCompany(parsed.applicationId)), {
+        const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationCompany(parsed.applicationId)), {
           body: bodyWithout(parsed, 'applicationId'), method: 'PATCH',
-        }))
+        })), parsed.applicationId)
+        return requireAppliedChoices(result, parsed)
       },
       async updateSource(input) {
         const parsed = updateApplicationSourceInputSchema.parse(input)
-        return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationSource(parsed.applicationId)), {
+        const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationSource(parsed.applicationId)), {
           body: bodyWithout(parsed, 'applicationId'), method: 'PATCH',
-        }))
+        })), parsed.applicationId)
+        return requireAppliedChoices(result, parsed)
       },
       links: {
         async create(input) {
           const parsed = createPursuitLinkInputSchema.parse(input)
-          return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationLinks(parsed.applicationId)), {
+          const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationLinks(parsed.applicationId)), {
             body: bodyWithout(parsed, 'applicationId'), method: 'POST',
-          }))
+          })), parsed.applicationId)
+          return requireAppliedChoices(result, parsed)
         },
         async update(input) {
           const parsed = updatePursuitLinkInputSchema.parse(input)
-          return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationLink(parsed.applicationId, parsed.linkId)), {
+          const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationLink(parsed.applicationId, parsed.linkId)), {
             body: bodyWithout(parsed, 'applicationId', 'linkId'), method: 'PATCH',
-          }))
+          })), parsed.applicationId)
+          return requireAppliedChoices(result, parsed)
         },
         async remove(input) {
           const parsed = removePursuitLinkInputSchema.parse(input)
-          return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationLinkRemove(parsed.applicationId, parsed.linkId)), {
+          const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationLinkRemove(parsed.applicationId, parsed.linkId)), {
             body: bodyWithout(parsed, 'applicationId', 'linkId'), method: 'POST',
-          }))
+          })), parsed.applicationId)
+          return requireAppliedChoices(result, parsed)
         },
       },
       async refreshSnapshot(input) {
         const parsed = refreshApplicationSnapshotInputSchema.parse(input)
-        return parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationRefreshSnapshot(parsed.applicationId)), {
+        const result = requireMutation(parse(applicationMutationResultSchema, await request(pathFor(valedictorianApiPaths.applicationRefreshSnapshot(parsed.applicationId)), {
           body: bodyWithout(parsed, 'applicationId'), method: 'POST',
-        }))
+        })), parsed.applicationId)
+        return requireAppliedChoices(result, parsed)
       },
       async remove(input) {
         const parsed = removalInputSchema.parse(input)
-        return parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.applicationRemove(parsed.id)), {
+        return requireResultId(parse(removalResultSchema, await request(pathFor(valedictorianApiPaths.applicationRemove(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async restore(input) {
         const parsed = restoreInputSchema.parse(input)
-        return parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.applicationRestore(parsed.id)), {
+        return requireResultId(parse(restoreResultSchema, await request(pathFor(valedictorianApiPaths.applicationRestore(parsed.id)), {
           body: bodyWithout(parsed, 'id'), method: 'POST',
-        }))
+        })), parsed.id)
       },
       async history(input) {
         const parsed = lifecycleApplicationHistoryInputSchema.parse(input)
-        return parse(lifecycleApplicationHistoryResultSchema, await request(pathFor(valedictorianApiPaths.applicationHistory(parsed.id)), {
+        const result = parse(lifecycleApplicationHistoryResultSchema, await request(pathFor(valedictorianApiPaths.applicationHistory(parsed.id)), {
           query: queryFrom(bodyWithout(parsed, 'id')),
         }))
+        result.items.forEach((item) => requireResource(item.snapshot, parsed.id))
+        return result
+      },
+      attempts: {
+        async list(input) {
+          const parsed = applicationTechnicalListInputSchema.parse(input)
+          const result = parse(applicationAttemptsListResultSchema, await request(pathFor(valedictorianApiPaths.applicationAttempts(parsed.applicationId)), {
+            query: queryFrom(bodyWithout(parsed, 'applicationId')),
+          }))
+          if (result.items.some((item) => item.workspaceId !== workspaceId || item.applicationId !== parsed.applicationId)) throw new ValedictorianProtocolError()
+          return result
+        },
+      },
+      events: {
+        async list(input) {
+          const parsed = applicationTechnicalListInputSchema.parse(input)
+          const result = parse(applicationEventsListResultSchema, await request(pathFor(valedictorianApiPaths.applicationEvents(parsed.applicationId)), {
+            query: queryFrom(bodyWithout(parsed, 'applicationId')),
+          }))
+          if (result.items.some((item) => item.workspaceId !== workspaceId || item.applicationId !== parsed.applicationId)) throw new ValedictorianProtocolError()
+          return result
+        },
       },
     },
   }

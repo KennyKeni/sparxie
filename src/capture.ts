@@ -5,7 +5,7 @@ import {
   lifecycleAuditEvidenceSchema,
   lifecycleIdSchema,
   lifecycleInstantSchema,
-  lifecycleListPageShape,
+  lifecycleListResultSchema,
   mutationResultSchema,
   removalInputSchema,
   removalResultSchema,
@@ -21,16 +21,32 @@ export const sourceAdapterKinds = ['connector', 'cli', 'manual', 'import'] as co
 const jsonValueSchema: z.ZodType<unknown> = z.json()
 const forbiddenEvidenceKey = /^(?:authorization|cookie|password|secret|token|ssn)$/i
 
+function findForbiddenEvidencePath(value: unknown, path: PropertyKey[] = []): PropertyKey[] | null {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const found = findForbiddenEvidencePath(item, [...path, index])
+      if (found) return found
+    }
+    return null
+  }
+  if (value === null || typeof value !== 'object') return null
+  for (const [key, item] of Object.entries(value)) {
+    if (forbiddenEvidenceKey.test(key)) return [...path, key]
+    const found = findForbiddenEvidencePath(item, [...path, key])
+    if (found) return found
+  }
+  return null
+}
+
 const boundedJsonObjectSchema = z
   .record(z.string().min(1).max(200), jsonValueSchema)
   .superRefine((value, context) => {
     if (JSON.stringify(value).length > 262_144) {
       context.addIssue({ code: 'custom', message: 'payload exceeds the capture evidence bound' })
     }
-    for (const key of Object.keys(value)) {
-      if (forbiddenEvidenceKey.test(key)) {
-        context.addIssue({ code: 'custom', message: 'payload contains a forbidden sensitive key', path: [key] })
-      }
+    const forbiddenPath = findForbiddenEvidencePath(value)
+    if (forbiddenPath) {
+      context.addIssue({ code: 'custom', message: 'payload contains a forbidden sensitive key', path: forbiddenPath })
     }
   })
 
@@ -44,6 +60,10 @@ export const captureEvidenceSchema = z
   .superRefine((evidence, context) => {
     if (JSON.stringify(evidence.value).length > 16_384) {
       context.addIssue({ code: 'custom', message: 'evidence value exceeds its bound', path: ['value'] })
+    }
+    const forbiddenPath = findForbiddenEvidencePath(evidence.value)
+    if (forbiddenPath) {
+      context.addIssue({ code: 'custom', message: 'evidence contains a forbidden sensitive key', path: ['value', ...forbiddenPath] })
     }
   })
 
@@ -92,7 +112,7 @@ export const captureListInputSchema = z
 
 export type CaptureListInput = z.infer<typeof captureListInputSchema>
 
-export const captureListResultSchema = z.object({ items: z.array(captureSchema), ...lifecycleListPageShape }).strict()
+export const captureListResultSchema = lifecycleListResultSchema(captureSchema)
 export type CaptureListResult = z.infer<typeof captureListResultSchema>
 
 export const createCaptureInputSchema = z.object({
@@ -137,7 +157,7 @@ export const captureRevisionSchema = z
 
 export type CaptureRevision = z.infer<typeof captureRevisionSchema>
 export const captureHistoryInputSchema = historyListInputSchema
-export const captureHistoryResultSchema = z.object({ items: z.array(captureRevisionSchema), ...lifecycleListPageShape }).strict()
+export const captureHistoryResultSchema = lifecycleListResultSchema(captureRevisionSchema)
 export type CaptureHistoryResult = z.infer<typeof captureHistoryResultSchema>
 
 export const removeCaptureInputSchema = removalInputSchema

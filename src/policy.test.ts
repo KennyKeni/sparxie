@@ -45,7 +45,7 @@ describe('policy contract', () => {
     )
     expect(policySubjectTypes).toEqual([
       'application',
-      'sourcing_finding',
+      'opportunity',
       'workflow_run',
       'global',
     ])

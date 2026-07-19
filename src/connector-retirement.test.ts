@@ -43,10 +43,10 @@ describe('connector retirement contract', () => {
       },
       preservedLineage: {
         connectorRuns: true,
-        rawSourceRecords: true,
+        captures: true,
         normalizationAttempts: true,
-        canonicalCandidates: true,
-        sourcingFindings: true,
+        jobs: true,
+        opportunities: true,
       },
     }
 

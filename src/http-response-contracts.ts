@@ -3,10 +3,8 @@ import {
   actionQueueBuckets,
   type ActionQueueListResult,
 } from './action-queue.js'
-import {
-  applicationStatuses,
-  workModes,
-} from './application.js'
+import { pursuitApplicationStatuses } from './lifecycle-application.js'
+import { jobWorkModes } from './job.js'
 import type {
   ConnectorCheckpoint,
   ConnectorCheckpointsListResult,
@@ -78,9 +76,9 @@ const actionQueueListItemSchema = z
     companyName: z.string(),
     roleTitle: z.string(),
     sourceName: z.string(),
-    status: z.enum(applicationStatuses),
+    status: z.enum(pursuitApplicationStatuses),
     location: z.string(),
-    workMode: z.enum(workModes),
+    workMode: z.enum(jobWorkModes),
     hasApplied: z.boolean(),
     currentPriorityScore: z.number().nullable(),
     currentPriorityBand: z.string().nullable(),
@@ -303,7 +301,7 @@ const connectorObservationSchema: z.ZodType<ConnectorObservation> = z
         })
         .strict(),
     ),
-    sourcingFindingId: z.string().nullable(),
+    opportunityId: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
@@ -350,7 +348,7 @@ export const workflowRunSchema: z.ZodType<WorkflowRun> = z
     timezone: z.string().nullable(),
     inputJson: z.string(),
     summary: z.string().nullable(),
-    outcome: z.union([z.enum(applicationStatuses), z.string()]).nullable(),
+    outcome: z.enum(pursuitApplicationStatuses).nullable(),
     blocker: z.string().nullable(),
     metadataJson: z.string(),
     createdAt: z.string(),

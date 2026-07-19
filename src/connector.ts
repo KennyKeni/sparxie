@@ -437,7 +437,7 @@ export interface ConnectorObservation {
   dedupeKeys: string[]
   sourceMetadata: unknown
   evidence: ConnectorObservationEvidence[]
-  sourcingFindingId: string | null
+  opportunityId: string | null
   createdAt: string
   updatedAt: string
 }

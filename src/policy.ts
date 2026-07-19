@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ApplicationStatus } from './application.js'
+import type { PursuitApplicationStatus } from './lifecycle-application.js'
 
 export const policyEvidenceTags = [
   'apply_cutoff_override',
@@ -23,7 +23,7 @@ export type PolicyEvidenceTag = (typeof policyEvidenceTags)[number]
 
 export const policySubjectTypes = [
   'application',
-  'sourcing_finding',
+  'opportunity',
   'workflow_run',
   'global',
 ] as const
@@ -134,17 +134,11 @@ export interface PolicyEvidenceListInput {
 export interface EvaluateApplicationPolicyInput {
   applicationId: string
   attemptId?: string | null
-  outcome?: ApplicationStatus | string | null
+  outcome?: PursuitApplicationStatus | null
 }
 
-export interface EvaluateSourcingCandidatePolicyInput {
-  findingId?: string | null
-  companyName?: string | null
-  roleTitle?: string | null
-  officialUrl?: string | null
-  sourceUrl?: string | null
-  priorityScore?: number | null
-  evidence?: PolicyEvidenceRecord[]
+export interface EvaluateOpportunityPolicyInput {
+  opportunityId: string
 }
 
 export interface EvaluateRunWindowPolicyInput {
