@@ -154,6 +154,11 @@ export const captureRevisionSchema = z
     audit: lifecycleAuditEvidenceSchema,
   })
   .strict()
+  .superRefine((entry, context) => {
+    if (entry.captureId !== entry.snapshot.id) {
+      context.addIssue({ code: 'custom', message: 'history Capture id must equal the snapshot id', path: ['captureId'] })
+    }
+  })
 
 export type CaptureRevision = z.infer<typeof captureRevisionSchema>
 export const captureHistoryInputSchema = historyListInputSchema

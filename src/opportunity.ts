@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import {
-  duplicateResolutionSchema, historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
+  duplicateResolutionSchemaFor, historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
   lifecycleIdSchema, lifecycleInstantSchema, lifecycleListResultSchema, mutationResultSchema,
   removalInputSchema, removalResultSchema, restoreInputSchema, restoreResultSchema,
   warningOverrideSchema,
@@ -10,9 +10,13 @@ import { jobIdSchema } from './job.js'
 export const opportunityFitStates = ['fit', 'possible', 'not_fit', 'unknown'] as const
 export const opportunityCutoffStates = ['above', 'below', 'not_evaluated'] as const
 export const opportunityDispositions = ['reviewing', 'pursue', 'hold', 'declined', 'archived'] as const
+export const opportunityIdSchema = lifecycleIdSchema.brand<'OpportunityId'>()
+export type OpportunityId = z.infer<typeof opportunityIdSchema>
+export const opportunityDuplicateResolutionSchema = duplicateResolutionSchemaFor(opportunityIdSchema)
+export type OpportunityDuplicateResolutionDecision = z.infer<typeof opportunityDuplicateResolutionSchema>
 
 export const opportunitySchema = z.object({
-  id: lifecycleIdSchema, workspaceId: lifecycleIdSchema, jobId: jobIdSchema,
+  id: opportunityIdSchema, workspaceId: lifecycleIdSchema, jobId: jobIdSchema,
   revision: z.number().int().positive(), fit: z.enum(opportunityFitStates),
   rank: z.number().int().positive().nullable(), cutoff: z.enum(opportunityCutoffStates),
   disposition: z.enum(opportunityDispositions), override: warningOverrideSchema.nullable(),
@@ -36,7 +40,7 @@ export const createOpportunityInputSchema = z.object({
   jobId: jobIdSchema, expectedJobFactsRevision: z.number().int().positive(),
   fit: z.enum(opportunityFitStates), rank: z.number().int().positive().nullable(),
   cutoff: z.enum(opportunityCutoffStates), disposition: z.enum(opportunityDispositions),
-  override: warningOverrideSchema.optional(), duplicateResolution: duplicateResolutionSchema.optional(),
+  override: warningOverrideSchema.optional(), duplicateResolution: opportunityDuplicateResolutionSchema.optional(),
 }).strict()
 export type CreateOpportunityInput = z.infer<typeof createOpportunityInputSchema>
 
@@ -54,14 +58,18 @@ export const updateOpportunityDispositionInputSchema = z.object({
 }).strict()
 export type UpdateOpportunityDispositionInput = z.infer<typeof updateOpportunityDispositionInputSchema>
 
-export const opportunityMutationResultSchema = mutationResultSchema(opportunitySchema)
+export const opportunityMutationResultSchema = mutationResultSchema(opportunitySchema, opportunityDuplicateResolutionSchema)
 export type OpportunityMutationResult = z.infer<typeof opportunityMutationResultSchema>
 
 export const opportunityHistoryKinds = ['created', 'evaluation_changed', 'disposition_changed', 'removed', 'restored'] as const
 export const opportunityHistoryEntrySchema = z.object({
   opportunityId: lifecycleIdSchema, revision: z.number().int().positive(), kind: z.enum(opportunityHistoryKinds),
   snapshot: opportunitySchema, audit: lifecycleAuditEvidenceSchema,
-}).strict()
+}).strict().superRefine((entry, context) => {
+  if (entry.opportunityId !== entry.snapshot.id) {
+    context.addIssue({ code: 'custom', message: 'history Opportunity id must equal the snapshot id', path: ['opportunityId'] })
+  }
+})
 export type OpportunityHistoryEntry = z.infer<typeof opportunityHistoryEntrySchema>
 export const opportunityHistoryInputSchema = historyListInputSchema
 export const opportunityHistoryResultSchema = lifecycleListResultSchema(opportunityHistoryEntrySchema)

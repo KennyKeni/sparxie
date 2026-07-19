@@ -39,10 +39,12 @@ export type LifecycleBlockerCode = (typeof lifecycleBlockerCodes)[number]
 export const duplicateResolutions = ['attach', 'merge'] as const
 export type DuplicateResolution = (typeof duplicateResolutions)[number]
 
-export const duplicateResolutionSchema = z.object({
+export const duplicateResolutionSchemaFor = <T extends z.ZodType>(targetResourceIdSchema: T) => z.object({
   action: z.enum(duplicateResolutions),
-  targetResourceId: lifecycleIdSchema,
+  targetResourceId: targetResourceIdSchema,
 }).strict()
+
+export const duplicateResolutionSchema = duplicateResolutionSchemaFor(lifecycleIdSchema)
 
 export type DuplicateResolutionDecision = z.infer<typeof duplicateResolutionSchema>
 
@@ -161,13 +163,19 @@ export const restoreInputSchema = z
 
 export type RestoreInput = z.infer<typeof restoreInputSchema>
 
+export const lifecycleIdentityKinds = ['ats_job', 'employer_job', 'canonical_destination', 'posting'] as const
+
 export const lifecycleIdentitySchema = z.object({
-  kind: z.string().trim().min(1).max(100),
+  kind: z.enum(lifecycleIdentityKinds),
   provider: z.string().trim().toLowerCase().min(1).max(200),
   account: z.string().trim().toLowerCase().min(1).max(500).nullable(),
   value: z.string().trim().min(1).max(2_000),
   strength: z.enum(['strong', 'provisional']),
-}).strict()
+}).strict().superRefine((identity, context) => {
+  if (identity.strength === 'strong' && identity.account === null) {
+    context.addIssue({ code: 'custom', message: 'strong identities require a normalized account', path: ['account'] })
+  }
+})
 
 export type LifecycleIdentity = z.infer<typeof lifecycleIdentitySchema>
 
@@ -221,17 +229,33 @@ export const lifecycleListResultSchema = <T extends z.ZodType>(itemSchema: T) =>
   }
 })
 
-export const mutationResultSchema = <T extends z.ZodType>(resourceSchema: T) =>
+export const mutationResultSchema = <
+  T extends z.ZodType,
+  D extends z.ZodType = typeof duplicateResolutionSchema,
+>(resourceSchema: T, appliedDuplicateResolutionSchema: D = duplicateResolutionSchema as unknown as D) =>
   z.discriminatedUnion('status', [
     z.object({
       status: z.literal('succeeded'), resource: resourceSchema,
-      duplicateResolution: duplicateResolutionSchema.nullable(),
+      duplicateResolution: appliedDuplicateResolutionSchema.nullable(),
       audit: lifecycleAuditEvidenceSchema,
     }).strict(),
     z.object({ status: z.literal('blocked'), blocker: lifecycleBlockerSchema }).strict(),
-  ])
+  ]).superRefine((result, context) => {
+    if (result.status !== 'succeeded') return
+    const success = result as unknown as {
+      resource: { id?: unknown }
+      duplicateResolution: { targetResourceId: unknown } | null
+    }
+    if (success.duplicateResolution !== null
+      && success.resource.id !== success.duplicateResolution.targetResourceId) {
+      context.addIssue({ code: 'custom', message: 'applied duplicate target must equal the returned resource id', path: ['duplicateResolution', 'targetResourceId'] })
+    }
+  })
 
-export const promotionResultSchema = <T extends z.ZodType>(resourceSchema: T) =>
+export const promotionResultSchema = <
+  T extends z.ZodType,
+  D extends z.ZodType = typeof duplicateResolutionSchema,
+>(resourceSchema: T, appliedDuplicateResolutionSchema: D = duplicateResolutionSchema as unknown as D) =>
   z.discriminatedUnion('status', [
     z.object({
       status: z.literal('promoted'),
@@ -239,11 +263,20 @@ export const promotionResultSchema = <T extends z.ZodType>(resourceSchema: T) =>
       created: z.boolean(),
       warnings: z.array(lifecycleWarningSchema).max(lifecycleWarningCodes.length),
       override: warningOverrideSchema.nullable(),
-      duplicateResolution: duplicateResolutionSchema.nullable(),
+      duplicateResolution: appliedDuplicateResolutionSchema.nullable(),
       audit: lifecycleAuditEvidenceSchema,
     }).strict(),
     z.object({ status: z.literal('blocked'), blocker: lifecycleBlockerSchema }).strict(),
   ]).superRefine((result, context) => {
+    if (!('resource' in result)) return
+    const success = result as unknown as {
+      resource: { id?: unknown }
+      duplicateResolution: { targetResourceId: unknown } | null
+    }
+    if (success.duplicateResolution !== null
+      && success.resource.id !== success.duplicateResolution.targetResourceId) {
+      context.addIssue({ code: 'custom', message: 'applied duplicate target must equal the returned resource id', path: ['duplicateResolution', 'targetResourceId'] })
+    }
     if ('override' in result
       && JSON.stringify(result.override) !== JSON.stringify(result.audit.override ?? null)) {
       context.addIssue({ code: 'custom', message: 'promotion audit must retain the exact warning override', path: ['audit', 'override'] })

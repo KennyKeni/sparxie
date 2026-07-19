@@ -12,6 +12,7 @@ const capture = {
 const timestamp = '2026-07-18T15:00:00.000Z'
 const lifecycleActor = { id: 'user-7', type: 'user' as const }
 const jobId = '018f6f88-4c35-7a62-9f2e-318dd8e164c5'
+const otherJobId = '018f6f88-4c35-7a62-9f2e-318dd8e164c6'
 const jobFacts = {
   companyName: 'Northstar Robotics', roleTitle: 'Controls Intern', sourceName: 'Campus Network',
   roleKind: 'internship' as const, term: null, terms: [], timingMode: 'unknown' as const,
@@ -24,6 +25,19 @@ const job = {
   availabilityRevision: 1, availability: { state: 'open' as const, observedAt: timestamp },
   externalIdentities: [],
   captureEvidenceReferences: [{ captureId: capture.id, captureRevision: 1, evidenceIndexes: [] }],
+  createdAt: timestamp, updatedAt: timestamp, removedAt: null,
+}
+const application = {
+  id: 'application-1', workspaceId: 'workspace-north', opportunityId: 'opportunity-1', jobId,
+  revision: 1, status: 'active' as const,
+  snapshot: {
+    jobFactsRevision: 1, capturedAt: timestamp, companyName: jobFacts.companyName,
+    roleTitle: jobFacts.roleTitle, sourceName: jobFacts.sourceName, roleKind: jobFacts.roleKind,
+    term: jobFacts.term, terms: jobFacts.terms, timingMode: jobFacts.timingMode,
+    startDate: jobFacts.startDate, endDate: jobFacts.endDate, location: jobFacts.location,
+    workMode: jobFacts.workMode, initialDestination: jobFacts.destination, initialLinks: [],
+  },
+  companyName: jobFacts.companyName, sourceName: jobFacts.sourceName, links: [],
   createdAt: timestamp, updatedAt: timestamp, removedAt: null,
 }
 
@@ -245,6 +259,83 @@ describe('lifecycle HTTP workspace client', () => {
     })).rejects.toThrow()
   })
 
+  it('rejects command actor drift, removal choice drift, and duplicate target drift', async () => {
+    const systemActor = { id: 'lifecycle-system', type: 'system' as const }
+    const actorDrift = {
+      status: 'succeeded', resource: job, duplicateResolution: null,
+      audit: { actor: systemActor, timestamp },
+    }
+    const choiceDrift = {
+      status: 'removed', id: capture.id, choice: 'unlink_dependents', removedAt: timestamp,
+      affectedDependentIds: [], audit: { actor: lifecycleActor, timestamp },
+    }
+    const targetDrift = {
+      status: 'succeeded', resource: { ...job, id: otherJobId },
+      duplicateResolution: { action: 'attach', targetResourceId: jobId },
+      audit: { actor: lifecycleActor, timestamp },
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse(actorDrift))
+      .mockResolvedValueOnce(jsonResponse(choiceDrift))
+      .mockResolvedValueOnce(jsonResponse(targetDrift))
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
+      .forWorkspace('workspace-north')
+
+    await expect(workspace.jobs.create(jobCreateInput())).rejects.toThrow()
+    await expect(workspace.captures.remove({
+      id: capture.id, choice: 'preserve_historical_lineage', actor: lifecycleActor, rationale: 'Duplicate.',
+    })).rejects.toThrow()
+    await expect(workspace.jobs.create({
+      ...jobCreateInput(), duplicateResolution: { action: 'attach', targetResourceId: jobId },
+    })).rejects.toThrow()
+  })
+
+  it('correlates direct Application create and snapshot refresh to the exact Job facts revision', async () => {
+    const successCreate = {
+      status: 'succeeded', resource: application, duplicateResolution: null,
+      audit: { actor: lifecycleActor, timestamp },
+    }
+    const driftedCreate = {
+      ...successCreate, resource: { ...application, snapshot: { ...application.snapshot, jobFactsRevision: 2 } },
+    }
+    const refreshed = {
+      ...application, revision: 2, snapshot: { ...application.snapshot, jobFactsRevision: 2 },
+    }
+    const successRefresh = {
+      status: 'succeeded', resource: refreshed, duplicateResolution: null,
+      audit: { actor: lifecycleActor, timestamp },
+    }
+    const driftedRefresh = {
+      ...successRefresh, resource: { ...refreshed, snapshot: { ...refreshed.snapshot, jobFactsRevision: 3 } },
+    }
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse(successCreate))
+      .mockResolvedValueOnce(jsonResponse(driftedCreate))
+      .mockResolvedValueOnce(jsonResponse(successRefresh))
+      .mockResolvedValueOnce(jsonResponse(driftedRefresh))
+    vi.stubGlobal('fetch', fetchMock)
+    const applications = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
+      .forWorkspace('workspace-north').applications
+    const createInput = {
+      idempotencyKey: 'application-create-1', actor: lifecycleActor,
+      opportunityId: application.opportunityId, jobId, expectedJobFactsRevision: 1, initialLinks: [],
+    }
+
+    await expect(applications.create(createInput)).resolves.toEqual(successCreate)
+    await expect(applications.create(createInput)).rejects.toThrow()
+    await expect(applications.refreshSnapshot({
+      applicationId: application.id, expectedRevision: 1, expectedJobFactsRevision: 2,
+      actor: lifecycleActor, preserveCompanyEdit: true, preserveSourceEdit: true,
+      preserveLinkEdits: true, rationale: 'Adopt corrected facts.',
+    })).resolves.toEqual(successRefresh)
+    await expect(applications.refreshSnapshot({
+      applicationId: application.id, expectedRevision: 1, expectedJobFactsRevision: 2,
+      actor: lifecycleActor, preserveCompanyEdit: true, preserveSourceEdit: true,
+      preserveLinkEdits: true, rationale: 'Adopt corrected facts.',
+    })).rejects.toThrow()
+  })
+
   it('parses audited removal, restore, and history responses with bounded request bodies', async () => {
     const audit = { actor: lifecycleActor, timestamp }
     const removed = {
@@ -276,6 +367,20 @@ describe('lifecycle HTTP workspace client', () => {
     await expect(captures.history({ id: capture.id, limit: 10 })).resolves.toEqual(history)
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).not.toHaveProperty('id')
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).not.toHaveProperty('id')
+  })
+
+  it('rejects contradictory history lineage even when the snapshot matches the requested resource', async () => {
+    const history = {
+      items: [{ captureId: 'capture-other', revision: 1, kind: 'created', snapshot: capture,
+        audit: { actor: lifecycleActor, timestamp } }],
+      limit: 10, nextCursor: null,
+    }
+    vi.stubGlobal('fetch', vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse(history)))
+    const captures = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
+      .forWorkspace('workspace-north').captures
+
+    await expect(captures.history({ id: capture.id, limit: 10 })).rejects.toThrow()
   })
 
   it('rejects foreign-workspace Application attempts and events', async () => {

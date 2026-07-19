@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import {
   historyListInputSchema,
-  duplicateResolutionSchema,
+  duplicateResolutionSchemaFor,
   lifecycleActorSchema,
   lifecycleAuditEvidenceSchema,
   lifecycleIdSchema,
@@ -16,6 +16,7 @@ import {
   uuidV7Schema,
   warningOverrideSchema,
   lifecycleIdentitySchema,
+  lifecycleIdentityKinds,
 } from './lifecycle-shared.js'
 
 export const jobRoleKinds = ['internship', 'co_op', 'new_grad', 'entry_level', 'experienced', 'other'] as const
@@ -28,6 +29,8 @@ export const jobSeniorities = ['student', 'entry', 'mid', 'senior', 'lead', 'unk
 export const jobDestinationClasses = ['employer_or_ats', 'third_party_job_posting'] as const
 export const jobIdSchema = uuidV7Schema.brand<'JobId'>()
 export type JobId = z.infer<typeof jobIdSchema>
+export const jobDuplicateResolutionSchema = duplicateResolutionSchemaFor(jobIdSchema)
+export type JobDuplicateResolutionDecision = z.infer<typeof jobDuplicateResolutionSchema>
 
 export const jobTermSchema = z.object({ season: z.enum(lifecycleJobSeasons), year: z.number().int().min(2000).max(2200) }).strict()
 export const jobLocationSchema = z.object({
@@ -77,16 +80,8 @@ export const captureEvidenceReferenceSchema = z.object({
 
 export type CaptureEvidenceReference = z.infer<typeof captureEvidenceReferenceSchema>
 
-export const jobExternalIdentityKinds = ['ats_job', 'employer_job', 'canonical_destination', 'posting'] as const
-export const jobExternalIdentitySchema = lifecycleIdentitySchema.extend({
-  kind: z.enum(jobExternalIdentityKinds),
-  provider: z.string().trim().toLowerCase().min(1).max(200),
-  account: z.string().trim().toLowerCase().min(1).max(500).nullable(),
-}).strict().superRefine((identity, context) => {
-  if (identity.strength === 'strong' && identity.account === null) {
-    context.addIssue({ code: 'custom', message: 'strong identities require a normalized account', path: ['account'] })
-  }
-})
+export const jobExternalIdentityKinds = lifecycleIdentityKinds
+export const jobExternalIdentitySchema = lifecycleIdentitySchema
 
 export type JobExternalIdentity = z.infer<typeof jobExternalIdentitySchema>
 
@@ -125,7 +120,7 @@ export const createJobInputSchema = z.object({
   evidenceReferences: z.array(captureEvidenceReferenceSchema).min(1).max(100),
   externalIdentities: z.array(jobExternalIdentitySchema).max(100),
   override: warningOverrideSchema.optional(),
-  duplicateResolution: duplicateResolutionSchema.optional(),
+  duplicateResolution: jobDuplicateResolutionSchema.optional(),
 }).strict()
 export type CreateJobInput = z.infer<typeof createJobInputSchema>
 
@@ -154,14 +149,18 @@ export const removeJobExternalIdentityInputSchema = z.object({
 }).strict()
 export type RemoveJobExternalIdentityInput = z.infer<typeof removeJobExternalIdentityInputSchema>
 
-export const jobMutationResultSchema = mutationResultSchema(jobSchema)
+export const jobMutationResultSchema = mutationResultSchema(jobSchema, jobDuplicateResolutionSchema)
 export type JobMutationResult = z.infer<typeof jobMutationResultSchema>
 
 export const jobHistoryKinds = ['created', 'facts_corrected', 'availability_changed', 'identity_added', 'identity_removed', 'removed', 'restored'] as const
 export const jobHistoryEntrySchema = z.object({
   jobId: jobIdSchema, sequence: z.number().int().positive(), kind: z.enum(jobHistoryKinds),
   snapshot: jobSchema, audit: lifecycleAuditEvidenceSchema,
-}).strict()
+}).strict().superRefine((entry, context) => {
+  if (entry.jobId !== entry.snapshot.id) {
+    context.addIssue({ code: 'custom', message: 'history Job id must equal the snapshot id', path: ['jobId'] })
+  }
+})
 export type JobHistoryEntry = z.infer<typeof jobHistoryEntrySchema>
 export const jobHistoryInputSchema = historyListInputSchema.extend({ id: jobIdSchema })
 export type JobHistoryInput = z.infer<typeof jobHistoryInputSchema>

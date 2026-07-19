@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
   applicationMutationResultSchema,
+  applicationHistoryEntrySchema,
+  applicationIdSchema,
   captureListResultSchema,
   captureMutationResultSchema,
+  captureRevisionSchema,
   captureSchema,
   createApplicationInputSchema,
   createJobInputSchema,
   createOpportunityInputSchema,
+  jobHistoryEntrySchema,
+  jobMutationResultSchema,
   lifecycleAuditEvidenceSchema,
   lifecycleBlockerSchema,
+  opportunityHistoryEntrySchema,
+  opportunityIdSchema,
   promoteCaptureToJobInputSchema,
   promotionResultSchema,
   removalResultSchema,
@@ -30,6 +37,34 @@ const facts = {
   startDate: null, endDate: null, location: null, workMode: 'unknown' as const,
   employmentType: 'internship' as const, seniority: 'student' as const,
   compensation: null, postedAt: null, destination: null,
+}
+const validJob = {
+  id: jobId, workspaceId: 'workspace-1', factsRevision: 1, facts,
+  availabilityRevision: 1, availability: { state: 'open' as const, observedAt: timestamp },
+  externalIdentities: [],
+  captureEvidenceReferences: [{ captureId: validCapture.id, captureRevision: 1, evidenceIndexes: [] }],
+  createdAt: timestamp, updatedAt: timestamp, removedAt: null,
+}
+const opportunityId = 'opportunity-1'
+const validOpportunity = {
+  id: opportunityId, workspaceId: 'workspace-1', jobId, revision: 1,
+  fit: 'possible' as const, rank: null, cutoff: 'not_evaluated' as const,
+  disposition: 'reviewing' as const, override: null,
+  createdAt: timestamp, updatedAt: timestamp, removedAt: null,
+}
+const applicationId = 'application-1'
+const validApplication = {
+  id: applicationId, workspaceId: 'workspace-1', opportunityId, jobId, revision: 1,
+  status: 'active' as const,
+  snapshot: {
+    jobFactsRevision: 1, capturedAt: timestamp, companyName: facts.companyName,
+    roleTitle: facts.roleTitle, sourceName: facts.sourceName, roleKind: facts.roleKind,
+    term: facts.term, terms: facts.terms, timingMode: facts.timingMode,
+    startDate: facts.startDate, endDate: facts.endDate, location: facts.location,
+    workMode: facts.workMode, initialDestination: facts.destination, initialLinks: [],
+  },
+  companyName: facts.companyName, sourceName: facts.sourceName, links: [],
+  createdAt: timestamp, updatedAt: timestamp, removedAt: null,
 }
 
 describe('lifecycle correction contract', () => {
@@ -60,6 +95,12 @@ describe('lifecycle correction contract', () => {
     expect(lifecycleAuditEvidenceSchema.safeParse({ actor, timestamp, priorIdentity: 'greenhouse:448' }).success).toBe(false)
     expect(lifecycleAuditEvidenceSchema.safeParse({
       actor, timestamp, override: { actor, rationale: 'Missing codes.', warningCodes: [] },
+    }).success).toBe(false)
+    expect(lifecycleAuditEvidenceSchema.safeParse({
+      actor, timestamp, priorIdentity: { ...identity, kind: 'unsupported_identity' },
+    }).success).toBe(false)
+    expect(lifecycleAuditEvidenceSchema.safeParse({
+      actor, timestamp, newIdentity: { ...identity, account: null },
     }).success).toBe(false)
   })
 
@@ -113,6 +154,55 @@ describe('lifecycle correction contract', () => {
       evidenceReferences: [{ captureId: 'capture-1', captureRevision: 1, evidenceIndexes: [] }],
       externalIdentities: [], duplicateResolution: { action: 'replace', targetResourceId: jobId },
     }).success).toBe(false)
+    expect(createJobInputSchema.safeParse({
+      idempotencyKey: 'manual-job-1', actor, facts,
+      availability: { state: 'open', observedAt: timestamp },
+      evidenceReferences: [{ captureId: 'capture-1', captureRevision: 1, evidenceIndexes: [] }],
+      externalIdentities: [], duplicateResolution: { action: 'attach', targetResourceId: 'job-1' },
+    }).success).toBe(false)
+  })
+
+  it('rejects history entries whose aggregate identity contradicts the snapshot', () => {
+    const audit = { actor, timestamp }
+    const cases = [
+      [captureRevisionSchema, 'captureId', {
+        captureId: 'capture-other', revision: 1, kind: 'created', snapshot: validCapture, audit,
+      }],
+      [jobHistoryEntrySchema, 'jobId', {
+        jobId: '018f6f88-4c35-7a62-9f2e-318dd8e164c6', sequence: 1,
+        kind: 'created', snapshot: validJob, audit,
+      }],
+      [opportunityHistoryEntrySchema, 'opportunityId', {
+        opportunityId: 'opportunity-other', revision: 1, kind: 'created', snapshot: validOpportunity, audit,
+      }],
+      [applicationHistoryEntrySchema, 'applicationId', {
+        applicationId: 'application-other', revision: 1, kind: 'created', snapshot: validApplication, audit,
+      }],
+    ] as const
+    for (const [schema, idKey, entry] of cases) {
+      expect(schema.safeParse(entry).success).toBe(false)
+      expect(schema.safeParse({ ...entry, [idKey]: entry.snapshot.id }).success).toBe(true)
+    }
+  })
+
+  it('publishes resource-specific Opportunity and Application identity schemas', () => {
+    expect(opportunityIdSchema.parse(opportunityId)).toBe(opportunityId)
+    expect(applicationIdSchema.parse(applicationId)).toBe(applicationId)
+  })
+
+  it('rejects inapplicable or contradictory duplicate outcomes in concrete result schemas', () => {
+    const result = {
+      status: 'succeeded', resource: validJob,
+      duplicateResolution: { action: 'attach', targetResourceId: 'job-1' },
+      audit: { actor, timestamp },
+    }
+    expect(jobMutationResultSchema.safeParse(result).success).toBe(false)
+    expect(jobMutationResultSchema.safeParse({
+      ...result,
+      duplicateResolution: {
+        action: 'attach', targetResourceId: '018f6f88-4c35-7a62-9f2e-318dd8e164c6',
+      },
+    }).success).toBe(false)
   })
 
   it('carries warning overrides and applied duplicate outcomes through promotions', () => {
@@ -124,7 +214,7 @@ describe('lifecycle correction contract', () => {
       created: false,
       warnings: [{ code: 'weak_possible_match', message: 'Weak possible match.' }],
       override,
-      duplicateResolution: { action: 'attach', targetResourceId: jobId },
+      duplicateResolution: { action: 'attach', targetResourceId: validCapture.id },
       audit: { actor, timestamp, override },
     } as const
     expect(promotionResultSchema(captureSchema).safeParse(success).success).toBe(true)

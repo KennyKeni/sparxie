@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { applicationSchema, pursuitLinkInputSchema } from './lifecycle-application.js'
-import { captureEvidenceReferenceSchema, jobExternalIdentitySchema, jobFactsSchema, jobIdSchema, jobSchema } from './job.js'
-import { duplicateResolutionSchema, lifecycleActorSchema, lifecycleIdSchema, promotionResultSchema, warningOverrideSchema } from './lifecycle-shared.js'
-import { opportunityCutoffStates, opportunityDispositions, opportunityFitStates, opportunitySchema } from './opportunity.js'
+import { applicationDuplicateResolutionSchema, applicationSchema, pursuitLinkInputSchema } from './lifecycle-application.js'
+import { captureEvidenceReferenceSchema, jobDuplicateResolutionSchema, jobExternalIdentitySchema, jobFactsSchema, jobIdSchema, jobSchema } from './job.js'
+import { lifecycleActorSchema, lifecycleIdSchema, promotionResultSchema, warningOverrideSchema } from './lifecycle-shared.js'
+import { opportunityCutoffStates, opportunityDispositions, opportunityDuplicateResolutionSchema, opportunityFitStates, opportunitySchema } from './opportunity.js'
 
 const promotionBase = {
   idempotencyKey: lifecycleIdSchema,
@@ -17,7 +17,7 @@ export const promoteCaptureToJobInputSchema = z.object({
   evidenceReferences: z.array(captureEvidenceReferenceSchema).min(1).max(100),
   externalIdentities: z.array(jobExternalIdentitySchema).max(100),
   override: warningOverrideSchema.optional(),
-  duplicateResolution: duplicateResolutionSchema.optional(),
+  duplicateResolution: jobDuplicateResolutionSchema.optional(),
 }).strict().superRefine((input, context) => {
   if (!input.evidenceReferences.some((reference) =>
     reference.captureId === input.captureId && reference.captureRevision === input.captureRevision)) {
@@ -25,7 +25,7 @@ export const promoteCaptureToJobInputSchema = z.object({
   }
 })
 export type PromoteCaptureToJobInput = z.infer<typeof promoteCaptureToJobInputSchema>
-export const promoteCaptureToJobResultSchema = promotionResultSchema(jobSchema)
+export const promoteCaptureToJobResultSchema = promotionResultSchema(jobSchema, jobDuplicateResolutionSchema)
 export type PromoteCaptureToJobResult = z.infer<typeof promoteCaptureToJobResultSchema>
 
 export const promoteJobToOpportunityInputSchema = z.object({
@@ -37,10 +37,10 @@ export const promoteJobToOpportunityInputSchema = z.object({
     cutoff: z.enum(opportunityCutoffStates), disposition: z.enum(opportunityDispositions),
   }).strict(),
   override: warningOverrideSchema.optional(),
-  duplicateResolution: duplicateResolutionSchema.optional(),
+  duplicateResolution: opportunityDuplicateResolutionSchema.optional(),
 }).strict()
 export type PromoteJobToOpportunityInput = z.infer<typeof promoteJobToOpportunityInputSchema>
-export const promoteJobToOpportunityResultSchema = promotionResultSchema(opportunitySchema)
+export const promoteJobToOpportunityResultSchema = promotionResultSchema(opportunitySchema, opportunityDuplicateResolutionSchema)
 export type PromoteJobToOpportunityResult = z.infer<typeof promoteJobToOpportunityResultSchema>
 
 export const promoteOpportunityToApplicationInputSchema = z.object({
@@ -49,8 +49,8 @@ export const promoteOpportunityToApplicationInputSchema = z.object({
   expectedJobId: jobIdSchema,
   initialLinks: z.array(pursuitLinkInputSchema).max(50).optional(),
   override: warningOverrideSchema.optional(),
-  duplicateResolution: duplicateResolutionSchema.optional(),
+  duplicateResolution: applicationDuplicateResolutionSchema.optional(),
 }).strict()
 export type PromoteOpportunityToApplicationInput = z.infer<typeof promoteOpportunityToApplicationInputSchema>
-export const promoteOpportunityToApplicationResultSchema = promotionResultSchema(applicationSchema)
+export const promoteOpportunityToApplicationResultSchema = promotionResultSchema(applicationSchema, applicationDuplicateResolutionSchema)
 export type PromoteOpportunityToApplicationResult = z.infer<typeof promoteOpportunityToApplicationResultSchema>

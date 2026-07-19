@@ -15,6 +15,7 @@ import type {
   ValedictorianWorkspaceClient,
 } from '../src/index.js'
 import { jobIdSchema } from '../src/index.js'
+import { applicationIdSchema, opportunityIdSchema } from '../src/index.js'
 
 type Assert<T extends true> = T
 type IsExactly<A, B> = (<T>() => T extends A ? 1 : 2) extends
@@ -79,7 +80,22 @@ async function cliConsumer(input: PromoteCaptureToJobInput) {
 
 async function directCreateConsumers() {
   const jobId = jobIdSchema.parse('018f6f88-4c35-7a62-9f2e-318dd8e164c5')
+  const opportunityId = opportunityIdSchema.parse('opportunity-1')
+  const applicationId = applicationIdSchema.parse('application-1')
   const actor = { id: 'user-7', type: 'user' as const }
+  const jobDuplicate: CreateJobInput['duplicateResolution'] = { action: 'attach', targetResourceId: jobId }
+  const opportunityDuplicate: CreateOpportunityInput['duplicateResolution'] = {
+    action: 'attach', targetResourceId: opportunityId,
+  }
+  const applicationDuplicate: CreateApplicationInput['duplicateResolution'] = {
+    action: 'attach', targetResourceId: applicationId,
+  }
+  // @ts-expect-error Job duplicate targets require a parsed UUIDv7 JobId.
+  const invalidJobDuplicate: CreateJobInput['duplicateResolution'] = { action: 'attach', targetResourceId: 'job-1' }
+  // @ts-expect-error Opportunity duplicate targets require a parsed OpportunityId.
+  const invalidOpportunityDuplicate: CreateOpportunityInput['duplicateResolution'] = { action: 'attach', targetResourceId: 'opportunity-1' }
+  // @ts-expect-error Application duplicate targets require a parsed ApplicationId.
+  const invalidApplicationDuplicate: CreateApplicationInput['duplicateResolution'] = { action: 'attach', targetResourceId: 'application-1' }
 
   await workspace.captures.get('capture-1')
   await workspace.captures.create(createCaptureInput)
@@ -112,6 +128,12 @@ async function directCreateConsumers() {
   await workspace.applications.events.list({ applicationId: 'application-1' })
   // @ts-expect-error Public Job reads require a parsed UUIDv7 JobId.
   await workspace.jobs.get('job-1')
+  void jobDuplicate
+  void opportunityDuplicate
+  void applicationDuplicate
+  void invalidJobDuplicate
+  void invalidOpportunityDuplicate
+  void invalidApplicationDuplicate
 }
 
 void appConsumer
