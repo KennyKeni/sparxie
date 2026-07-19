@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpValedictorianClient, defaultUserProfile } from './index'
 import {
   actionQueueListPayload,
-  applicationDetailPayload,
   connectorInstanceSummaryPayload,
   connectorObservationsListPayload,
   defaultPolicyConfig,
@@ -45,8 +44,8 @@ function lifecycleCountsFor(runId: string) {
       unresolved: 0, pending: 0, gateRejected: 1, unclassified: 0,
       invariant: 'reconciled',
     },
-    sourcing: {
-      findingsAdded: 1, canonicalDuplicates: 1, notFit: 1, rejected: 0,
+    opportunity: {
+      opportunitiesCreated: 1, existingJobMatches: 1, notFit: 1, rejected: 0,
       actionableReview: 0, unclassified: 0, invariant: 'reconciled',
     },
   } as const
@@ -65,38 +64,6 @@ const connectorStatusPayload = {
 describe('HTTP Valedictorian client', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
-  })
-
-  it('lists applications with query params and bearer auth', async () => {
-    const payload = { items: [], total: 0, limit: 25, offset: 10, hasMore: false }
-    const fetchMock = mockFetch(jsonResponse(payload))
-    const client = createHttpValedictorianClient({
-      baseUrl: 'https://valedictorian.test/base/',
-      token: 'secret-token',
-    })
-
-    await expect(
-      client.forWorkspace('workspace-1').applications.list({
-        status: 'needs_user_info',
-        minScore: 6,
-        hasApplied: false,
-        source: 'linkedin',
-        sort: 'company_asc',
-        limit: 25,
-        offset: 10,
-      }),
-    ).resolves.toEqual(payload)
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://valedictorian.test/v1/workspaces/workspace-1/applications?status=needs_user_info&hasApplied=false&minScore=6&source=linkedin&sort=company_asc&limit=25&offset=10',
-      {
-        headers: {
-          accept: 'application/json',
-          authorization: 'Bearer secret-token',
-        },
-        method: 'GET',
-      },
-    )
   })
 
   it('lists registered workspaces from the root client', async () => {
@@ -752,32 +719,18 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
-  it('gets an application and returns null for 404', async () => {
-    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-    const detail = applicationDetailPayload({ id: 'application 1' })
-    fetchMock.mockResolvedValueOnce(jsonResponse(detail))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'not found' }, { status: 404 }))
-    vi.stubGlobal('fetch', fetchMock)
-    const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
-    const workspace = client.forWorkspace('workspace-1')
-
-    await expect(workspace.applications.get('application 1')).resolves.toEqual(detail)
-    await expect(workspace.applications.get('missing')).resolves.toBeNull()
-
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      'http://127.0.0.1:4317/v1/workspaces/workspace-1/applications/application%201',
-      {
-        headers: {
-          accept: 'application/json',
-        },
-        method: 'GET',
-      },
-    )
-  })
-
   it('lists action queue rows with query params and bearer auth', async () => {
     const payload = actionQueueListPayload()
+    payload.items.push({
+      id: 'application-1', companyName: 'Northstar Robotics', roleTitle: 'Controls Intern',
+      sourceName: 'Campus Network', status: 'active', location: 'Denver, CO', workMode: 'hybrid',
+      hasApplied: false, currentPriorityScore: 8, currentPriorityBand: 'high',
+      primaryLink: { label: 'Apply', url: 'https://northstar.example/jobs/1' },
+      createdAt: '2026-07-18T15:00:00.000Z', updatedAt: '2026-07-18T15:00:00.000Z',
+      actionBucket: 'apply_now', nextAction: 'apply_now', reason: 'Above cutoff.', policyReasons: [],
+    })
+    payload.total = 1
+    payload.actionBucketCounts.apply_now = 1
     payload.offset = 5
     const fetchMock = mockFetch(jsonResponse(payload))
     const client = createHttpValedictorianClient({
@@ -947,12 +900,7 @@ describe('HTTP Valedictorian client', () => {
       attemptId: 'attempt-1',
       outcome: 'submitted',
     })
-    await workspace.policy.evaluate.sourcingCandidate({
-      companyName: 'Acme',
-      roleTitle: 'Software Engineer Intern',
-      priorityScore: 6,
-      officialUrl: 'https://jobs.example.com/acme',
-    })
+    await workspace.policy.evaluate.opportunity({ opportunityId: 'opportunity-1' })
     await workspace.policy.evaluate.runWindow({
       sourceName: 'LinkedIn',
       now: '2026-06-08T18:00:00.000Z',
@@ -1002,7 +950,7 @@ describe('HTTP Valedictorian client', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       7,
-      'http://127.0.0.1:4317/v1/workspaces/workspace-1/policy/evaluate/sourcing-candidate',
+      'http://127.0.0.1:4317/v1/workspaces/workspace-1/policy/evaluate/opportunity',
       expect.objectContaining({ method: 'POST' }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(

@@ -1,10 +1,4 @@
 import { defaultValedictorianApiBaseUrl, valedictorianApiPaths } from './api.js'
-import type {
-  ApplicationEventsListInput,
-  ApplicationAttemptsListInput,
-  ApplicationLinksListInput,
-  ApplicationListQuery,
-} from './application.js'
 import type { ValedictorianClient, ValedictorianWorkspaceClient } from './client.js'
 import type {
   ConnectorCheckpointsListInput,
@@ -30,7 +24,8 @@ import {
   connectorOverviewListQueryToSearchParams,
   connectorOverviewListResultSchema,
 } from './connector-overview.js'
-import { createApplicationsHttpMethods } from './http-client-applications.js'
+import { createScoreAndActionQueueHttpMethods } from './http-client-applications.js'
+import { createLifecycleHttpMethods } from './http-client-lifecycle.js'
 import {
   createConnectorScheduleHttpMethods,
   connectorScheduleHistoryListQueryToSearchParams,
@@ -43,7 +38,6 @@ import {
   rethrowConnectorCreateError,
   rethrowConnectorOptionQueryError,
   rethrowProfileDocumentError,
-  rethrowRawRecordDetailError,
   requireResponseIdentity,
 } from './http-client-capability-errors.js'
 import {
@@ -80,7 +74,6 @@ export {
   ConnectorCreateHttpError,
   ConnectorOptionQueryHttpError,
   ConnectorRetirementConflictError,
-  InvalidPersistedRawDetailHttpError,
   ProfileDocumentHttpError,
 } from './http-client-capability-errors.js'
 import { valedictorianCapabilitiesSchema } from './capabilities.js'
@@ -88,53 +81,13 @@ import { valedictorianCapabilitiesSchema } from './capabilities.js'
 export { connectorScheduleHistoryListQueryToSearchParams }
 import type { PolicyEvidenceListInput } from './policy.js'
 import type { ActionQueueListQuery } from './action-queue.js'
-import {
-  sourcingFindingSchema,
-  sourcingFindingsListResultSchema,
-  type SourcingFindingsListInput,
-} from './sourcing.js'
 import type { WorkflowRunsListInput } from './workflow-run.js'
-import {
-  batchRawSourceRecordsInputSchema,
-  rawSourceRecordSchema,
-  rawSourceNormalizationResultSchema,
-  rawSourceReplayReceiptSchema,
-} from './raw-sourcing.js'
-import { createBoundBatchRawSourceRecordsResultSchema } from './raw-sourcing-bound.js'
-import {
-  rawSourceRecordsListQuerySchema,
-  rawSourceRecordsListQueryToSearchParams,
-  rawSourceRecordsListResultSchema,
-} from './raw-sourcing-list.js'
-import { rawSourceProjectionResultSchema } from './sourcing-projection.js'
-
-export { rawSourceRecordsListQueryToSearchParams }
 
 export interface HttpValedictorianClientOptions {
   baseUrl?: string
   token?: string
   fetch?: typeof fetch
 }
-
-const applicationListQueryParamKeys = [
-  'status',
-  'hasApplied',
-  'priorityBand',
-  'minScore',
-  'maxScore',
-  'company',
-  'role',
-  'source',
-  'search',
-  'workMode',
-  'createdFrom',
-  'createdTo',
-  'updatedFrom',
-  'updatedTo',
-  'sort',
-  'limit',
-  'offset',
-] as const
 
 const actionQueueListQueryParamKeys = ['actionBucket', 'limit', 'offset'] as const
 const workflowRunListQueryParamKeys = [
@@ -146,43 +99,10 @@ const workflowRunListQueryParamKeys = [
   'limit',
   'offset',
 ] as const
-const sourcingFindingListQueryParamKeys = [
-  'workflowRunId',
-  'sourceId',
-  'source',
-  'mergeStatus',
-  'destinationClass',
-  'usability',
-  'limit',
-  'offset',
-] as const
-const sourcingProjectionOwnedFieldKeys = [
-  'destinationClass',
-  'destinationUrl',
-  'intermediaryUrl',
-  'usability',
-] as const
-const applicationEventsListQueryParamKeys = ['limit', 'offset'] as const
-const applicationAttemptsListQueryParamKeys = ['limit', 'offset'] as const
-const applicationLinksListQueryParamKeys = ['limit', 'offset'] as const
 const policyEvidenceListQueryParamKeys = ['subjectType', 'subjectId', 'tag', 'limit', 'offset'] as const
 const connectorRunListQueryParamKeys = ['status', 'mode', 'limit', 'offset'] as const
 const connectorCheckpointListQueryParamKeys = ['filterSignature'] as const
 const connectorObservationListQueryParamKeys = ['connectorRunId', 'limit', 'offset'] as const
-
-export function applicationListQueryToSearchParams(query: ApplicationListQuery = {}) {
-  const params = new URLSearchParams()
-
-  for (const key of applicationListQueryParamKeys) {
-    const value = query[key]
-
-    if (value !== undefined) {
-      params.set(key, String(value))
-    }
-  }
-
-  return params
-}
 
 export function actionQueueListQueryToSearchParams(query: ActionQueueListQuery = {}) {
   const params = new URLSearchParams()
@@ -202,80 +122,6 @@ export function workflowRunListQueryToSearchParams(query: WorkflowRunsListInput 
   const params = new URLSearchParams()
 
   for (const key of workflowRunListQueryParamKeys) {
-    const value = query[key]
-
-    if (value !== undefined) {
-      params.set(key, String(value))
-    }
-  }
-
-  return params
-}
-
-export function sourcingFindingListQueryToSearchParams(
-  query: SourcingFindingsListInput = {},
-) {
-  const params = new URLSearchParams()
-
-  for (const key of sourcingFindingListQueryParamKeys) {
-    const value = query[key]
-
-    if (value !== undefined) {
-      params.set(key, String(value))
-    }
-  }
-
-  return params
-}
-
-function sourcingMutationBody(input: object) {
-  const body = { ...input } as Record<string, unknown>
-
-  for (const key of sourcingProjectionOwnedFieldKeys) {
-    delete body[key]
-  }
-
-  return body
-}
-
-export function applicationEventsListQueryToSearchParams(
-  query: Omit<ApplicationEventsListInput, 'applicationId'> = {},
-) {
-  const params = new URLSearchParams()
-
-  for (const key of applicationEventsListQueryParamKeys) {
-    const value = query[key]
-
-    if (value !== undefined) {
-      params.set(key, String(value))
-    }
-  }
-
-  return params
-}
-
-export function applicationAttemptsListQueryToSearchParams(
-  query: Omit<ApplicationAttemptsListInput, 'applicationId'> = {},
-) {
-  const params = new URLSearchParams()
-
-  for (const key of applicationAttemptsListQueryParamKeys) {
-    const value = query[key]
-
-    if (value !== undefined) {
-      params.set(key, String(value))
-    }
-  }
-
-  return params
-}
-
-export function applicationLinksListQueryToSearchParams(
-  query: Omit<ApplicationLinksListInput, 'applicationId'> = {},
-) {
-  const params = new URLSearchParams()
-
-  for (const key of applicationLinksListQueryParamKeys) {
     const value = query[key]
 
     if (value !== undefined) {
@@ -424,15 +270,12 @@ export function createHttpValedictorianClient({
     const pathFor = (path: string) => workspacePath(workspaceId, path)
 
     return {
-    ...createApplicationsHttpMethods({
+    ...createScoreAndActionQueueHttpMethods({
       pathFor,
       request,
-      applicationListQueryToSearchParams,
-      applicationLinksListQueryToSearchParams,
-      applicationEventsListQueryToSearchParams,
-      applicationAttemptsListQueryToSearchParams,
       actionQueueListQueryToSearchParams,
     }),
+    ...createLifecycleHttpMethods({ pathFor, request, workspaceId }),
     connectors: {
       ...createConnectorCapabilityHttpMethods({
         pathFor,
@@ -606,147 +449,6 @@ export function createHttpValedictorianClient({
       request,
       workflowRunListQueryToSearchParams,
     }),
-    sourcing: {
-      rawRevisions: {
-        projection: {
-          async get(rawRevisionId) {
-            const projection = parseValedictorianContractValue(
-              rawSourceProjectionResultSchema,
-              await request(
-                pathFor(valedictorianApiPaths.sourcingRawRevisionProjection(rawRevisionId)),
-              ),
-            )
-            return requireResponseIdentity(projection, projection.rawRevisionId, rawRevisionId)
-          },
-        },
-      },
-      rawRecords: {
-        async list(query) {
-          const parsedQuery = rawSourceRecordsListQuerySchema.parse(query ?? {})
-          return parseValedictorianContractValue(
-            rawSourceRecordsListResultSchema,
-            await request(pathFor(valedictorianApiPaths.sourcingRawRecords), {
-              query: rawSourceRecordsListQueryToSearchParams(parsedQuery),
-            }),
-          )
-        },
-        async ingestBatch(input) {
-          const body = batchRawSourceRecordsInputSchema.parse(input)
-          return parseValedictorianContractValue(
-            createBoundBatchRawSourceRecordsResultSchema(body),
-            await request(pathFor(valedictorianApiPaths.sourcingRawRecordsBatch), {
-              body,
-              method: 'POST',
-            }),
-          )
-        },
-        async get(rawRecordId) {
-          let body: unknown
-
-          try {
-            body = await request(pathFor(valedictorianApiPaths.sourcingRawRecord(rawRecordId)))
-          } catch (error) {
-            rethrowRawRecordDetailError(error)
-          }
-
-          return parseValedictorianContractValue(
-            rawSourceRecordSchema.refine((record) => record.id === rawRecordId, {
-              message: 'raw record response must match the requested id', path: ['id'],
-            }),
-            body,
-          )
-        },
-        async replay(input) {
-          const receipt = await request(
-            pathFor(valedictorianApiPaths.sourcingRawRecordsReplay),
-            {
-              body: input,
-              method: 'POST',
-            },
-          )
-
-          return parseValedictorianContractValue(rawSourceReplayReceiptSchema, receipt)
-        },
-        normalization: {
-          async get(rawRecordId) {
-            return parseValedictorianContractValue(
-              rawSourceNormalizationResultSchema.refine(
-                (result) => result.rawRecordId === rawRecordId,
-                { message: 'normalization response must match the requested raw record', path: ['rawRecordId'] },
-              ),
-              await request(
-                pathFor(
-                  valedictorianApiPaths.sourcingRawRecordNormalization(rawRecordId),
-                ),
-              ),
-            )
-          },
-        },
-      },
-      candidates: {
-        /**
-         * @deprecated Compatibility entry point for already-canonical producers.
-         * New producers should submit source-neutral records through rawRecords.ingestBatch.
-         */
-        async process(input) {
-          return parseValedictorianContractValue(
-            sourcingFindingSchema,
-            await request(pathFor(valedictorianApiPaths.sourcingCandidatesProcess), {
-              body: sourcingMutationBody(input),
-              method: 'POST',
-            }),
-          )
-        },
-      },
-      findings: {
-        async list(query) {
-          const result = await request(pathFor(valedictorianApiPaths.sourcingFindings), {
-            query: sourcingFindingListQueryToSearchParams(query),
-          })
-
-          return parseValedictorianContractValue(sourcingFindingsListResultSchema, result)
-        },
-        async create(input) {
-          const finding = await request(pathFor(valedictorianApiPaths.sourcingFindings), {
-            body: sourcingMutationBody(input),
-            method: 'POST',
-          })
-
-          return parseValedictorianContractValue(sourcingFindingSchema, finding)
-        },
-        async update(input) {
-          const { findingId, ...body } = input
-
-          const finding = await request(pathFor(valedictorianApiPaths.sourcingFinding(findingId)), {
-            body: sourcingMutationBody(body),
-            method: 'PATCH',
-          })
-
-          return parseValedictorianContractValue(sourcingFindingSchema, finding)
-        },
-        async decide(input) {
-          const { findingId, ...body } = input
-
-          const finding = await request(pathFor(valedictorianApiPaths.sourcingFindingDecide(findingId)), {
-            body: sourcingMutationBody(body),
-            method: 'POST',
-          })
-
-          return parseValedictorianContractValue(sourcingFindingSchema, finding)
-        },
-        async promote(input) {
-          const finding = await request(
-            pathFor(valedictorianApiPaths.sourcingFindingPromote(input.findingId)),
-            {
-              body: {},
-              method: 'POST',
-            },
-          )
-
-          return parseValedictorianContractValue(sourcingFindingSchema, finding)
-        },
-      },
-    },
   }
   }
 

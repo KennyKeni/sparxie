@@ -63,9 +63,9 @@ const lifecycleCounts = {
     unclassified: 0,
     invariant: 'reconciled',
   },
-  sourcing: {
-    findingsAdded: 1,
-    canonicalDuplicates: 1,
+  opportunity: {
+    opportunitiesCreated: 1,
+    existingJobMatches: 1,
     notFit: 1,
     rejected: 0,
     actionableReview: 0,
@@ -141,7 +141,7 @@ describe('connector continuous synchronization contract', () => {
       ...skippedNotDueRun,
       lifecycleCounts: {
         ...lifecycleCounts,
-        sourcing: { ...lifecycleCounts.sourcing, findingsAdded: 2 },
+        opportunity: { ...lifecycleCounts.opportunity, opportunitiesCreated: 2 },
       },
     }).success).toBe(false)
   })
@@ -190,9 +190,9 @@ describe('connector continuous synchronization contract', () => {
       ...skippedNotDueRun,
       lifecycleCounts: {
         ...lifecycleCounts,
-        sourcing: {
-          ...lifecycleCounts.sourcing,
-          findingsAdded: 100,
+        opportunity: {
+          ...lifecycleCounts.opportunity,
+          opportunitiesCreated: 100,
           invariant: 'lineage_incomplete',
         },
       },
@@ -206,9 +206,9 @@ describe('connector continuous synchronization contract', () => {
           gateRejected: 0,
           invariant: 'lineage_incomplete',
         },
-        sourcing: {
-          ...lifecycleCounts.sourcing,
-          canonicalDuplicates: 0,
+        opportunity: {
+          ...lifecycleCounts.opportunity,
+          existingJobMatches: 0,
           invariant: 'lineage_incomplete',
         },
       },

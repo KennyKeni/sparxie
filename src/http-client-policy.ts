@@ -84,10 +84,10 @@ export function createPolicyHttpMethods({
           }),
         )
       },
-      async sourcingCandidate(input) {
+      async opportunity(input) {
         return parseValedictorianContractValue(
           policyDecisionSchema,
-          await request(pathFor(valedictorianApiPaths.policyEvaluateSourcingCandidate), {
+          await request(pathFor(valedictorianApiPaths.policyEvaluateOpportunity), {
             body: input,
             method: 'POST',
           }),

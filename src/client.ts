@@ -1,28 +1,3 @@
-import type {
-  ApplicationDetail,
-  ApplicationAttempt,
-  ApplicationAttemptsListInput,
-  ApplicationAttemptsListResult,
-  ApplicationAttemptStep,
-  ApplicationEventsListInput,
-  ApplicationEventsListResult,
-  ApplicationLinkRecord,
-  ApplicationLinksListInput,
-  ApplicationLinksListResult,
-  ApplicationListQuery,
-  ApplicationListResult,
-  AppendApplicationNoteInput,
-  ArchiveApplicationInput,
-  CompleteApplicationAttemptInput,
-  CreateApplicationAttemptStepInput,
-  CreateApplicationInput,
-  CreateApplicationLinkInput,
-  StartApplicationAttemptInput,
-  StatusUpdateInput,
-  UpdateApplicationInput,
-  UpdateApplicationLinkInput,
-  UpdateApplicationWorkflowInput,
-} from './application.js'
 import type { ActionQueueListQuery, ActionQueueListResult } from './action-queue.js'
 import type {
   ConnectorCheckpointsListInput,
@@ -62,7 +37,7 @@ import type {
 import type {
   EvaluateApplicationPolicyInput,
   EvaluateRunWindowPolicyInput,
-  EvaluateSourcingCandidatePolicyInput,
+  EvaluateOpportunityPolicyInput,
   PolicyConfig,
   PolicyConfigPatch,
   PolicyDecision,
@@ -72,29 +47,7 @@ import type {
   PolicyRunWindowDecision,
 } from './policy.js'
 import type { ScoreInput, ScoreRecord } from './scoring.js'
-import type {
-  CreateSourcingFindingInput,
-  ProcessSourcingCandidateInput,
-  PromoteSourcingFindingInput,
-  SetSourcingFindingDecisionInput,
-  SourcingFinding,
-  SourcingFindingsListInput,
-  SourcingFindingsListResult,
-  UpdateSourcingFindingInput,
-} from './sourcing.js'
-import type {
-  BatchRawSourceRecordsInput,
-  BatchRawSourceRecordsResult,
-  RawSourceNormalizationResult,
-  RawSourceRecord,
-  RawSourceReplayReceipt,
-  ReplayRawSourceRecordsInput,
-} from './raw-sourcing.js'
-import type {
-  RawSourceRecordsListQuery,
-  RawSourceRecordsListResult,
-} from './raw-sourcing-list.js'
-import type { RawSourceProjectionResult } from './sourcing-projection.js'
+import type { LifecycleWorkspaceClient } from './lifecycle-client.js'
 import type {
   CompleteWorkflowRunInput,
   CreateWorkflowRunStepInput,
@@ -159,35 +112,7 @@ export interface ValedictorianClient {
   }
 }
 
-export interface ValedictorianWorkspaceClient {
-  applications: {
-    list(query?: ApplicationListQuery): Promise<ApplicationListResult>
-    get(id: string): Promise<ApplicationDetail | null>
-    create(input: CreateApplicationInput): Promise<ApplicationDetail>
-    update(input: UpdateApplicationInput): Promise<ApplicationDetail>
-    updateStatus(input: StatusUpdateInput): Promise<ApplicationDetail>
-    archive(input: ArchiveApplicationInput): Promise<void>
-    workflow: {
-      update(input: UpdateApplicationWorkflowInput): Promise<ApplicationDetail>
-    }
-    notes: {
-      append(input: AppendApplicationNoteInput): Promise<ApplicationDetail>
-    }
-    links: {
-      list(input: ApplicationLinksListInput): Promise<ApplicationLinksListResult>
-      create(input: CreateApplicationLinkInput): Promise<ApplicationLinkRecord>
-      update(input: UpdateApplicationLinkInput): Promise<ApplicationLinkRecord>
-    }
-    events: {
-      list(input: ApplicationEventsListInput): Promise<ApplicationEventsListResult>
-    }
-    attempts: {
-      list(input: ApplicationAttemptsListInput): Promise<ApplicationAttemptsListResult>
-      start(input: StartApplicationAttemptInput): Promise<ApplicationAttempt>
-      step(input: CreateApplicationAttemptStepInput): Promise<ApplicationAttemptStep>
-      complete(input: CompleteApplicationAttemptInput): Promise<ApplicationAttempt>
-    }
-  }
+export interface ValedictorianWorkspaceClient extends LifecycleWorkspaceClient {
   scores: {
     record(input: ScoreInput): Promise<ScoreRecord>
   }
@@ -260,7 +185,7 @@ export interface ValedictorianWorkspaceClient {
     }
     evaluate: {
       application(input: EvaluateApplicationPolicyInput): Promise<PolicyDecision>
-      sourcingCandidate(input: EvaluateSourcingCandidatePolicyInput): Promise<PolicyDecision>
+      opportunity(input: EvaluateOpportunityPolicyInput): Promise<PolicyDecision>
       runWindow(input: EvaluateRunWindowPolicyInput): Promise<PolicyRunWindowDecision>
     }
   }
@@ -298,39 +223,5 @@ export interface ValedictorianWorkspaceClient {
     start(input: StartWorkflowRunInput): Promise<WorkflowRun>
     step(input: CreateWorkflowRunStepInput): Promise<WorkflowRunStep>
     complete(input: CompleteWorkflowRunInput): Promise<WorkflowRun>
-  }
-  sourcing: {
-    rawRevisions: {
-      projection: {
-        get(rawRevisionId: string): Promise<RawSourceProjectionResult>
-      }
-    }
-    rawRecords: {
-      list(query?: RawSourceRecordsListQuery): Promise<RawSourceRecordsListResult>
-      ingestBatch(input: BatchRawSourceRecordsInput): Promise<BatchRawSourceRecordsResult>
-      get(rawRecordId: string): Promise<RawSourceRecord>
-      replay(input: ReplayRawSourceRecordsInput): Promise<RawSourceReplayReceipt>
-      normalization: {
-        get(rawRecordId: string): Promise<RawSourceNormalizationResult>
-      }
-    }
-    candidates: {
-      /**
-       * @deprecated Compatibility entry point for already-canonical producers.
-       * New producers should submit source-neutral records through rawRecords.ingestBatch.
-       */
-      process(input: ProcessSourcingCandidateInput): Promise<SourcingFinding>
-    }
-    findings: {
-      list(query?: SourcingFindingsListInput): Promise<SourcingFindingsListResult>
-      /**
-       * @deprecated Compatibility entry point for direct canonical finding creation.
-       * New producers should submit source-neutral records through rawRecords.ingestBatch.
-       */
-      create(input: CreateSourcingFindingInput): Promise<SourcingFinding>
-      update(input: UpdateSourcingFindingInput): Promise<SourcingFinding>
-      decide(input: SetSourcingFindingDecisionInput): Promise<SourcingFinding>
-      promote(input: PromoteSourcingFindingInput): Promise<SourcingFinding>
-    }
   }
 }

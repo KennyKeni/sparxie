@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   connectorRunSummarySchema,
-  createBoundRawSourceRecordInputSchema,
-  createBoundRawSourceNormalizationResultSchema,
-  rawSourceRecordInputSchema,
   sourceOperationOutcomeSchema,
 } from './index.js'
+import { createBoundRawSourceRecordInputSchema, rawSourceRecordInputSchema } from './raw-sourcing.js'
+import { createBoundRawSourceNormalizationResultSchema } from './raw-sourcing-bound.js'
 
 const scope = 'scope_7Qm2pK9v'
 

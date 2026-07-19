@@ -1,8 +1,5 @@
-import type {
-  ApplicationLinkSummary,
-  ApplicationStatus,
-  WorkMode,
-} from './application.js'
+import type { PursuitApplicationStatus } from './lifecycle-application.js'
+import type { JobWorkMode } from './job.js'
 import type { PolicyReason } from './policy.js'
 
 export const actionQueueBuckets = [
@@ -33,13 +30,13 @@ export interface ActionQueueListItem {
   companyName: string
   roleTitle: string
   sourceName: string
-  status: ApplicationStatus
+  status: PursuitApplicationStatus
   location: string
-  workMode: WorkMode
+  workMode: JobWorkMode
   hasApplied: boolean
   currentPriorityScore: number | null
   currentPriorityBand: string | null
-  primaryLink: ApplicationLinkSummary | null
+  primaryLink: { label: string; url: string } | null
   createdAt: string
   updatedAt: string
   actionBucket: ActionQueueBucket

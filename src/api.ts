@@ -7,6 +7,9 @@ export const valedictorianApiPaths = {
   workspaceOpen: '/v1/workspaces/open',
   workspaceCreate: '/v1/workspaces/create',
   applications: '/v1/applications',
+  captures: '/v1/captures',
+  jobs: '/v1/jobs',
+  opportunities: '/v1/opportunities',
   profile: '/v1/profile',
   profileAgentContext: '/v1/profile/agent-context',
   /** @deprecated Compatibility sensitive-profile path for the cutover window. */
@@ -24,7 +27,7 @@ export const valedictorianApiPaths = {
   policyConfigReset: '/v1/policy/config/reset',
   policyEvidence: '/v1/policy/evidence',
   policyEvaluateApplication: '/v1/policy/evaluate/application',
-  policyEvaluateSourcingCandidate: '/v1/policy/evaluate/sourcing-candidate',
+  policyEvaluateOpportunity: '/v1/policy/evaluate/opportunity',
   policyEvaluateRunWindow: '/v1/policy/evaluate/run-window',
   actionQueue: '/v1/action-queue',
   runs: '/v1/runs',
@@ -34,20 +37,95 @@ export const valedictorianApiPaths = {
   application(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}`
   },
-  applicationArchive(applicationId: string) {
-    return `/v1/applications/${encodeURIComponent(applicationId)}/archive`
+  applicationAttempts(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/attempts`
   },
   applicationEvents(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}/events`
   },
-  applicationAttempts(applicationId: string) {
-    return `/v1/applications/${encodeURIComponent(applicationId)}/attempts`
+  applicationCompany(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/company`
   },
-  applicationAttemptSteps(applicationId: string, attemptId: string) {
-    return `/v1/applications/${encodeURIComponent(applicationId)}/attempts/${encodeURIComponent(attemptId)}/steps`
+  applicationSource(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/source`
   },
-  applicationAttemptComplete(applicationId: string, attemptId: string) {
-    return `/v1/applications/${encodeURIComponent(applicationId)}/attempts/${encodeURIComponent(attemptId)}/complete`
+  applicationRefreshSnapshot(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/snapshot/refresh`
+  },
+  applicationRemove(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/remove`
+  },
+  applicationRestore(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/restore`
+  },
+  applicationHistory(applicationId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/history`
+  },
+  applicationLinkRemove(applicationId: string, linkId: string) {
+    return `/v1/applications/${encodeURIComponent(applicationId)}/links/${encodeURIComponent(linkId)}/remove`
+  },
+  capture(captureId: string) {
+    return `/v1/captures/${encodeURIComponent(captureId)}`
+  },
+  captureRemove(captureId: string) {
+    return `/v1/captures/${encodeURIComponent(captureId)}/remove`
+  },
+  captureRestore(captureId: string) {
+    return `/v1/captures/${encodeURIComponent(captureId)}/restore`
+  },
+  captureHistory(captureId: string) {
+    return `/v1/captures/${encodeURIComponent(captureId)}/history`
+  },
+  capturePromoteToJob(captureId: string) {
+    return `/v1/captures/${encodeURIComponent(captureId)}/promote-to-job`
+  },
+  job(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}`
+  },
+  jobFacts(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/facts`
+  },
+  jobAvailability(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/availability`
+  },
+  jobExternalIdentities(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/external-identities`
+  },
+  jobExternalIdentityRemove(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/external-identities/remove`
+  },
+  jobRemove(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/remove`
+  },
+  jobRestore(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/restore`
+  },
+  jobHistory(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/history`
+  },
+  jobPromoteToOpportunity(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/promote-to-opportunity`
+  },
+  opportunity(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}`
+  },
+  opportunityEvaluation(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}/evaluation`
+  },
+  opportunityDisposition(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}/disposition`
+  },
+  opportunityRemove(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}/remove`
+  },
+  opportunityRestore(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}/restore`
+  },
+  opportunityHistory(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}/history`
+  },
+  opportunityPromoteToApplication(opportunityId: string) {
+    return `/v1/opportunities/${encodeURIComponent(opportunityId)}/promote-to-application`
   },
   applicationLinks(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}/links`
@@ -55,14 +133,8 @@ export const valedictorianApiPaths = {
   applicationLink(applicationId: string, linkId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}/links/${encodeURIComponent(linkId)}`
   },
-  applicationNotes(applicationId: string) {
-    return `/v1/applications/${encodeURIComponent(applicationId)}/notes`
-  },
   applicationStatus(applicationId: string) {
     return `/v1/applications/${encodeURIComponent(applicationId)}/status`
-  },
-  applicationWorkflow(applicationId: string) {
-    return `/v1/applications/${encodeURIComponent(applicationId)}/workflow`
   },
   runSteps(workflowRunId: string) {
     return `/v1/runs/${encodeURIComponent(workflowRunId)}/steps`
@@ -108,29 +180,6 @@ export const valedictorianApiPaths = {
   },
   connectorScheduleDispatchDue(connectorInstanceId: string) {
     return `/v1/connectors/${encodeURIComponent(connectorInstanceId)}/schedule/dispatch-due`
-  },
-  sourcingCandidatesProcess: '/v1/sourcing/candidates/process',
-  sourcingRawRecords: '/v1/sourcing/raw-records',
-  sourcingRawRecordsBatch: '/v1/sourcing/raw-records/batch',
-  sourcingRawRecordsReplay: '/v1/sourcing/raw-records/replay',
-  sourcingRawRecord(rawRecordId: string) {
-    return `/v1/sourcing/raw-records/${encodeURIComponent(rawRecordId)}`
-  },
-  sourcingRawRecordNormalization(rawRecordId: string) {
-    return `/v1/sourcing/raw-records/${encodeURIComponent(rawRecordId)}/normalization`
-  },
-  sourcingRawRevisionProjection(rawRevisionId: string) {
-    return `/v1/sourcing/raw-revisions/${encodeURIComponent(rawRevisionId)}/projection`
-  },
-  sourcingFindings: '/v1/sourcing/findings',
-  sourcingFinding(findingId: string) {
-    return `/v1/sourcing/findings/${encodeURIComponent(findingId)}`
-  },
-  sourcingFindingDecide(findingId: string) {
-    return `/v1/sourcing/findings/${encodeURIComponent(findingId)}/decide`
-  },
-  sourcingFindingPromote(findingId: string) {
-    return `/v1/sourcing/findings/${encodeURIComponent(findingId)}/promote`
   },
   scores: '/v1/scores',
 } as const

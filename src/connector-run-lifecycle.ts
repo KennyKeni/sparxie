@@ -64,9 +64,9 @@ export interface ConnectorRunLifecycleCounts {
     unclassified: number
     invariant: 'reconciled' | 'lineage_incomplete'
   }
-  sourcing: {
-    findingsAdded: number
-    canonicalDuplicates: number
+  opportunity: {
+    opportunitiesCreated: number
+    existingJobMatches: number
     notFit: number
     rejected: number
     actionableReview: number
@@ -114,9 +114,9 @@ export const connectorRunLifecycleCountsSchema: z.ZodType<ConnectorRunLifecycleC
       unclassified: countSchema,
       invariant: z.enum(['reconciled', 'lineage_incomplete']),
     }).strict(),
-    sourcing: z.object({
-      findingsAdded: countSchema,
-      canonicalDuplicates: countSchema,
+    opportunity: z.object({
+      opportunitiesCreated: countSchema,
+      existingJobMatches: countSchema,
       notFit: countSchema,
       rejected: countSchema,
       actionableReview: countSchema,
@@ -235,26 +235,26 @@ export const connectorRunLifecycleCountsSchema: z.ZodType<ConnectorRunLifecycleC
       })
     }
 
-    const sourcing = counts.sourcing
-    const sourcingClassified = sourcing.findingsAdded
-      + sourcing.canonicalDuplicates
-      + sourcing.notFit
-      + sourcing.rejected
-      + sourcing.actionableReview
-      + sourcing.unclassified
-    const sourcingReconciled = sourcingClassified === destination.normalized
-    if (sourcingClassified > destination.normalized) {
+    const opportunity = counts.opportunity
+    const opportunityClassified = opportunity.opportunitiesCreated
+      + opportunity.existingJobMatches
+      + opportunity.notFit
+      + opportunity.rejected
+      + opportunity.actionableReview
+      + opportunity.unclassified
+    const opportunityReconciled = opportunityClassified === destination.normalized
+    if (opportunityClassified > destination.normalized) {
       context.addIssue({
         code: 'custom',
-        message: 'sourcing outcomes cannot exceed normalized jobs',
-        path: ['sourcing', 'invariant'],
+        message: 'opportunity outcomes cannot exceed normalized jobs',
+        path: ['opportunity', 'invariant'],
       })
     }
-    if ((sourcing.invariant === 'reconciled') !== sourcingReconciled) {
+    if ((opportunity.invariant === 'reconciled') !== opportunityReconciled) {
       context.addIssue({
         code: 'custom',
-        message: 'sourcing invariant must reflect whether lineage reconciles',
-        path: ['sourcing', 'invariant'],
+        message: 'opportunity invariant must reflect whether lineage reconciles',
+        path: ['opportunity', 'invariant'],
       })
     }
   })

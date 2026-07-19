@@ -1,8 +1,5 @@
-import type {
-  ApplicationAttemptActorType,
-  ApplicationAttemptStepType,
-  ApplicationStatus,
-} from './application.js'
+import type { ApplicationAttemptActorType, ApplicationAttemptStepType } from './application.js'
+import type { PursuitApplicationStatus } from './lifecycle-application.js'
 
 export const runTypes = [
   'application_attempt',
@@ -54,7 +51,7 @@ export interface WorkflowRun {
   timezone: string | null
   inputJson: string
   summary: string | null
-  outcome: ApplicationStatus | string | null
+  outcome: PursuitApplicationStatus | null
   blocker: string | null
   metadataJson: string
   createdAt: string
@@ -106,7 +103,7 @@ export interface CreateWorkflowRunStepInput {
 export interface CompleteWorkflowRunInput {
   workflowRunId: string
   status?: RunStatus
-  outcome?: ApplicationStatus | string | null
+  outcome?: PursuitApplicationStatus | null
   summary?: string | null
   blocker?: string | null
   metadata?: unknown
