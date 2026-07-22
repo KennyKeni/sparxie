@@ -14,7 +14,7 @@ import {
 } from './lifecycle-shared.js'
 import {
   sourceExecutionScopeIdSchema,
-} from './source-execution.js'
+} from './sourcing/source-execution.js'
 
 export const evidenceModes = ['reported', 'ats_details_provided'] as const
 export type EvidenceMode = (typeof evidenceModes)[number]

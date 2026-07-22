@@ -13,7 +13,7 @@ import {
   valedictorianInternalErrorKind,
   valedictorianInternalErrorStatus,
 } from './index.js'
-import { jsonResponse } from './http-client.test-support.js'
+import { jsonResponse } from './transport/http-client.test-support.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()
