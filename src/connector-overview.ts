@@ -18,7 +18,7 @@ import {
   type ConnectorStatusState,
   type ConnectorWarning,
 } from './connector.js'
-import { compareUtf8Bytewise } from './raw-sourcing-list.js'
+import { compareUtf8Bytewise } from './string-ordering.js'
 import { refineConnectorSynchronizationInvariants } from './connector-synchronization-invariants.js'
 import {
   connectorOverviewHealthClassifications,

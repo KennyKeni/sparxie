@@ -4,7 +4,6 @@ import type {
   ConnectorHistoricalBackfillState,
   ConnectorRunsListInput,
   ConnectorSynchronizationOutcome,
-  NormalizationAttempt,
   SourceOperationOutcome,
 } from '../src/index.js'
 
@@ -49,9 +48,6 @@ const backfillBranches = [
   { state: 'boundary_reached', boundary: { earliestDate: '2026-01-01' } },
   { state: 'source_exhausted', boundary: { earliestDate: '2026-01-01' } },
 ] satisfies ConnectorHistoricalBackfillState[]
-declare const attempt: NormalizationAttempt
-const scopeOrGeneric: string | null = attempt.executionScopeId
-
 void [closedStatus, openStatus, openListStatus, openListMode, scopeAuth, yielded,
-  coolingDown, permanentItem, transientItem, synchronizationBranches, scopeOrGeneric]
+  coolingDown, permanentItem, transientItem, synchronizationBranches]
 void [frontierBranches, backfillBranches]
