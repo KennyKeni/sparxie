@@ -12,11 +12,25 @@ import {
   restoreInputSchema,
   restoreResultSchema,
 } from './lifecycle-shared.js'
+import {
+  sourceExecutionScopeIdSchema,
+} from './source-execution.js'
 
 export const evidenceModes = ['reported', 'ats_details_provided'] as const
 export type EvidenceMode = (typeof evidenceModes)[number]
 
 export const sourceAdapterKinds = ['connector', 'cli', 'manual', 'import'] as const
+
+export const captureReportedOriginKinds = [
+  'employer',
+  'ats',
+  'job_board',
+  'aggregator',
+  'referral',
+  'other',
+] as const
+
+export type CaptureReportedOriginKind = (typeof captureReportedOriginKinds)[number]
 
 const jsonValueSchema: z.ZodType<unknown> = z.json()
 const forbiddenEvidenceKey = /^(?:authorization|cookie|password|secret|token|ssn)$/i
@@ -104,6 +118,7 @@ export const captureListInputSchema = z
   .object({
     evidenceMode: z.enum(evidenceModes).optional(),
     adapterId: lifecycleIdSchema.optional(),
+    connectorRunId: z.string().min(1).optional(),
     includeRemoved: z.boolean().optional(),
     limit: z.number().int().min(1).max(200).optional(),
     cursor: lifecycleIdSchema.optional(),
@@ -144,6 +159,28 @@ export type CorrectCaptureInput = z.infer<typeof correctCaptureInputSchema>
 export const captureMutationResultSchema = mutationResultSchema(captureSchema)
 export type CaptureMutationResult = z.infer<typeof captureMutationResultSchema>
 
+export const captureReportedOriginSchema = z
+  .object({
+    kind: z.enum(captureReportedOriginKinds),
+    name: z.string().min(1),
+    providerId: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
+  })
+  .strict()
+
+export type CaptureReportedOrigin = z.infer<typeof captureReportedOriginSchema>
+
+export const captureConnectorProvenanceSchema = z
+  .object({
+    connectorInstanceId: z.string().min(1),
+    connectorRunId: z.string().min(1),
+    executionScopeId: sourceExecutionScopeIdSchema,
+    reportedOrigin: captureReportedOriginSchema.nullable(),
+  })
+  .strict()
+
+export type CaptureConnectorProvenance = z.infer<typeof captureConnectorProvenanceSchema>
+
 export const captureRevisionKinds = ['created', 'corrected', 'removed', 'restored'] as const
 export const captureRevisionSchema = z
   .object({
@@ -152,6 +189,7 @@ export const captureRevisionSchema = z
     kind: z.enum(captureRevisionKinds),
     snapshot: captureSchema,
     audit: lifecycleAuditEvidenceSchema,
+    connectorProvenance: captureConnectorProvenanceSchema.nullable().optional(),
   })
   .strict()
   .superRefine((entry, context) => {

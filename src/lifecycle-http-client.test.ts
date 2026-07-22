@@ -80,6 +80,33 @@ describe('lifecycle HTTP workspace client', () => {
     )
   })
 
+  it('serializes connectorRunId as a percent-encoded query parameter with existing filters', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse({ items: [capture], limit: 25, nextCursor: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
+      .forWorkspace('workspace-north')
+
+    await expect(
+      workspace.captures.list({
+        evidenceMode: 'reported',
+        adapterId: 'manual-entry',
+        connectorRunId: 'connector-run/one',
+        includeRemoved: false,
+        limit: 25,
+        cursor: 'capture-cursor',
+      }),
+    ).resolves.toEqual({ items: [capture], limit: 25, nextCursor: null })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://api.example/v1/workspaces/workspace-north/captures'
+        + '?evidenceMode=reported&adapterId=manual-entry&connectorRunId=connector-run%2Fone'
+        + '&includeRemoved=false&limit=25&cursor=capture-cursor',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
   it('routes all three promotions and explicit Application edits without a legacy sourcing hop', async () => {
     const blocked = {
       status: 'blocked',
