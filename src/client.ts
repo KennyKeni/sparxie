@@ -13,15 +13,15 @@ import type {
   CreateConnectorInstanceInput,
   TriggerConnectorRunInput,
   UpdateConnectorInstanceInput,
-} from './connector.js'
+} from './connector/connector.js'
 import type {
   ConnectorRetirementResult,
   RemoveConnectorInstanceInput,
-} from './connector-retirement.js'
+} from './connector/connector-retirement.js'
 import type {
   ConnectorOverviewListQuery,
   ConnectorOverviewListResult,
-} from './connector-overview.js'
+} from './connector/connector-overview.js'
 import type {
   ConnectorScheduleAuditListResult,
   ConnectorScheduleHistoryListInput,
@@ -33,7 +33,7 @@ import type {
   PauseConnectorScheduleInput,
   ResumeConnectorScheduleInput,
   UpsertConnectorScheduleInput,
-} from './connector-schedule.js'
+} from './connector/connector-schedule.js'
 import type {
   EvaluateApplicationPolicyInput,
   EvaluateRunWindowPolicyInput,
@@ -67,11 +67,11 @@ import type { ValedictorianCapabilities } from './capabilities.js'
 import type {
   InstalledConnectorDescriptor,
   InstalledConnectorDescriptorsListResult,
-} from './connector-capabilities.js'
+} from './connector/connector-capabilities.js'
 import type {
   ConnectorOptionQueryBody,
   ConnectorOptionQueryResult,
-} from './connector-option-query.js'
+} from './connector/connector-option-query.js'
 import type {
   ProfileAgentContext,
   ProfileSecretSummary,

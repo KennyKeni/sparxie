@@ -4,7 +4,7 @@ import {
   MAX_CONNECTOR_SCHEDULE_INTERVAL_MINUTES,
   type ConnectorSchedulingCapability,
   unavailableConnectorSchedulingCapability,
-} from './connector-schedule.js'
+} from './connector/connector-schedule.js'
 
 export type { ConnectorSchedulingCapability }
 

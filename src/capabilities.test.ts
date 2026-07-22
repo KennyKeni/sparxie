@@ -4,7 +4,7 @@ import {
   defaultLocalCapabilities,
   valedictorianCapabilitiesSchema,
 } from './index'
-import { jsonResponse } from './http-client.test-support'
+import { jsonResponse } from './transport/http-client.test-support'
 
 afterEach(() => {
   vi.unstubAllGlobals()
