@@ -3,8 +3,6 @@ import {
   connectorRunSummarySchema,
   sourceOperationOutcomeSchema,
 } from './index.js'
-import { createBoundRawSourceRecordInputSchema, rawSourceRecordInputSchema } from './raw-sourcing.js'
-import { createBoundRawSourceNormalizationResultSchema } from './raw-sourcing-bound.js'
 
 const scope = 'scope_7Qm2pK9v'
 
@@ -45,43 +43,6 @@ describe('source execution contract', () => {
     }
     expect(connectorRunSummarySchema.parse(run)).toEqual(run)
     expect(connectorRunSummarySchema.safeParse({ ...run, status: 'anything' }).success).toBe(false)
-  })
-
-  it('shares an opaque scope across non-adjacent captures and rejects spoofing', () => {
-    const capture = (intakeItemId: string, executionScopeId: string, connectorInstanceId = 'connector-1') => ({
-      intakeItemId,
-      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
-      capture: { connectorInstanceId, connectorRunId: 'run-1', executionScopeId },
-      observedAt: '2026-07-12T14:00:00.000Z',
-    })
-    const [workA, workB, workC] = [
-      capture('item-a', scope),
-      capture('item-b', 'scope_other_1', 'connector-2'),
-      capture('item-c', scope),
-    ]
-    expect([workA, workB, workC].map((work) => rawSourceRecordInputSchema.parse(work).capture.executionScopeId))
-      .toEqual([scope, 'scope_other_1', scope])
-
-    const bound = createBoundRawSourceRecordInputSchema({
-      requestWorkspaceId: 'workspace-1', workspaceId: 'workspace-1',
-      connectorInstanceId: 'connector-1', connectorRunId: 'run-1',
-      executionScopeId: scope,
-      adapter: { id: 'provider', kind: 'connector', version: '1.0.0' },
-    })
-    expect(bound.safeParse(workA).success).toBe(true)
-    expect(bound.safeParse(workC).success).toBe(true)
-    expect(bound.safeParse(capture('item-spoof', 'scope_spoofed_1')).success).toBe(false)
-  })
-
-  it('requires connector capture and forbids nonconnector capture', () => {
-    const observedAt = '2026-07-12T14:00:00.000Z'
-    expect(rawSourceRecordInputSchema.safeParse({
-      intakeItemId: 'item-connector', adapter: { id: 'provider', kind: 'connector', version: '1.0.0' }, observedAt,
-    }).success).toBe(false)
-    expect(rawSourceRecordInputSchema.safeParse({
-      intakeItemId: 'item-cli', adapter: { id: 'cli', kind: 'cli', version: '1.0.0' }, observedAt,
-      capture: { connectorInstanceId: 'connector-1', connectorRunId: 'run-1', executionScopeId: scope },
-    }).success).toBe(false)
   })
 
   it('keeps authentication refresh strict and free of session material', () => {
@@ -177,39 +138,6 @@ describe('source execution contract', () => {
         nextAttemptAt: '2026-07-12T14:00:30.000Z',
         horizonAt: '2026-07-12T15:00:00.000Z',
       },
-    }).success).toBe(false)
-  })
-
-  it('binds trusted source-scoped resolver attempts to one raw revision and scope', () => {
-    const result = {
-      rawRecordId: 'raw-1', rawRevisionId: 'revision-1',
-      canonicalSchemaVersion: 'candidate/v1', fieldOutcomes: [],
-      updatedAt: '2026-07-12T14:01:00.000Z', status: 'pending',
-      gate: null, canonicalCandidate: null,
-      attempts: [{
-        id: 'attempt-1', rawRevisionId: 'revision-1',
-        resolver: {
-          id: 'provider', version: '1.0.0', scopeRequirement: 'source',
-          requiredInputs: [], outputFields: [], capabilities: ['network'],
-          costClass: 'low', precedence: 1,
-        },
-        inputHash: 'sha256:input', executionScopeId: scope,
-        operationOutcome: null, status: 'completed',
-        startedAt: '2026-07-12T14:00:00.000Z',
-        completedAt: '2026-07-12T14:00:01.000Z', outcomes: [],
-      }],
-    }
-    const bound = createBoundRawSourceNormalizationResultSchema({
-      rawRevisionId: 'revision-1', executionScopeId: scope,
-    })
-    expect(bound.safeParse(result).success).toBe(true)
-    expect(bound.safeParse({
-      ...result,
-      attempts: [{ ...result.attempts[0], executionScopeId: 'scope_other_1' }],
-    }).success).toBe(false)
-    expect(bound.safeParse({
-      ...result,
-      attempts: [{ ...result.attempts[0], executionScopeId: null }],
     }).success).toBe(false)
   })
 

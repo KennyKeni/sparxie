@@ -26,11 +26,7 @@ import {
   getHttpErrorResponseBody,
 } from './http-client-error.js'
 import {
-  invalidPersistedRawDetailErrorCode,
-  invalidPersistedRawDetailErrorBodySchema,
-  invalidPersistedRawDetailErrorKindByCode,
   validateValedictorianEndpointError,
-  type InvalidPersistedRawDetailErrorBody,
   type ValedictorianFailureKind,
 } from './http-error-contract.js'
 import {
@@ -41,21 +37,6 @@ import {
   type ProfileDocumentErrorBody,
   type ProfileDocumentErrorCode,
 } from './profile-document.js'
-
-export class InvalidPersistedRawDetailHttpError
-  extends ValedictorianHttpError<InvalidPersistedRawDetailErrorBody> {
-  declare readonly kind: ValedictorianFailureKind
-
-  constructor(body: InvalidPersistedRawDetailErrorBody, status: number) {
-    super({
-      body,
-      message: body.message,
-      status,
-      kind: invalidPersistedRawDetailErrorKindByCode[body.code],
-    })
-    this.name = 'InvalidPersistedRawDetailHttpError'
-  }
-}
 
 export class ConnectorOptionQueryHttpError
   extends ValedictorianHttpError<ConnectorOptionQueryErrorBody> {
@@ -149,37 +130,6 @@ export function rethrowProfileDocumentError(error: unknown): never {
     && responseBody !== null
     && 'code' in responseBody
     && isProfileDocumentErrorCode(responseBody.code)
-  ) {
-    throw new ValedictorianProtocolError()
-  }
-
-  throw createFailClosedHttpError(error.status, responseBody)
-}
-
-export function rethrowRawRecordDetailError(error: unknown): never {
-  if (
-    !(error instanceof ValedictorianHttpError)
-    || error.status < 500
-    || error.status > 599
-  ) {
-    if (error instanceof ValedictorianHttpError) {
-      throw createFailClosedHttpError(error.status, getHttpErrorResponseBody(error))
-    }
-    throw error
-  }
-
-  const responseBody = getHttpErrorResponseBody(error)
-  const integrityError = invalidPersistedRawDetailErrorBodySchema.safeParse(responseBody)
-
-  if (integrityError.success) {
-    throw new InvalidPersistedRawDetailHttpError(integrityError.data, error.status)
-  }
-
-  if (
-    typeof responseBody === 'object'
-    && responseBody !== null
-    && 'code' in responseBody
-    && responseBody.code === invalidPersistedRawDetailErrorCode
   ) {
     throw new ValedictorianProtocolError()
   }

@@ -17,8 +17,31 @@ function readPackageJson() {
     files?: string[]
     name?: string
     types?: string
+    version?: string
   }
 }
+
+const retiredLifecycleModuleFiles = [
+  'raw-sourcing-bound.ts',
+  'raw-sourcing-list-summary.ts',
+  'raw-sourcing-list.test.ts',
+  'raw-sourcing-list.ts',
+  'raw-sourcing-replay.ts',
+  'raw-sourcing.ts',
+  'sourcing-projection.ts',
+  'sourcing.ts',
+] as const
+
+const retiredLifecycleRuntimeExports = [
+  'rawSourceRecordSchema',
+  'canonicalCandidateSchema',
+  'sourcingFindingSchema',
+  'invalidPersistedRawDetailErrorBody',
+  'invalidPersistedRawDetailErrorBodySchema',
+  'invalidPersistedRawDetailErrorCode',
+  'invalidPersistedRawDetailErrorMessage',
+  'NormalizationAttempt',
+] as const
 
 describe('SDK public contract', () => {
   it('exports the closed lifecycle decision vocabulary', () => {
@@ -52,9 +75,16 @@ describe('SDK public contract', () => {
 
   it('does not export legacy sourcing resources at runtime', async () => {
     const sdk = await import('./index.js')
-    expect(sdk).not.toHaveProperty('rawSourceRecordSchema')
-    expect(sdk).not.toHaveProperty('canonicalCandidateSchema')
-    expect(sdk).not.toHaveProperty('sourcingFindingSchema')
+    for (const exportName of retiredLifecycleRuntimeExports) {
+      expect(sdk).not.toHaveProperty(exportName)
+    }
+  })
+
+  it('does not compile retired lifecycle implementation modules', () => {
+    const sourceFiles = new Set(fs.readdirSync(path.resolve('src')))
+    for (const file of retiredLifecycleModuleFiles) {
+      expect(sourceFiles).not.toContain(file)
+    }
   })
 
   it('has no Electron, React, SQLite, or native database dependencies', () => {
@@ -65,6 +95,7 @@ describe('SDK public contract', () => {
     })
 
     expect(packageJson.name).toBe('sparxie')
+    expect(packageJson.version).toBe('0.28.0')
     expect(packageJson.types).toBe('./dist/index.d.ts')
     expect(packageJson.files).toEqual(['dist'])
     expect(packageJson.exports).toBeDefined()

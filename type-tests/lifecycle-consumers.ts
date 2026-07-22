@@ -25,6 +25,18 @@ type PublicExports = keyof typeof import('../src/index.js')
 type NoRawRecordAlias = Assert<IsExactly<Extract<PublicExports, 'RawSourceRecord'>, never>>
 type NoCandidateAlias = Assert<IsExactly<Extract<PublicExports, 'CanonicalCandidate'>, never>>
 type NoFindingAlias = Assert<IsExactly<Extract<PublicExports, 'SourcingFinding'>, never>>
+type NoRawDetailErrorCode = Assert<IsExactly<
+  Extract<PublicExports, 'invalidPersistedRawDetailErrorCode'>,
+  never
+>>
+type NoRawDetailErrorBody = Assert<IsExactly<
+  Extract<PublicExports, 'InvalidPersistedRawDetailErrorBody'>,
+  never
+>>
+type NoNormalizationAttempt = Assert<IsExactly<
+  Extract<PublicExports, 'NormalizationAttempt'>,
+  never
+>>
 type NoSourcingWorkspaceAlias = Assert<IsExactly<Extract<keyof ValedictorianWorkspaceClient, 'sourcing'>, never>>
 type CaptureMethodsAreComplete = Assert<IsExactly<
   keyof ValedictorianWorkspaceClient['captures'],
@@ -142,6 +154,9 @@ void directCreateConsumers
 void (null as unknown as NoRawRecordAlias)
 void (null as unknown as NoCandidateAlias)
 void (null as unknown as NoFindingAlias)
+void (null as unknown as NoRawDetailErrorCode)
+void (null as unknown as NoRawDetailErrorBody)
+void (null as unknown as NoNormalizationAttempt)
 void (null as unknown as NoSourcingWorkspaceAlias)
 void (null as unknown as CaptureMethodsAreComplete)
 void (null as unknown as JobMethodsAreComplete)
