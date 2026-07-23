@@ -89,6 +89,10 @@ describe('public sourcing lifecycle contract', () => {
     }
 
     expect(jobSchema.parse(job)).toEqual(job)
+    expect(jobSchema.safeParse({
+      ...job,
+      processing: { state: 'ready', generation: 1 },
+    }).success).toBe(false)
     expect(opportunitySchema.parse(opportunity)).toEqual(opportunity)
     expect(opportunitySchema.safeParse({ ...opportunity, companyName: facts.companyName }).success).toBe(false)
     expect(applicationSchema.parse(application)).toEqual(application)

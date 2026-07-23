@@ -153,6 +153,20 @@ external identities, and exact Capture/evidence references. An Opportunity
 references its Job and owns only workspace evaluation, rank, cutoff,
 disposition, and override state.
 
+Manual Capture resolution is a separate v1 route and contract surface at
+`workspace.captureResolution`. Its list uses opaque `before`/`after` cursors;
+callers must return those cursors unchanged and cannot send both directions.
+The stable keyset order always includes the Capture `id` tie-breaker. Detail
+responses contain bounded display-safe evidence strings, never arbitrary
+Capture payloads. Retry, replay, correction, and completion commands bind the
+Capture revision, processing generation identity, actor, and idempotency key.
+Completion also requires exact evidence references with at least one persisted
+evidence index, selected Job facts, an employer/ATS HTTP(S) destination or
+strong Job identity, and a revision-guarded local Company resolution. Duplicate-Job
+resolution is optional; when supplied, `attach` and `merge` carry Job-facts and
+Company-assignment revision guards. Stale completion blockers return closed
+expected/current guards for refresh-and-resubmit recovery.
+
 An Application references both its Opportunity and Job. Promotion copies a
 stable pursuit snapshot containing company, role, source, term/timing,
 location/work-mode, and initial destination/link facts. Later Job revisions do

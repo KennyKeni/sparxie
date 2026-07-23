@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add separately versioned Capture resolution projections, opaque
+  bidirectional keyset paging, manual completion commands, and supported typed
+  HTTP client operations without widening existing Capture or Job responses.
+
 ## 0.28.0
 
 - Remove the retired raw-source, canonical-candidate, and sourcing-finding

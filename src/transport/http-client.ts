@@ -2,6 +2,7 @@ import { defaultValedictorianApiBaseUrl, valedictorianApiPaths } from '../api.js
 import type { ValedictorianClient, ValedictorianWorkspaceClient } from '../client.js'
 import { createScoreAndActionQueueHttpMethods } from './http-client-applications.js'
 import { createLifecycleHttpMethods } from './http-client-lifecycle.js'
+import { createCaptureResolutionHttpMethods } from './http-client-capture-resolution.js'
 import { connectorScheduleHistoryListQueryToSearchParams } from './http-client-connector-schedules.js'
 import { createConnectorHttpMethods } from './http-client-connectors.js'
 import { createPolicyHttpMethods } from './http-client-policy.js'
@@ -190,6 +191,7 @@ export function createHttpValedictorianClient({
         actionQueueListQueryToSearchParams,
       }),
       ...createLifecycleHttpMethods({ pathFor, request, workspaceId }),
+      captureResolution: createCaptureResolutionHttpMethods({ pathFor, request }),
       connectors: createConnectorHttpMethods({ pathFor, request }),
       policy: createPolicyHttpMethods({
         pathFor,
