@@ -1,11 +1,11 @@
-# sparxie
+# @sparxie/sdk
 
 Shared TypeScript contracts, validators, and HTTP client for Valedictorian tools.
 
 ## Install
 
 ```sh
-pnpm add sparxie
+pnpm add @sparxie/sdk
 ```
 
 ## Usage
@@ -14,7 +14,7 @@ pnpm add sparxie
 import {
   createHttpValedictorianClient,
   defaultValedictorianApiBaseUrl,
-} from 'sparxie'
+} from '@sparxie/sdk'
 
 const client = createHttpValedictorianClient({
   baseUrl: defaultValedictorianApiBaseUrl,
@@ -196,7 +196,7 @@ choice and return typed affected or blocking lineage.
 
 ## Error contracts
 
-`sparxie` owns the public error-body shapes, failure-kind taxonomy, validators,
+`@sparxie/sdk` owns the public error-body shapes, failure-kind taxonomy, validators,
 and typed HTTP/transport/protocol classification used by Valedictorian clients.
 Capability error codes remain endpoint-specific discriminated unions; this
 package does not introduce a global enum of every domain error code.

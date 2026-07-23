@@ -1,6 +1,6 @@
 {
-  "name": "sparxie",
-  "version": "0.28.0",
+  "name": "@sparxie/sdk",
+  "version": "0.29.0",
   "description": "Shared Valedictorian contracts and HTTP client.",
   "author": "Keni",
   "license": "MIT",

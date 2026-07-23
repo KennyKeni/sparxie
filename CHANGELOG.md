@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.29.0
+
+- Move the maintained SDK identity from the unscoped `sparxie` package to
+  `@sparxie/sdk` without changing the public TypeScript contract.
 
 - Add separately versioned Capture resolution projections, opaque
   bidirectional keyset paging, manual completion commands, and supported typed
