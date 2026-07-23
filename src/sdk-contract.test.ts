@@ -94,8 +94,8 @@ describe('SDK public contract', () => {
       ...packageJson.devDependencies,
     })
 
-    expect(packageJson.name).toBe('sparxie')
-    expect(packageJson.version).toBe('0.28.0')
+    expect(packageJson.name).toBe('@sparxie/sdk')
+    expect(packageJson.version).toBe('0.29.0')
     expect(packageJson.types).toBe('./dist/index.d.ts')
     expect(packageJson.files).toEqual(['dist'])
     expect(packageJson.exports).toBeDefined()

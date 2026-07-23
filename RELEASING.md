@@ -1,10 +1,13 @@
 # Releasing
 
-## First Publish
+## Scoped Package Bootstrap
 
-The `sparxie` package name was reported by npm as unpublished on June 7, 2026. Do not publish `0.1.0`; npm never allows reusing the same package/version tuple after unpublish.
+The maintained package is `@sparxie/sdk`. The former unscoped `sparxie`
+identity remains available during the fleet migration and is deprecated only
+after every maintained consumer has moved.
 
-For the first publish:
+Before the first scoped release, authenticate an npm organization maintainer
+and configure Trusted Publishing:
 
 ```sh
 mise install
@@ -14,22 +17,18 @@ pnpm test
 pnpm build
 pnpm pack --dry-run
 npm login
-npm publish --access public --provenance=false
-```
-
-Installation, checks, and packing use pnpm. Registry authentication and
-publication stay on the npm CLI; automated releases use that boundary for
-Trusted Publishing OIDC.
-
-After the package exists on npm, configure npm Trusted Publishing for:
-
-```sh
-pnpm dlx npm@11.16.0 trust github sparxie \
+pnpm dlx npm@11.16.0 trust github @sparxie/sdk \
   --repo KennyKeni/sparxie \
   --file publish.yml \
   --allow-publish \
   -y
 ```
+
+Installation, checks, and packing use pnpm. Registry authentication and
+package-settings changes stay on the npm CLI; publication is performed only by
+the tag-triggered GitHub workflow through Trusted Publishing OIDC. If npm
+requires the package to exist before a trust relationship can be created, stop
+at the human gate rather than publishing from a developer machine.
 
 The `--allow-publish` flag is required so the trusted publisher is allowed to
 run `npm publish`. npm `11.13.0` does not include this flag even though the
@@ -45,5 +44,4 @@ git push --tags
 
 The tag must be `vX.Y.Z` and match `package.json`.
 
-Tagged GitHub Actions releases publish with npm provenance. The first local publish
-uses `--provenance=false` because local shells do not have a GitHub OIDC provider.
+Tagged GitHub Actions releases publish with npm provenance.
