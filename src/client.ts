@@ -94,6 +94,7 @@ import type {
   LocalSecretResolutionResult,
 } from './secret-use.js'
 import type { ValedictorianHealth } from './health.js'
+import type { CaptureResolutionWorkspaceClient } from './capture-resolution-client.js'
 
 export type { ValedictorianHealth } from './health.js'
 
@@ -113,6 +114,7 @@ export interface ValedictorianClient {
 }
 
 export interface ValedictorianWorkspaceClient extends LifecycleWorkspaceClient {
+  captureResolution: CaptureResolutionWorkspaceClient
   scores: {
     record(input: ScoreInput): Promise<ScoreRecord>
   }

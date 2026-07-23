@@ -8,6 +8,7 @@ export const valedictorianApiPaths = {
   workspaceCreate: '/v1/workspaces/create',
   applications: '/v1/applications',
   captures: '/v1/captures',
+  captureResolution: '/v1/capture-resolution/captures',
   jobs: '/v1/jobs',
   opportunities: '/v1/opportunities',
   profile: '/v1/profile',
@@ -78,6 +79,21 @@ export const valedictorianApiPaths = {
   },
   capturePromoteToJob(captureId: string) {
     return `/v1/captures/${encodeURIComponent(captureId)}/promote-to-job`
+  },
+  captureResolutionDetail(captureId: string) {
+    return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}`
+  },
+  captureResolutionRetry(captureId: string) {
+    return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}/retry`
+  },
+  captureResolutionReplay(captureId: string) {
+    return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}/replay`
+  },
+  captureResolutionCorrection(captureId: string) {
+    return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}/correction`
+  },
+  captureResolutionCompletion(captureId: string) {
+    return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}/completion`
   },
   job(jobId: string) {
     return `/v1/jobs/${encodeURIComponent(jobId)}`
