@@ -5,6 +5,10 @@
 - Add separately versioned Capture resolution projections, opaque
   bidirectional keyset paging, manual completion commands, and supported typed
   HTTP client operations without widening existing Capture or Job responses.
+- Add separately versioned workspace Company and Job-assignment contracts with
+  capability gating, distinct opaque directory/duplicate/assignment/history
+  pages, revision-guarded manual lifecycle commands, canonical merge lookup,
+  and fail-closed typed HTTP client operations.
 
 ## 0.28.0
 

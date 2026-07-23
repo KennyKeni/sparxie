@@ -167,6 +167,19 @@ resolution is optional; when supplied, `attach` and `merge` carry Job-facts and
 Company-assignment revision guards. Stale completion blockers return closed
 expected/current guards for refresh-and-resubmit recovery.
 
+Workspace Company management is a separate v1 contract surface at
+`workspace.companies`; current Job assignment and reassignment are published
+separately at `workspace.companyAssignments`. Company directory, duplicate
+candidate, assigned-Job, and history lists use distinct opaque bidirectional
+cursor families with stable ID tie-breakers. Search defaults to active
+Companies and requires an explicit recovery scope for archived results.
+Mutations bind workspace, resource revisions, actor, rationale, and idempotency
+and return request-correlated closed stale or lifecycle failures. Manual merge
+requires an explicit winner, exact loser-name confirmation, and no-undo
+acknowledgement; merged lookups retain the requested resource and expose a
+single-hop canonical redirect. The package does not publish Global Company,
+automatic merge, split, or merge-undo operations.
+
 An Application references both its Opportunity and Job. Promotion copies a
 stable pursuit snapshot containing company, role, source, term/timing,
 location/work-mode, and initial destination/link facts. Later Job revisions do
