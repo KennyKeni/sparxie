@@ -95,6 +95,10 @@ import type {
 } from './secret-use.js'
 import type { ValedictorianHealth } from './health.js'
 import type { CaptureResolutionWorkspaceClient } from './capture-resolution-client.js'
+import type {
+  WorkspaceCompaniesClient,
+  WorkspaceCompanyAssignmentsClient,
+} from './company-client.js'
 
 export type { ValedictorianHealth } from './health.js'
 
@@ -115,6 +119,8 @@ export interface ValedictorianClient {
 
 export interface ValedictorianWorkspaceClient extends LifecycleWorkspaceClient {
   captureResolution: CaptureResolutionWorkspaceClient
+  companies: WorkspaceCompaniesClient
+  companyAssignments: WorkspaceCompanyAssignmentsClient
   scores: {
     record(input: ScoreInput): Promise<ScoreRecord>
   }

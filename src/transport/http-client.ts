@@ -3,6 +3,7 @@ import type { ValedictorianClient, ValedictorianWorkspaceClient } from '../clien
 import { createScoreAndActionQueueHttpMethods } from './http-client-applications.js'
 import { createLifecycleHttpMethods } from './http-client-lifecycle.js'
 import { createCaptureResolutionHttpMethods } from './http-client-capture-resolution.js'
+import { createCompanyHttpMethods } from './http-client-companies.js'
 import { connectorScheduleHistoryListQueryToSearchParams } from './http-client-connector-schedules.js'
 import { createConnectorHttpMethods } from './http-client-connectors.js'
 import { createPolicyHttpMethods } from './http-client-policy.js'
@@ -183,6 +184,7 @@ export function createHttpValedictorianClient({
 
   function createWorkspaceClient(workspaceId: string): ValedictorianWorkspaceClient {
     const pathFor = (path: string) => workspacePath(workspaceId, path)
+    const companyMethods = createCompanyHttpMethods({ pathFor, request, workspaceId })
 
     return {
       ...createScoreAndActionQueueHttpMethods({
@@ -192,6 +194,7 @@ export function createHttpValedictorianClient({
       }),
       ...createLifecycleHttpMethods({ pathFor, request, workspaceId }),
       captureResolution: createCaptureResolutionHttpMethods({ pathFor, request }),
+      ...companyMethods,
       connectors: createConnectorHttpMethods({ pathFor, request }),
       policy: createPolicyHttpMethods({
         pathFor,

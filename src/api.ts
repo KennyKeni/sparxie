@@ -9,6 +9,11 @@ export const valedictorianApiPaths = {
   applications: '/v1/applications',
   captures: '/v1/captures',
   captureResolution: '/v1/capture-resolution/captures',
+  companyCapability: '/v1/companies/capability',
+  companies: '/v1/companies',
+  companySearch: '/v1/companies/search',
+  companyMatchPreview: '/v1/companies/match-preview',
+  companyDuplicates: '/v1/companies/duplicate-candidates',
   jobs: '/v1/jobs',
   opportunities: '/v1/opportunities',
   profile: '/v1/profile',
@@ -94,6 +99,46 @@ export const valedictorianApiPaths = {
   },
   captureResolutionCompletion(captureId: string) {
     return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}/completion`
+  },
+  company(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}`
+  },
+  companyLookup(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/lookup`
+  },
+  companyNotes(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/notes`
+  },
+  companyAliases(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/aliases`
+  },
+  companyAlias(companyId: string, aliasId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/aliases/${encodeURIComponent(aliasId)}`
+  },
+  companyArchive(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/archive`
+  },
+  companyRestore(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/restore`
+  },
+  companyAssignedJobs(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/assigned-jobs`
+  },
+  companyHistory(companyId: string) {
+    return `/v1/companies/${encodeURIComponent(companyId)}/history`
+  },
+  companyDuplicate(candidateId: string) {
+    return `/v1/companies/duplicate-candidates/${encodeURIComponent(candidateId)}`
+  },
+  companyDuplicateMarkDistinct(candidateId: string) {
+    return `/v1/companies/duplicate-candidates/${encodeURIComponent(candidateId)}/mark-distinct`
+  },
+  companyMerge: '/v1/companies/merge',
+  jobCompanyAssignment(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/company-assignment`
+  },
+  jobCompanyReassignment(jobId: string) {
+    return `/v1/jobs/${encodeURIComponent(jobId)}/company-assignment/reassign`
   },
   job(jobId: string) {
     return `/v1/jobs/${encodeURIComponent(jobId)}`
