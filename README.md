@@ -6,7 +6,6 @@ Shared TypeScript contracts, validators, and HTTP client for Valedictorian tools
 
 ```sh
 pnpm add sparxie
-npm install sparxie
 ```
 
 ## Usage
