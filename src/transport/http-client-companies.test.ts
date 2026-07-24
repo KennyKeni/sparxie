@@ -127,6 +127,46 @@ describe('Company HTTP client', () => {
       .toHaveProperty('workspaceId')
   })
 
+  it('preserves exact loser confirmation whitespace through merge transport', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse({
+        status: 'blocked',
+        workspaceId: 'workspace-1',
+        idempotencyKey: 'merge-exact',
+        winnerCompanyId: 'company-1',
+        requestWinnerCompanyRevision: 2,
+        loserCompanyId: 'company-2',
+        requestLoserCompanyRevision: 3,
+        failure: {
+          kind: 'lifecycle_failure',
+          blocker: {
+            code: 'invalid_input',
+            message: 'The confirmation must match exactly.',
+            field: 'loserDisplayNameConfirmation',
+          },
+        },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+    const companies = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace-1').companies
+
+    await companies.duplicates.merge({
+      workspaceId: 'workspace-1',
+      winnerCompanyId: 'company-1',
+      expectedWinnerCompanyRevision: 2,
+      loserCompanyId: 'company-2',
+      expectedLoserCompanyRevision: 3,
+      actor,
+      rationale: 'Duplicate records.',
+      loserDisplayNameConfirmation: '  Acme Labs  ',
+      acknowledgeNoUndo: true,
+      idempotencyKey: 'merge-exact',
+    })
+    expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string))
+      .toMatchObject({ loserDisplayNameConfirmation: '  Acme Labs  ' })
+  })
+
   it('keeps assignment reassignment separate and fail-closes correlation', async () => {
     const assignment = {
       jobId,
