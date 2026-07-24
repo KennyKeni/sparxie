@@ -271,6 +271,10 @@ describe('Workspace Company contracts', () => {
       idempotencyKey: 'merge-1',
     }
     expect(mergeCompaniesInputSchema.safeParse(base).success).toBe(true)
+    expect(mergeCompaniesInputSchema.parse({
+      ...base,
+      loserDisplayNameConfirmation: '  Acme Labs  ',
+    }).loserDisplayNameConfirmation).toBe('  Acme Labs  ')
     expect(mergeCompaniesInputSchema.safeParse({
       ...base,
       acknowledgeNoUndo: false,

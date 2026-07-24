@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import {
   companyBlockedResultFields,
-  companyDisplayNameSchema,
   companyIdSchema,
   companyIdempotencyKeySchema,
   companyRevisionSchema,
@@ -152,6 +151,8 @@ export const markCompaniesDistinctResultSchema = z.discriminatedUnion('status', 
 })
 export type MarkCompaniesDistinctResult = z.infer<typeof markCompaniesDistinctResultSchema>
 
+export const companyMergeConfirmationSchema = z.string().min(1).max(500)
+
 export const mergeCompaniesInputSchema = z.object({
   workspaceId: lifecycleIdSchema,
   winnerCompanyId: companyIdSchema,
@@ -160,7 +161,7 @@ export const mergeCompaniesInputSchema = z.object({
   expectedLoserCompanyRevision: companyRevisionSchema,
   actor: lifecycleActorSchema,
   rationale: companyRationaleSchema,
-  loserDisplayNameConfirmation: companyDisplayNameSchema,
+  loserDisplayNameConfirmation: companyMergeConfirmationSchema,
   acknowledgeNoUndo: z.literal(true),
   idempotencyKey: companyIdempotencyKeySchema,
 }).strict().refine((input) => input.winnerCompanyId !== input.loserCompanyId, {
