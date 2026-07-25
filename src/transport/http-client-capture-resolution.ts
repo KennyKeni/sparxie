@@ -12,7 +12,16 @@ import {
   replayCaptureRevisionInputSchema,
   retryCaptureProcessingInputSchema,
 } from '../capture-resolution.js'
-import type { CaptureResolutionWorkspaceClient } from '../capture-resolution-client.js'
+import {
+  captureCompletionDetailV2Schema,
+  captureResolutionListResultV2Schema,
+  completeCaptureManuallyV2InputSchema,
+  completeCaptureManuallyV2ResultSchema,
+} from '../capture-resolution-v2.js'
+import type {
+  CaptureResolutionV2WorkspaceClient,
+  CaptureResolutionWorkspaceClient,
+} from '../capture-resolution-client.js'
 import {
   ValedictorianProtocolError,
   parseValedictorianContractValue,
@@ -122,6 +131,72 @@ export function createCaptureResolutionHttpMethods({
       const result = parse(
         completeCaptureManuallyResultSchema,
         await request(pathFor(valedictorianApiPaths.captureResolutionCompletion(parsed.captureId)), {
+          body: bodyWithout(parsed, 'captureId'),
+          method: 'POST',
+        }),
+      )
+      if (result.status === 'created'
+        && parsed.companyResolution.action === 'use_local'
+        && result.companyId !== parsed.companyResolution.companyId) {
+        throw new ValedictorianProtocolError()
+      }
+      if (result.status === 'blocked' && result.failure.kind === 'stale_guard') {
+        const guardsCorrelate = result.failure.recovery.guards.every((guard) => {
+          if (guard.kind === 'capture_revision') {
+            return guard.expectedRevision === parsed.expectedCaptureRevision
+          }
+          if (guard.kind === 'generation') {
+            return guard.expectedGenerationId === parsed.expectedGenerationId
+          }
+          if (guard.kind === 'company_revision') {
+            return parsed.companyResolution.action === 'use_local'
+              && guard.companyId === parsed.companyResolution.companyId
+              && guard.expectedRevision === parsed.companyResolution.expectedCompanyRevision
+          }
+          return parsed.duplicateResolution !== undefined
+            && guard.jobId === parsed.duplicateResolution.targetJobId
+            && guard.expectedRevision === parsed.duplicateResolution.expectedAssignmentRevision
+        })
+        if (!guardsCorrelate) throw new ValedictorianProtocolError()
+      }
+      return result
+    },
+  }
+}
+
+export function createCaptureResolutionV2HttpMethods({
+  pathFor,
+  request,
+}: {
+  pathFor: (path: string) => string
+  request: CaptureResolutionRequest
+}): CaptureResolutionV2WorkspaceClient {
+  const parse = <T>(schema: z.ZodType<T>, value: unknown) =>
+    parseValedictorianContractValue(schema, value)
+
+  return {
+    async list(input) {
+      const parsed = captureResolutionListInputSchema.parse(input)
+      return parse(
+        captureResolutionListResultV2Schema,
+        await request(pathFor(valedictorianApiPaths.captureResolutionV2), {
+          query: listQuery(parsed),
+        }),
+      )
+    },
+    async get(captureId) {
+      const detail = parse(
+        captureCompletionDetailV2Schema,
+        await request(pathFor(valedictorianApiPaths.captureResolutionV2Detail(captureId))),
+      )
+      if (detail.captureId !== captureId) throw new ValedictorianProtocolError()
+      return detail
+    },
+    async complete(input) {
+      const parsed = completeCaptureManuallyV2InputSchema.parse(input)
+      const result = parse(
+        completeCaptureManuallyV2ResultSchema,
+        await request(pathFor(valedictorianApiPaths.captureResolutionV2Completion(parsed.captureId)), {
           body: bodyWithout(parsed, 'captureId'),
           method: 'POST',
         }),

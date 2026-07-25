@@ -51,7 +51,13 @@ export const jobDestinationSchema = z.object({
   class: z.enum(jobDestinationClasses), url: lifecycleUrlSchema,
 }).strict()
 
-export const jobFactsSchema = z.object({
+/** URL-only destination shape for the separately versioned current contract. */
+export const jobDestinationV2Schema = z.object({
+  url: lifecycleUrlSchema,
+}).strict()
+export type JobDestinationV2 = z.infer<typeof jobDestinationV2Schema>
+
+const jobFactsFields = {
   companyName: z.string().trim().min(1).max(500),
   roleTitle: z.string().trim().min(1).max(500),
   sourceName: z.string().trim().min(1).max(500),
@@ -67,10 +73,21 @@ export const jobFactsSchema = z.object({
   seniority: z.enum(jobSeniorities),
   compensation: jobCompensationSchema.nullable(),
   postedAt: z.iso.date().nullable(),
+} as const
+
+export const jobFactsSchema = z.object({
+  ...jobFactsFields,
   destination: jobDestinationSchema.nullable(),
 }).strict()
 
 export type JobFacts = z.infer<typeof jobFactsSchema>
+
+/** Job facts for current completion flows that no longer classify destinations. */
+export const jobFactsV2Schema = z.object({
+  ...jobFactsFields,
+  destination: jobDestinationV2Schema.nullable(),
+}).strict()
+export type JobFactsV2 = z.infer<typeof jobFactsV2Schema>
 
 export const captureEvidenceReferenceSchema = z.object({
   captureId: lifecycleIdSchema,
