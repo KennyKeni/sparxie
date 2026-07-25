@@ -167,6 +167,15 @@ resolution is optional; when supplied, `attach` and `merge` carry Job-facts and
 Company-assignment revision guards. Stale completion blockers return closed
 expected/current guards for refresh-and-resubmit recovery.
 
+The HTTP-client factory returns a V2-capable workspace client with a separate
+`workspace.captureResolutionV2` surface. Its `list`, `get`, and `complete`
+methods use the versioned `/v2` routes; completion accepts `JobFactsV2` and
+`JobDestinationV2`, which retain only a validated HTTP(S) URL. Resolved V2
+details and projections may carry bounded `hidden` or `closed` provider status.
+Existing `ValedictorianClient` and `ValedictorianWorkspaceClient` interfaces,
+along with v1 Job and Capture-resolution payloads, remain strict during the
+compatibility window.
+
 Workspace Company management is a separate v1 contract surface at
 `workspace.companies`; current Job assignment and reassignment are published
 separately at `workspace.companyAssignments`. Company directory, duplicate

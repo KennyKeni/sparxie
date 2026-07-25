@@ -9,6 +9,7 @@ export const valedictorianApiPaths = {
   applications: '/v1/applications',
   captures: '/v1/captures',
   captureResolution: '/v1/capture-resolution/captures',
+  captureResolutionV2: '/v2/capture-resolution/captures',
   companyCapability: '/v1/companies/capability',
   companies: '/v1/companies',
   companySearch: '/v1/companies/search',
@@ -99,6 +100,12 @@ export const valedictorianApiPaths = {
   },
   captureResolutionCompletion(captureId: string) {
     return `/v1/capture-resolution/captures/${encodeURIComponent(captureId)}/completion`
+  },
+  captureResolutionV2Completion(captureId: string) {
+    return `/v2/capture-resolution/captures/${encodeURIComponent(captureId)}/completion`
+  },
+  captureResolutionV2Detail(captureId: string) {
+    return `/v2/capture-resolution/captures/${encodeURIComponent(captureId)}`
   },
   company(companyId: string) {
     return `/v1/companies/${encodeURIComponent(companyId)}`

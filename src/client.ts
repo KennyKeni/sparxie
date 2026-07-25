@@ -94,7 +94,10 @@ import type {
   LocalSecretResolutionResult,
 } from './secret-use.js'
 import type { ValedictorianHealth } from './health.js'
-import type { CaptureResolutionWorkspaceClient } from './capture-resolution-client.js'
+import type {
+  CaptureResolutionV2WorkspaceClient,
+  CaptureResolutionWorkspaceClient,
+} from './capture-resolution-client.js'
 import type {
   WorkspaceCompaniesClient,
   WorkspaceCompanyAssignmentsClient,
@@ -232,4 +235,14 @@ export interface ValedictorianWorkspaceClient extends LifecycleWorkspaceClient {
     step(input: CreateWorkflowRunStepInput): Promise<WorkflowRunStep>
     complete(input: CompleteWorkflowRunInput): Promise<WorkflowRun>
   }
+}
+
+/** V2-capable workspace client; the v1 interface remains structurally stable. */
+export interface ValedictorianWorkspaceClientV2 extends ValedictorianWorkspaceClient {
+  captureResolutionV2: CaptureResolutionV2WorkspaceClient
+}
+
+/** V2-capable root client with a narrowed workspace return type. */
+export interface ValedictorianClientV2 extends ValedictorianClient {
+  forWorkspace(workspaceId: string): ValedictorianWorkspaceClientV2
 }

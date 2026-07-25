@@ -71,6 +71,10 @@ const detail = {
   jobDefaults: { companyName: 'Northstar Robotics' },
   lastIssue: null,
 }
+const detailV2 = {
+  ...detail,
+  destination: { ...detail.destination, providerStatus: 'closed' as const },
+}
 
 function commandResult(
   status: 'started' | 'corrected',
@@ -102,6 +106,81 @@ describe('Capture resolution HTTP client', () => {
     expect(valedictorianApiPaths.captureResolutionReplay(captureId).endsWith('/replay')).toBe(true)
     expect(valedictorianApiPaths.captureResolutionCorrection(captureId).endsWith('/correction')).toBe(true)
     expect(valedictorianApiPaths.captureResolutionCompletion(captureId).endsWith('/completion')).toBe(true)
+    expect(valedictorianApiPaths.captureResolutionV2)
+      .toBe('/v2/capture-resolution/captures')
+    expect(valedictorianApiPaths.captureResolutionV2Detail(captureId))
+      .toBe('/v2/capture-resolution/captures/capture%2F1')
+    expect(valedictorianApiPaths.captureResolutionV2Completion(captureId))
+      .toBe('/v2/capture-resolution/captures/capture%2F1/completion')
+  })
+
+  it('reads v2 projections and correlates provider-aware details', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse(list))
+    fetchMock.mockResolvedValueOnce(jsonResponse(detailV2))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...detailV2, captureId: 'other-capture' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace 1').captureResolutionV2
+
+    await expect(client.list({ limit: 25 })).resolves.toMatchObject({ totalCount: 0 })
+    await expect(client.get(captureId)).resolves.toMatchObject({
+      destination: { providerStatus: 'closed' },
+    })
+    await expect(client.get(captureId)).rejects.toThrow('Request failed')
+
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://valedictorian.test/v2/workspaces/workspace%201/capture-resolution/captures?filter=all&sort=observed_desc&limit=25',
+      'https://valedictorian.test/v2/workspaces/workspace%201/capture-resolution/captures/capture%2F1',
+      'https://valedictorian.test/v2/workspaces/workspace%201/capture-resolution/captures/capture%2F1',
+    ])
+  })
+
+  it('posts URL-only completion input through the v2 transport', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      status: 'created',
+      jobId,
+      companyId: 'company-1',
+      createdJob: true,
+      existingJobComparison: 'not_compared',
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    }).forWorkspace('workspace 1').captureResolutionV2
+
+    await expect(client.complete({
+      captureId,
+      expectedCaptureRevision: 3,
+      expectedGenerationId: 'generation-3',
+      idempotencyKey: 'complete-v2-1',
+      actor,
+      jobFacts: {
+        ...jobFacts,
+        destination: { url: 'https://boards.example/search/448?source=jobright' },
+      },
+      destination: { url: 'https://boards.example/search/448?source=jobright' },
+      externalIdentities: [],
+      evidenceReferences: [{ captureId, captureRevision: 3, evidenceIndexes: [0] }],
+      companyResolution: {
+        action: 'use_local',
+        companyId: 'company-1',
+        expectedCompanyRevision: 2,
+        restoreIfArchived: false,
+      },
+    })).resolves.toMatchObject({ createdJob: true })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://valedictorian.test/v2/workspaces/workspace%201/capture-resolution/captures/capture%2F1/completion',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const [, options] = fetchMock.mock.calls[0]!
+    expect(JSON.parse(String(options?.body))).toMatchObject({
+      destination: { url: 'https://boards.example/search/448?source=jobright' },
+      jobFacts: { destination: { url: 'https://boards.example/search/448?source=jobright' } },
+    })
   })
 
   it('exposes all operations and accepts truthful advanced identities', async () => {

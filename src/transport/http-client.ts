@@ -1,8 +1,14 @@
 import { defaultValedictorianApiBaseUrl, valedictorianApiPaths } from '../api.js'
-import type { ValedictorianClient, ValedictorianWorkspaceClient } from '../client.js'
+import type {
+  ValedictorianClientV2,
+  ValedictorianWorkspaceClientV2,
+} from '../client.js'
 import { createScoreAndActionQueueHttpMethods } from './http-client-applications.js'
 import { createLifecycleHttpMethods } from './http-client-lifecycle.js'
-import { createCaptureResolutionHttpMethods } from './http-client-capture-resolution.js'
+import {
+  createCaptureResolutionHttpMethods,
+  createCaptureResolutionV2HttpMethods,
+} from './http-client-capture-resolution.js'
 import { createCompanyHttpMethods } from './http-client-companies.js'
 import { connectorScheduleHistoryListQueryToSearchParams } from './http-client-connector-schedules.js'
 import { createConnectorHttpMethods } from './http-client-connectors.js'
@@ -114,7 +120,7 @@ export function createHttpValedictorianClient({
   baseUrl = defaultValedictorianApiBaseUrl,
   fetch: fetchImplementation = fetch,
   token,
-}: HttpValedictorianClientOptions = {}): ValedictorianClient {
+}: HttpValedictorianClientOptions = {}): ValedictorianClientV2 {
   async function request<T>(
     path: string,
     options: {
@@ -179,10 +185,12 @@ export function createHttpValedictorianClient({
   })
 
   function workspacePath(workspaceId: string, path: string) {
-    return `/v1/workspaces/${encodeURIComponent(workspaceId)}${path.slice('/v1'.length)}`
+    const versionedPath = path.match(/^\/(v\d+)(\/.*)$/)
+    if (!versionedPath) throw new Error('Workspace requests require a versioned API path.')
+    return `/${versionedPath[1]}/workspaces/${encodeURIComponent(workspaceId)}${versionedPath[2]}`
   }
 
-  function createWorkspaceClient(workspaceId: string): ValedictorianWorkspaceClient {
+  function createWorkspaceClient(workspaceId: string): ValedictorianWorkspaceClientV2 {
     const pathFor = (path: string) => workspacePath(workspaceId, path)
     const companyMethods = createCompanyHttpMethods({ pathFor, request, workspaceId })
 
@@ -194,6 +202,7 @@ export function createHttpValedictorianClient({
       }),
       ...createLifecycleHttpMethods({ pathFor, request, workspaceId }),
       captureResolution: createCaptureResolutionHttpMethods({ pathFor, request }),
+      captureResolutionV2: createCaptureResolutionV2HttpMethods({ pathFor, request }),
       ...companyMethods,
       connectors: createConnectorHttpMethods({ pathFor, request }),
       policy: createPolicyHttpMethods({

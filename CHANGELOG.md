@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.0
+
+- Add separately versioned Capture-resolution v2 list, detail, and completion
+  transport plus a strict URL-only Job-facts shape. The v1 destination-class
+  contracts remain available during the compatibility window.
+- Expose optional bounded hidden/closed provider status on resolved v2
+  destination projections and completion details without reusing the issue
+  channel; v1 read schemas remain strict and reject that field.
+
 ## 0.29.0
 
 - Move the maintained SDK identity from the unscoped `sparxie` package to
