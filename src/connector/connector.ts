@@ -25,7 +25,6 @@ export const connectorAuthModes = [
   'bearer_token',
   'oauth',
   'cookie_jar',
-  'browser_session',
   'username_password',
 ] as const
 
@@ -97,7 +96,6 @@ export interface ConnectorAuthReferenceInput {
   mode: ConnectorAuthMode
   label?: string | null
   secretKey?: string
-  sessionKey?: string
 }
 
 export interface ConnectorActionRequired {
@@ -581,7 +579,6 @@ export const connectorAuthReferenceInputSchema: z.ZodType<ConnectorAuthReference
       mode: z.enum(connectorAuthModes),
       label: z.string().nullable().optional(),
       secretKey: z.string().optional(),
-      sessionKey: z.string().optional(),
     })
     .strict()
 

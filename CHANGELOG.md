@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.31.0
+
+- Breaking: remove the unsupported `browser_session` connector auth mode and the
+  `sessionKey` auth-reference field from the public connector contract. Connector
+  create and update inputs now fail closed on both, with no compatibility alias
+  or fallback reader; the supported secret-reference auth modes are unchanged.
+
 ## 0.30.0
 
 - Add separately versioned Capture-resolution v2 list, detail, and completion

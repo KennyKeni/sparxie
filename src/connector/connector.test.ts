@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  connectorAuthModes,
+  connectorAuthReferenceInputSchema,
   connectorCreateErrorBodies,
   connectorCreateErrorBodySchema,
   connectorCreateErrorCodes,
@@ -267,9 +269,9 @@ const connectorInstanceSummary = {
   lifecycle: 'enabled' as const,
   auth: [
     {
-      id: 'jobright-session',
-      mode: 'browser_session' as const,
-      label: 'Jobright session',
+      id: 'jobright-login',
+      mode: 'username_password' as const,
+      label: 'Jobright login',
       configured: true,
     },
   ],
@@ -329,10 +331,10 @@ describe('connector instance earliestBackfillDate contract', () => {
         earliestBackfillDate: '2026-07-04',
         auth: [
           {
-            id: 'jobright-session',
-            mode: 'browser_session',
-            label: 'Jobright session',
-            sessionKey: 'workspace-session',
+            id: 'jobright-login',
+            mode: 'username_password',
+            label: 'Jobright login',
+            secretKey: 'jobright_credentials',
           },
         ],
         config: { publicFeedUrl: 'https://jobright.test/feed.json' },
@@ -389,6 +391,68 @@ describe('connector instance earliestBackfillDate contract', () => {
     expect(
       updateConnectorInstanceInputSchema.safeParse({
         earliestBackfillDate: '2026-06-01',
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('connector auth secret-reference contract', () => {
+  const createBase = {
+    id: 'jobright/session-1',
+    connectorId: 'jobright.resolver',
+    connectorVersion: '0.1.0',
+    displayName: 'Jobright',
+    enabled: true,
+  }
+
+  it('publishes only secret-reference auth modes', () => {
+    expect(connectorAuthModes).toEqual([
+      'none', 'api_key', 'bearer_token', 'oauth', 'cookie_jar', 'username_password',
+    ])
+  })
+
+  it('round-trips every supported auth mode through create and update inputs', () => {
+    for (const mode of connectorAuthModes) {
+      const auth = [{ id: 'jobright-auth', mode, label: 'Jobright', secretKey: 'jobright_credentials' }]
+
+      expect(createConnectorInstanceInputSchema.parse({ ...createBase, auth }))
+        .toMatchObject({ auth })
+      expect(
+        updateConnectorInstanceInputSchema.parse({
+          connectorInstanceId: 'jobright/session-1',
+          auth,
+        }),
+      ).toMatchObject({ auth })
+    }
+  })
+
+  it('rejects the retired browser_session mode', () => {
+    const auth = [{ id: 'jobright-session', mode: 'browser_session', label: 'Jobright session' }]
+
+    expect(connectorAuthReferenceInputSchema.safeParse(auth[0]).success).toBe(false)
+    expect(createConnectorInstanceInputSchema.safeParse({ ...createBase, auth }).success).toBe(false)
+    expect(
+      updateConnectorInstanceInputSchema.safeParse({
+        connectorInstanceId: 'jobright/session-1',
+        auth,
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects the retired sessionKey field instead of silently discarding it', () => {
+    const auth = [{
+      id: 'jobright-login',
+      mode: 'username_password' as const,
+      secretKey: 'jobright_credentials',
+      sessionKey: 'workspace-session',
+    }]
+
+    expect(connectorAuthReferenceInputSchema.safeParse(auth[0]).success).toBe(false)
+    expect(createConnectorInstanceInputSchema.safeParse({ ...createBase, auth }).success).toBe(false)
+    expect(
+      updateConnectorInstanceInputSchema.safeParse({
+        connectorInstanceId: 'jobright/session-1',
+        auth,
       }).success,
     ).toBe(false)
   })

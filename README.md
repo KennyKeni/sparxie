@@ -30,6 +30,8 @@ console.log(applications.items)
 
 Connector create, update, and status DTOs carry secret references and auth metadata only. Plaintext credential values stay behind workspace write-only secret endpoints and are not returned by normal connector reads.
 
+The supported auth modes are `none`, `api_key`, `bearer_token`, `oauth`, `cookie_jar`, and `username_password`. Auth references may carry an optional `secretKey`, but no credential or session payload; create and update inputs reject any other mode or field.
+
 ## Connector-declared settings
 
 Workspace clients can read sanitized installed connector descriptors and query
