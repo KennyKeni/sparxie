@@ -319,7 +319,6 @@ export interface CreateApplicationInput {
   country: string
   workMode: WorkMode
   status: ApplicationStatus
-  term?: string | null
   terms?: JobTerm[] | null
   timingMode?: JobTimingMode
   startDate?: string | null
@@ -338,7 +337,6 @@ export interface UpdateApplicationInput {
   applicationId: string
   roleTitle?: string
   roleKind?: RoleKind
-  term?: string | null
   terms?: JobTerm[] | null
   timingMode?: JobTimingMode
   startDate?: string | null

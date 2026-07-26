@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.33.0
+
+- Breaking: remove the legacy policy and Job timing input aliases.
+  `normalizePolicyConfig` no longer reads `queue` as an alias for `actionQueue`,
+  and `normalizeJobTimingInput` fails closed on a free-text `term` instead of
+  inferring structured `terms` from it; the `parseJobTermsFromText` helper is
+  removed with it. Canonical `terms`, `timingMode`, `startDate`, and `endDate`
+  behavior is unchanged, the formatted `term` remains an output-only projection,
+  and no compatibility alias or fallback reader is provided.
+
 ## 0.32.0
 
 - Breaking: remove the deprecated sensitive-profile contract — the

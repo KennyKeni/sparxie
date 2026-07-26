@@ -12,7 +12,6 @@ export interface JobTerm {
 }
 
 export interface JobTimingInput {
-  term?: string | null
   terms?: JobTerm[] | null
   timingMode?: JobTimingMode
   startDate?: string | null
@@ -20,6 +19,7 @@ export interface JobTimingInput {
 }
 
 export interface NormalizedJobTiming {
+  /** Formatted display projection of `terms`; never accepted as input. */
   term: string | null
   terms: JobTerm[]
   timingMode: JobTimingMode
@@ -48,16 +48,17 @@ export function isJobSeason(value: string): value is JobSeason {
 }
 
 export function normalizeJobTimingInput(input: JobTimingInput = {}): NormalizedJobTiming {
-  const legacyTerm = normalizeOptionalString(input.term)
+  if (Object.prototype.hasOwnProperty.call(input, 'term')) {
+    throw new Error('Timing input does not accept term; provide structured terms.')
+  }
+
   const explicitTerms = input.terms === null || input.terms === undefined
     ? []
     : normalizeJobTerms(input.terms)
   const startDate = normalizeOptionalDate(input.startDate, 'startDate')
   const endDate = normalizeOptionalDate(input.endDate, 'endDate')
-  const parsedLegacyTerms = legacyTerm ? parseJobTermsFromText(legacyTerm) : []
   const timingMode = input.timingMode ?? inferJobTimingMode({
     explicitTerms,
-    parsedLegacyTerms,
     startDate,
     endDate,
   })
@@ -70,8 +71,8 @@ export function normalizeJobTimingInput(input: JobTimingInput = {}): NormalizedJ
     if (!startDate) {
       throw new Error('Date-based timing requires startDate.')
     }
-    if (legacyTerm || explicitTerms.length > 0) {
-      throw new Error('Date-based timing cannot include term or terms input.')
+    if (explicitTerms.length > 0) {
+      throw new Error('Date-based timing cannot include terms input.')
     }
     assertDateRange(startDate, endDate)
     const terms = deriveJobTermsFromDateRange(startDate, endDate)
@@ -90,14 +91,13 @@ export function normalizeJobTimingInput(input: JobTimingInput = {}): NormalizedJ
       throw new Error('Term-based timing cannot include startDate or endDate.')
     }
 
-    const terms = explicitTerms.length > 0 ? explicitTerms : parsedLegacyTerms
-    if (terms.length === 0) {
-      throw new Error('Term-based timing requires structured terms or a recognized term.')
+    if (explicitTerms.length === 0) {
+      throw new Error('Term-based timing requires structured terms.')
     }
 
     return {
-      term: legacyTerm ?? formatJobTerms(terms),
-      terms,
+      term: formatJobTerms(explicitTerms),
+      terms: explicitTerms,
       timingMode,
       startDate: null,
       endDate: null,
@@ -109,7 +109,7 @@ export function normalizeJobTimingInput(input: JobTimingInput = {}): NormalizedJ
   }
 
   return {
-    term: legacyTerm,
+    term: null,
     terms: [],
     timingMode: 'unknown',
     startDate: null,
@@ -161,45 +161,6 @@ export function formatJobTerms(terms: readonly JobTerm[]) {
     .join(' / ')
 }
 
-export function parseJobTermsFromText(value: string) {
-  const text = value.trim()
-  if (!text) {
-    return []
-  }
-
-  const terms: JobTerm[] = []
-  const seasonPattern = /\b(spring|summer|fall)\b[^0-9]{0,20}\b(20\d{2})\b/gi
-  let match: RegExpExecArray | null
-
-  while ((match = seasonPattern.exec(text)) !== null) {
-    const season = match[1].toLowerCase()
-    if (isJobSeason(season)) {
-      terms.push({ season, year: Number(match[2]) })
-    }
-  }
-
-  const academicYearMatch = text.match(/\bacademic\s+year\b[^0-9]{0,20}\b(20\d{2})\b/i)
-  if (academicYearMatch) {
-    const year = Number(academicYearMatch[1])
-    terms.push({ season: 'fall', year }, { season: 'spring', year: year + 1 })
-  }
-
-  const dateMatches = [...text.matchAll(/\b(20\d{2})-(\d{2})-(\d{2})\b/g)]
-  if (dateMatches.length > 0) {
-    const dates = dateMatches
-      .map((dateMatch) => dateMatch[0])
-      .filter((date) => isIsoDate(date))
-      .sort()
-    if (dates.length === 1) {
-      terms.push(...deriveJobTermsFromDateRange(dates[0], null))
-    } else if (dates.length > 1) {
-      terms.push(...deriveJobTermsFromDateRange(dates[0], dates[dates.length - 1]))
-    }
-  }
-
-  return normalizeJobTerms(terms)
-}
-
 export function deriveJobTermsFromDateRange(startDate: string, endDate?: string | null) {
   const normalizedStart = normalizeRequiredDate(startDate, 'startDate')
   const normalizedEnd = normalizeOptionalDate(endDate, 'endDate')
@@ -241,7 +202,6 @@ function normalizeJobTerm(term: JobTerm) {
 
 function inferJobTimingMode(input: {
   explicitTerms: JobTerm[]
-  parsedLegacyTerms: JobTerm[]
   startDate: string | null
   endDate: string | null
 }): JobTimingMode {
@@ -249,7 +209,7 @@ function inferJobTimingMode(input: {
     return 'dates'
   }
 
-  if (input.explicitTerms.length > 0 || input.parsedLegacyTerms.length > 0) {
+  if (input.explicitTerms.length > 0) {
     return 'terms'
   }
 

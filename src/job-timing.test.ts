@@ -4,7 +4,7 @@ import {
   formatJobTerms,
   normalizeJobTimingInput,
   normalizeJobTerms,
-  parseJobTermsFromText,
+  type JobTimingInput,
 } from './job-timing'
 
 describe('job timing', () => {
@@ -33,20 +33,6 @@ describe('job timing', () => {
     ])
   })
 
-  it('parses controlled legacy term text', () => {
-    expect(parseJobTermsFromText('Fall 2026 internship')).toEqual([
-      { season: 'fall', year: 2026 },
-    ])
-    expect(parseJobTermsFromText('Academic Year 2026')).toEqual([
-      { season: 'fall', year: 2026 },
-      { season: 'spring', year: 2027 },
-    ])
-    expect(parseJobTermsFromText('2026-09-14 to 2027-04-16')).toEqual([
-      { season: 'fall', year: 2026 },
-      { season: 'spring', year: 2027 },
-    ])
-  })
-
   it('normalizes timing modes exclusively', () => {
     expect(
       normalizeJobTimingInput({
@@ -64,16 +50,26 @@ describe('job timing', () => {
       endDate: '2027-04-16',
     })
 
-    expect(normalizeJobTimingInput({ term: 'Fall 2026 internship' })).toEqual({
-      term: 'Fall 2026 internship',
-      terms: [{ season: 'fall', year: 2026 }],
+    expect(
+      normalizeJobTimingInput({
+        terms: [
+          { season: 'spring', year: 2027 },
+          { season: 'fall', year: 2026 },
+        ],
+      }),
+    ).toEqual({
+      term: 'Fall 2026 / Spring 2027',
+      terms: [
+        { season: 'fall', year: 2026 },
+        { season: 'spring', year: 2027 },
+      ],
       timingMode: 'terms',
       startDate: null,
       endDate: null,
     })
 
-    expect(normalizeJobTimingInput({ term: 'Internship' })).toEqual({
-      term: 'Internship',
+    expect(normalizeJobTimingInput({})).toEqual({
+      term: null,
       terms: [],
       timingMode: 'unknown',
       startDate: null,
@@ -81,13 +77,38 @@ describe('job timing', () => {
     })
   })
 
+  it('rejects a retired free-text term whatever its runtime value', () => {
+    const retiredValues = ['Fall 2026 internship', '', null, undefined, 7]
+
+    for (const term of retiredValues) {
+      expect(() => normalizeJobTimingInput({ term } as JobTimingInput))
+        .toThrow('Timing input does not accept term')
+    }
+
+    expect(() =>
+      normalizeJobTimingInput({
+        term: 'Fall 2026 internship',
+        startDate: '2026-09-14',
+        endDate: '2027-04-16',
+      } as JobTimingInput),
+    ).toThrow('Timing input does not accept term')
+
+    expect(() =>
+      normalizeJobTimingInput({
+        term: 'Fall 2026 internship',
+        terms: [{ season: 'fall', year: 2026 }],
+        timingMode: 'terms',
+      } as JobTimingInput),
+    ).toThrow('Timing input does not accept term')
+  })
+
   it('rejects mixed or invalid timing input', () => {
     expect(() =>
       normalizeJobTimingInput({
-        term: 'Fall 2026',
+        terms: [{ season: 'fall', year: 2026 }],
         startDate: '2026-09-14',
       }),
-    ).toThrow('Date-based timing cannot include term or terms input')
+    ).toThrow('Date-based timing cannot include terms input')
     expect(() =>
       normalizeJobTimingInput({
         terms: [{ season: 'fall', year: 2026 }],

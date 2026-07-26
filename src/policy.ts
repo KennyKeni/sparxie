@@ -229,8 +229,7 @@ export function isPolicyDecisionStatus(value: string): value is PolicyDecisionSt
 export function normalizePolicyConfig(value: unknown): PolicyConfig {
   const candidate = readSupportedPolicyConfigRecord(value)
   const scoring = isRecord(candidate.scoring) ? candidate.scoring : {}
-  const legacyQueue = isRecord(candidate.queue) ? candidate.queue : {}
-  const actionQueue = isRecord(candidate.actionQueue) ? candidate.actionQueue : legacyQueue
+  const actionQueue = isRecord(candidate.actionQueue) ? candidate.actionQueue : {}
   const manualReview = isRecord(candidate.manualReview) ? candidate.manualReview : {}
   const daytimeWindow = isRecord(manualReview.daytimeWindow) ? manualReview.daytimeWindow : {}
   const officialPath = isRecord(candidate.officialPath) ? candidate.officialPath : {}

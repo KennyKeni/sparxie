@@ -71,7 +71,7 @@ describe('policy contract', () => {
     expect(defaultPolicyConfig.scoring.applyCutoff).toBe(6)
   })
 
-  it('normalizes legacy queue config into action queue config', () => {
+  it('ignores the retired queue alias instead of reading it as action queue config', () => {
     const normalized = normalizePolicyConfig({
       version: 1,
       queue: {
@@ -80,7 +80,8 @@ describe('policy contract', () => {
     })
 
     expect(normalized.version).toBe(2)
-    expect(normalized.actionQueue.staleLockHours).toBe(4)
+    expect(normalized.actionQueue.staleLockHours)
+      .toBe(defaultPolicyConfig.actionQueue.staleLockHours)
     expect(normalized).not.toHaveProperty('queue')
   })
 
