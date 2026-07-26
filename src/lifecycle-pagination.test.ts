@@ -54,9 +54,9 @@ describe('canonical bidirectional lifecycle page contract', () => {
     })
   })
 
-  it.each(listInputSchemas)('rejects ambiguous and retired %s paging', (_resource, schema) => {
+  it.each(listInputSchemas)('rejects ambiguous, unknown, and out-of-range %s paging', (_resource, schema) => {
     expect(schema.safeParse({ after: 'forward', before: 'backward' }).success).toBe(false)
-    expect(schema.safeParse({ cursor: 'forward-only' }).success).toBe(false)
+    expect(schema.safeParse({ unknownField: 'unsupported' }).success).toBe(false)
     expect(schema.safeParse({ after: '' }).success).toBe(false)
     expect(schema.safeParse({ before: 'b'.repeat(2_049) }).success).toBe(false)
     expect(schema.safeParse({ limit: 0 }).success).toBe(false)
@@ -69,7 +69,7 @@ describe('canonical bidirectional lifecycle page contract', () => {
       hasPreviousPage: true, hasNextPage: true,
     }
     expect(lifecyclePageInfoSchema.parse(middle)).toEqual(middle)
-    expect(lifecyclePageInfoSchema.safeParse({ ...middle, nextCursor: 'last-item' }).success).toBe(false)
+    expect(lifecyclePageInfoSchema.safeParse({ ...middle, unknownField: 'unsupported' }).success).toBe(false)
     for (const field of ['startCursor', 'endCursor', 'hasPreviousPage', 'hasNextPage'] as const) {
       const { [field]: _omitted, ...partial } = middle
       expect(lifecyclePageInfoSchema.safeParse(partial).success).toBe(false)
@@ -96,9 +96,11 @@ describe('canonical bidirectional lifecycle page contract', () => {
     }
   })
 
-  it.each(listResultSchemas)('rejects retired forward-only %s results', (_resource, schema) => {
-    expect(schema.safeParse({ items: [], limit: 25, nextCursor: null }).success).toBe(false)
-    expect(schema.safeParse({ items: [], pageInfo: emptyPageInfo, nextCursor: null }).success).toBe(false)
+  it.each(listResultSchemas)('rejects %s results without page info or with unknown fields', (_resource, schema) => {
+    expect(schema.safeParse({ items: [] }).success).toBe(false)
+    expect(schema.safeParse({
+      items: [], pageInfo: emptyPageInfo, unknownField: 'unsupported',
+    }).success).toBe(false)
   })
 
   it.each(listResultSchemas)('rejects half-populated %s cursor metadata', (_resource, schema) => {

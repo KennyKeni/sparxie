@@ -71,10 +71,10 @@ describe('policy contract', () => {
     expect(defaultPolicyConfig.scoring.applyCutoff).toBe(6)
   })
 
-  it('ignores the retired queue alias instead of reading it as action queue config', () => {
+  it('upgrades supported older versions and drops unknown config sections', () => {
     const normalized = normalizePolicyConfig({
       version: 1,
-      queue: {
+      unsupportedSection: {
         staleLockHours: 4,
       },
     })
@@ -82,7 +82,7 @@ describe('policy contract', () => {
     expect(normalized.version).toBe(2)
     expect(normalized.actionQueue.staleLockHours)
       .toBe(defaultPolicyConfig.actionQueue.staleLockHours)
-    expect(normalized).not.toHaveProperty('queue')
+    expect(normalized).not.toHaveProperty('unsupportedSection')
   })
 
   it('rejects policy config versions newer than the package supports', () => {

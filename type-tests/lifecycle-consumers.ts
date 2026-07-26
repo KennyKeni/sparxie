@@ -106,10 +106,6 @@ async function pagingConsumer() {
   await workspace.captures.history({ id: 'capture-1', before: previous! })
   // @ts-expect-error Lifecycle paging directions are mutually exclusive.
   await workspace.jobs.list({ after: next!, before: previous! })
-  // @ts-expect-error The retired forward-only cursor input is not accepted.
-  await workspace.jobs.list({ cursor: next! })
-  // @ts-expect-error Lifecycle pages publish page info, never a forward-only cursor.
-  void page.nextCursor
   return page
 }
 

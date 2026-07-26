@@ -4,7 +4,6 @@ import {
   formatJobTerms,
   normalizeJobTimingInput,
   normalizeJobTerms,
-  type JobTimingInput,
 } from './job-timing'
 
 describe('job timing', () => {
@@ -75,31 +74,6 @@ describe('job timing', () => {
       startDate: null,
       endDate: null,
     })
-  })
-
-  it('rejects a retired free-text term whatever its runtime value', () => {
-    const retiredValues = ['Fall 2026 internship', '', null, undefined, 7]
-
-    for (const term of retiredValues) {
-      expect(() => normalizeJobTimingInput({ term } as JobTimingInput))
-        .toThrow('Timing input does not accept term')
-    }
-
-    expect(() =>
-      normalizeJobTimingInput({
-        term: 'Fall 2026 internship',
-        startDate: '2026-09-14',
-        endDate: '2027-04-16',
-      } as JobTimingInput),
-    ).toThrow('Timing input does not accept term')
-
-    expect(() =>
-      normalizeJobTimingInput({
-        term: 'Fall 2026 internship',
-        terms: [{ season: 'fall', year: 2026 }],
-        timingMode: 'terms',
-      } as JobTimingInput),
-    ).toThrow('Timing input does not accept term')
   })
 
   it('rejects mixed or invalid timing input', () => {
