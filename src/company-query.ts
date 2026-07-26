@@ -9,6 +9,7 @@ import {
   createCompanyPageSchema,
   workspaceCompanySchema,
 } from './company-shared.js'
+import { createPageInfoSchema, opaqueCursorSchema } from './pagination.js'
 import { companyHistoryEventKinds } from './company-history.js'
 
 export const companySearchScopes = ['active', 'active_and_archived'] as const
@@ -84,18 +85,9 @@ export const companyDirectoryKeysetOrder = {
   fields: ['normalizedDisplayName', 'companyId'],
   directions: ['asc', 'asc'],
 } as const
-export const companyDirectoryCursorSchema = z
-  .string()
-  .min(1)
-  .max(2_048)
-  .brand<'CompanyDirectoryCursor'>()
+export const companyDirectoryCursorSchema = opaqueCursorSchema.brand<'CompanyDirectoryCursor'>()
 export type CompanyDirectoryCursor = z.infer<typeof companyDirectoryCursorSchema>
-export const companyDirectoryPageInfoSchema = z.object({
-  startCursor: companyDirectoryCursorSchema.nullable(),
-  endCursor: companyDirectoryCursorSchema.nullable(),
-  hasPreviousPage: z.boolean(),
-  hasNextPage: z.boolean(),
-}).strict()
+export const companyDirectoryPageInfoSchema = createPageInfoSchema(companyDirectoryCursorSchema)
 export type CompanyDirectoryPageInfo = z.infer<typeof companyDirectoryPageInfoSchema>
 export const companyDirectoryListInputSchema = createCompanyPageInputSchema(
   companyDirectoryCursorSchema,

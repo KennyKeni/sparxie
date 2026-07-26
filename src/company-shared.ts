@@ -6,6 +6,7 @@ import {
   lifecycleInstantSchema,
   lifecycleUrlSchema,
 } from './lifecycle-shared.js'
+import { createPageInputSchema, refinePageBoundaries } from './pagination.js'
 
 export const workspaceCompanyContractVersion = 1 as const
 export const companyDefaultPageLimit = 50
@@ -89,29 +90,12 @@ export function createCompanyPageInputSchema<
   Filter extends z.ZodType,
   Sort extends z.ZodType,
 >(cursor: Cursor, filter: Filter, sort: Sort) {
-  const fields = {
+  return createPageInputSchema(cursor, {
     filter,
     sort,
     limit: z.number().int().min(1).max(companyMaximumPageLimit)
       .default(companyDefaultPageLimit),
-  }
-  return z.union([
-    z.object({
-      ...fields,
-      after: cursor,
-      before: z.never().optional(),
-    }).strict(),
-    z.object({
-      ...fields,
-      before: cursor,
-      after: z.never().optional(),
-    }).strict(),
-    z.object({
-      ...fields,
-      after: z.never().optional(),
-      before: z.never().optional(),
-    }).strict(),
-  ])
+  })
 }
 
 export function createCompanyPageSchema<
@@ -123,16 +107,8 @@ export function createCompanyPageSchema<
     pageInfo,
     totalCount: z.number().int().nonnegative(),
   }).strict().superRefine((page, context) => {
-    const value = page as {
-      items: unknown[]
-      pageInfo: { startCursor: unknown; endCursor: unknown }
-      totalCount: number
-    }
-    const absent = value.pageInfo.startCursor === null && value.pageInfo.endCursor === null
-    const present = value.pageInfo.startCursor !== null && value.pageInfo.endCursor !== null
-    if ((value.items.length === 0 && !absent) || (value.items.length > 0 && !present)) {
-      context.addIssue({ code: 'custom', message: 'page cursors must match item presence' })
-    }
+    refinePageBoundaries(page, context)
+    const value = page as { items: unknown[]; totalCount: number }
     if (value.totalCount < value.items.length) {
       context.addIssue({ code: 'custom', message: 'totalCount cannot be smaller than the page' })
     }

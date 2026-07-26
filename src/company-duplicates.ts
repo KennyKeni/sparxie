@@ -10,6 +10,7 @@ import {
   createCompanyPageSchema,
   workspaceCompanySchema,
 } from './company-shared.js'
+import { createPageInfoSchema, opaqueCursorSchema } from './pagination.js'
 import {
   companyMatchReasonSchema,
   companySearchResultSchema,
@@ -30,18 +31,9 @@ export const companyDuplicateKeysetOrder = {
   fields: ['score', 'updatedAt', 'candidateId'],
   directions: ['desc', 'desc', 'asc'],
 } as const
-export const companyDuplicateCursorSchema = z
-  .string()
-  .min(1)
-  .max(2_048)
-  .brand<'CompanyDuplicateCursor'>()
+export const companyDuplicateCursorSchema = opaqueCursorSchema.brand<'CompanyDuplicateCursor'>()
 export type CompanyDuplicateCursor = z.infer<typeof companyDuplicateCursorSchema>
-export const companyDuplicatePageInfoSchema = z.object({
-  startCursor: companyDuplicateCursorSchema.nullable(),
-  endCursor: companyDuplicateCursorSchema.nullable(),
-  hasPreviousPage: z.boolean(),
-  hasNextPage: z.boolean(),
-}).strict()
+export const companyDuplicatePageInfoSchema = createPageInfoSchema(companyDuplicateCursorSchema)
 export type CompanyDuplicatePageInfo = z.infer<typeof companyDuplicatePageInfoSchema>
 export const companyDuplicateListInputSchema = createCompanyPageInputSchema(
   companyDuplicateCursorSchema,

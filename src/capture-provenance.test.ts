@@ -57,10 +57,12 @@ describe('capture list connector run filter', () => {
   it('accepts a valid opaque connector run id and rejects only empty and unknown keys', () => {
     expect(captureListInputSchema.parse({ connectorRunId: 'connector-run/one' })).toEqual({
       connectorRunId: 'connector-run/one',
+      limit: 50,
     })
 
     expect(captureListInputSchema.parse({ connectorRunId: '  spaced-identity  ' })).toEqual({
       connectorRunId: '  spaced-identity  ',
+      limit: 50,
     })
     expect(
       captureListInputSchema.parse({ connectorRunId: 'r'.repeat(257) }).connectorRunId,
@@ -75,7 +77,7 @@ describe('capture list connector run filter', () => {
         connectorRunId: 'run-1',
         includeRemoved: true,
         limit: 20,
-        cursor: 'capture-cursor',
+        after: 'capture-cursor',
       }),
     ).toEqual({
       evidenceMode: 'reported',
@@ -83,7 +85,7 @@ describe('capture list connector run filter', () => {
       connectorRunId: 'run-1',
       includeRemoved: true,
       limit: 20,
-      cursor: 'capture-cursor',
+      after: 'capture-cursor',
     })
 
     expect(captureListInputSchema.safeParse({ connectorRun: 'run-1' }).success).toBe(false)

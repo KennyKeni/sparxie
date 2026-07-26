@@ -3,7 +3,6 @@ import {
   applicationMutationResultSchema,
   applicationHistoryEntrySchema,
   applicationIdSchema,
-  captureListResultSchema,
   captureMutationResultSchema,
   captureRevisionSchema,
   captureSchema,
@@ -131,9 +130,7 @@ describe('lifecycle correction contract', () => {
     }).success).toBe(false)
   })
 
-  it('bounds list pages and exposes direct lineage-safe create schemas', () => {
-    expect(captureListResultSchema.safeParse({ items: [], limit: 25, nextCursor: null }).success).toBe(true)
-    expect(captureListResultSchema.safeParse({ items: [validCapture, { ...validCapture, id: 'capture-2' }], limit: 1, nextCursor: null }).success).toBe(false)
+  it('exposes direct lineage-safe create schemas', () => {
     expect(createJobInputSchema.safeParse({
       idempotencyKey: 'manual-job-1', actor, facts,
       availability: { state: 'open', observedAt: timestamp },

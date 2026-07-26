@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import {
   duplicateResolutionSchemaFor, historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
-  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListResultSchema, lifecycleUrlSchema,
+  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListInputSchema, lifecycleListResultSchema,
+  lifecycleUrlSchema,
   mutationResultSchema, removalInputSchema, removalResultSchema, restoreInputSchema,
   restoreResultSchema, warningOverrideSchema,
 } from './lifecycle-shared.js'
@@ -48,12 +49,11 @@ export const applicationSchema = z.object({
 
 export type Application = z.infer<typeof applicationSchema>
 
-export const lifecycleApplicationListInputSchema = z.object({
+export const lifecycleApplicationListInputSchema = lifecycleListInputSchema({
   opportunityId: lifecycleIdSchema.optional(), jobId: jobIdSchema.optional(),
   status: z.enum(pursuitApplicationStatuses).optional(), includeRemoved: z.boolean().optional(),
-  limit: z.number().int().min(1).max(200).optional(), cursor: lifecycleIdSchema.optional(),
-}).strict()
-export type LifecycleApplicationListInput = z.infer<typeof lifecycleApplicationListInputSchema>
+})
+export type LifecycleApplicationListInput = z.input<typeof lifecycleApplicationListInputSchema>
 export const lifecycleApplicationListResultSchema = lifecycleListResultSchema(applicationSchema)
 export type LifecycleApplicationListResult = z.infer<typeof lifecycleApplicationListResultSchema>
 
@@ -136,11 +136,10 @@ export const applicationEventRecordSchema = z.object({
 }).strict()
 export type ApplicationEventRecord = z.infer<typeof applicationEventRecordSchema>
 
-export const applicationTechnicalListInputSchema = z.object({
-  applicationId: lifecycleIdSchema, limit: z.number().int().min(1).max(200).optional(),
-  cursor: lifecycleIdSchema.optional(),
-}).strict()
-export type ApplicationTechnicalListInput = z.infer<typeof applicationTechnicalListInputSchema>
+export const applicationTechnicalListInputSchema = lifecycleListInputSchema({
+  applicationId: lifecycleIdSchema,
+})
+export type ApplicationTechnicalListInput = z.input<typeof applicationTechnicalListInputSchema>
 export const applicationAttemptsListResultSchema = lifecycleListResultSchema(applicationAttemptRecordSchema)
 export type ApplicationAttemptsListResult = z.infer<typeof applicationAttemptsListResultSchema>
 export const applicationEventsListResultSchema = lifecycleListResultSchema(applicationEventRecordSchema)

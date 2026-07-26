@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createHttpValedictorianClient } from '../index.js'
+import { ValedictorianProtocolError, createHttpValedictorianClient } from '../index.js'
 
 const capture = {
   id: '018f6f88-4c35-7a62-9f2e-318dd8e164c4', workspaceId: 'workspace-north', evidenceMode: 'reported',
@@ -49,6 +49,10 @@ function jobCreateInput() {
   }
 }
 
+const firstPageInfo = {
+  startCursor: 'first-item', endCursor: 'last-item', hasPreviousPage: false, hasNextPage: true,
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 }
@@ -58,14 +62,14 @@ describe('lifecycle HTTP workspace client', () => {
 
   it('uses explicit workspace Capture routes and strictly parses the public resource', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      .mockResolvedValueOnce(jsonResponse({ items: [capture], limit: 20, nextCursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [capture], pageInfo: firstPageInfo }))
       .mockResolvedValueOnce(jsonResponse(capture))
     vi.stubGlobal('fetch', fetchMock)
     const workspace = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
       .forWorkspace('workspace-north')
 
     await expect(workspace.captures.list({ evidenceMode: 'reported', limit: 20 }))
-      .resolves.toEqual({ items: [capture], limit: 20, nextCursor: null })
+      .resolves.toEqual({ items: [capture], pageInfo: firstPageInfo })
     await expect(workspace.captures.get(capture.id)).resolves.toEqual(capture)
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -82,7 +86,8 @@ describe('lifecycle HTTP workspace client', () => {
 
   it('serializes connectorRunId as a percent-encoded query parameter with existing filters', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      .mockResolvedValueOnce(jsonResponse({ items: [capture], limit: 25, nextCursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [capture], pageInfo: firstPageInfo }))
+      .mockResolvedValueOnce(jsonResponse({ items: [capture], pageInfo: firstPageInfo }))
     vi.stubGlobal('fetch', fetchMock)
     const workspace = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
       .forWorkspace('workspace-north')
@@ -94,15 +99,21 @@ describe('lifecycle HTTP workspace client', () => {
         connectorRunId: 'connector-run/one',
         includeRemoved: false,
         limit: 25,
-        cursor: 'capture-cursor',
+        after: 'capture-cursor',
       }),
-    ).resolves.toEqual({ items: [capture], limit: 25, nextCursor: null })
+    ).resolves.toEqual({ items: [capture], pageInfo: firstPageInfo })
+    await workspace.captures.list({ limit: 25, before: 'capture-cursor' })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       'https://api.example/v1/workspaces/workspace-north/captures'
         + '?evidenceMode=reported&adapterId=manual-entry&connectorRunId=connector-run%2Fone'
-        + '&includeRemoved=false&limit=25&cursor=capture-cursor',
+        + '&includeRemoved=false&limit=25&after=capture-cursor',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://api.example/v1/workspaces/workspace-north/captures?limit=25&before=capture-cursor',
       expect.objectContaining({ method: 'GET' }),
     )
   })
@@ -202,9 +213,26 @@ describe('lifecycle HTTP workspace client', () => {
     ])
   })
 
+  it('rejects retired forward-only pages from every lifecycle list as a protocol error', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockImplementation(async () => jsonResponse({ items: [], limit: 25, nextCursor: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    const workspace = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
+      .forWorkspace('workspace-north')
+
+    for (const list of [
+      () => workspace.captures.list(),
+      () => workspace.jobs.list(),
+      () => workspace.opportunities.list(),
+      () => workspace.applications.list(),
+    ]) {
+      await expect(list()).rejects.toBeInstanceOf(ValedictorianProtocolError)
+    }
+  })
+
   it('rejects foreign workspace and wrong-id lifecycle responses', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      .mockResolvedValueOnce(jsonResponse({ items: [{ ...capture, workspaceId: 'workspace-foreign' }], limit: 25, nextCursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [{ ...capture, workspaceId: 'workspace-foreign' }], pageInfo: firstPageInfo }))
       .mockResolvedValueOnce(jsonResponse({ ...capture, id: 'capture-other' }))
     vi.stubGlobal('fetch', fetchMock)
     const captures = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
@@ -375,7 +403,7 @@ describe('lifecycle HTTP workspace client', () => {
     }
     const history = {
       items: [{ captureId: capture.id, revision: 1, kind: 'created', snapshot: capture, audit }],
-      limit: 10, nextCursor: null,
+      pageInfo: firstPageInfo,
     }
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
       .mockResolvedValueOnce(jsonResponse(removed))
@@ -400,7 +428,7 @@ describe('lifecycle HTTP workspace client', () => {
     const history = {
       items: [{ captureId: 'capture-other', revision: 1, kind: 'created', snapshot: capture,
         audit: { actor: lifecycleActor, timestamp } }],
-      limit: 10, nextCursor: null,
+      pageInfo: firstPageInfo,
     }
     vi.stubGlobal('fetch', vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
       .mockResolvedValueOnce(jsonResponse(history)))
@@ -415,12 +443,12 @@ describe('lifecycle HTTP workspace client', () => {
       .mockResolvedValueOnce(jsonResponse({
         items: [{ id: 'attempt-1', workspaceId: 'workspace-foreign', applicationId: 'application-1',
           state: 'pending', startedAt: timestamp, completedAt: null, summary: null }],
-        limit: 25, nextCursor: null,
+        pageInfo: firstPageInfo,
       }))
       .mockResolvedValueOnce(jsonResponse({
         items: [{ id: 'event-1', workspaceId: 'workspace-foreign', applicationId: 'application-1',
           type: 'started', occurredAt: timestamp, actor: lifecycleActor, summary: 'Started.' }],
-        limit: 25, nextCursor: null,
+        pageInfo: firstPageInfo,
       }))
     vi.stubGlobal('fetch', fetchMock)
     const applications = createHttpValedictorianClient({ baseUrl: 'https://api.example' })

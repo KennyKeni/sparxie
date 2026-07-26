@@ -5,6 +5,7 @@ import {
   lifecycleAuditEvidenceSchema,
   lifecycleIdSchema,
   lifecycleInstantSchema,
+  lifecycleListInputSchema,
   lifecycleListResultSchema,
   mutationResultSchema,
   removalInputSchema,
@@ -114,18 +115,14 @@ export const captureSchema = z
 
 export type Capture = z.infer<typeof captureSchema>
 
-export const captureListInputSchema = z
-  .object({
-    evidenceMode: z.enum(evidenceModes).optional(),
-    adapterId: lifecycleIdSchema.optional(),
-    connectorRunId: z.string().min(1).optional(),
-    includeRemoved: z.boolean().optional(),
-    limit: z.number().int().min(1).max(200).optional(),
-    cursor: lifecycleIdSchema.optional(),
-  })
-  .strict()
+export const captureListInputSchema = lifecycleListInputSchema({
+  evidenceMode: z.enum(evidenceModes).optional(),
+  adapterId: lifecycleIdSchema.optional(),
+  connectorRunId: z.string().min(1).optional(),
+  includeRemoved: z.boolean().optional(),
+})
 
-export type CaptureListInput = z.infer<typeof captureListInputSchema>
+export type CaptureListInput = z.input<typeof captureListInputSchema>
 
 export const captureListResultSchema = lifecycleListResultSchema(captureSchema)
 export type CaptureListResult = z.infer<typeof captureListResultSchema>

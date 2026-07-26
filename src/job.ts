@@ -1,11 +1,11 @@
 import { z } from 'zod'
 import {
-  historyListInputSchema,
   duplicateResolutionSchemaFor,
   lifecycleActorSchema,
   lifecycleAuditEvidenceSchema,
   lifecycleIdSchema,
   lifecycleInstantSchema,
+  lifecycleListInputSchema,
   lifecycleListResultSchema,
   lifecycleUrlSchema,
   mutationResultSchema,
@@ -123,11 +123,10 @@ export const jobSchema = z.object({
 
 export type Job = z.infer<typeof jobSchema>
 
-export const jobListInputSchema = z.object({
+export const jobListInputSchema = lifecycleListInputSchema({
   availability: z.enum(jobAvailabilityStates).optional(), includeRemoved: z.boolean().optional(),
-  limit: z.number().int().min(1).max(200).optional(), cursor: lifecycleIdSchema.optional(),
-}).strict()
-export type JobListInput = z.infer<typeof jobListInputSchema>
+})
+export type JobListInput = z.input<typeof jobListInputSchema>
 export const jobListResultSchema = lifecycleListResultSchema(jobSchema)
 export type JobListResult = z.infer<typeof jobListResultSchema>
 
@@ -179,8 +178,8 @@ export const jobHistoryEntrySchema = z.object({
   }
 })
 export type JobHistoryEntry = z.infer<typeof jobHistoryEntrySchema>
-export const jobHistoryInputSchema = historyListInputSchema.extend({ id: jobIdSchema })
-export type JobHistoryInput = z.infer<typeof jobHistoryInputSchema>
+export const jobHistoryInputSchema = lifecycleListInputSchema({ id: jobIdSchema })
+export type JobHistoryInput = z.input<typeof jobHistoryInputSchema>
 export const jobHistoryResultSchema = lifecycleListResultSchema(jobHistoryEntrySchema)
 export type JobHistoryResult = z.infer<typeof jobHistoryResultSchema>
 

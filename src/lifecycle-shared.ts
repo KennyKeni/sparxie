@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import {
+  createPageInfoSchema,
+  createPageInputSchema,
+  opaqueCursorSchema,
+  refinePageBoundaries,
+} from './pagination.js'
 
 export const lifecycleInstantSchema = z.iso.datetime({ offset: true })
 export const lifecycleIdSchema = z.string().trim().min(1).max(200)
@@ -209,25 +215,29 @@ export const lifecycleAuditEvidenceSchema = z
 
 export type LifecycleAuditEvidence = z.infer<typeof lifecycleAuditEvidenceSchema>
 
-export const historyListInputSchema = z
-  .object({ id: lifecycleIdSchema, limit: z.number().int().min(1).max(200).optional(), cursor: lifecycleIdSchema.optional() })
-  .strict()
+export const lifecycleDefaultPageLimit = 50
+export const lifecycleMaximumPageLimit = 200
 
-export type HistoryListInput = z.infer<typeof historyListInputSchema>
+export const lifecycleCursorSchema = opaqueCursorSchema.brand<'LifecycleCursor'>()
+export type LifecycleCursor = z.infer<typeof lifecycleCursorSchema>
 
-export const lifecycleListPageShape = {
-  limit: z.number().int().min(1).max(200),
-  nextCursor: lifecycleIdSchema.nullable(),
-} as const
+export const lifecyclePageInfoSchema = createPageInfoSchema(lifecycleCursorSchema)
+export type LifecyclePageInfo = z.infer<typeof lifecyclePageInfoSchema>
+
+export const lifecycleListInputSchema = <Fields extends z.ZodRawShape>(fields: Fields) =>
+  createPageInputSchema(lifecycleCursorSchema, {
+    ...fields,
+    limit: z.number().int().min(1).max(lifecycleMaximumPageLimit).default(lifecycleDefaultPageLimit),
+  })
+
+export const historyListInputSchema = lifecycleListInputSchema({ id: lifecycleIdSchema })
+
+export type HistoryListInput = z.input<typeof historyListInputSchema>
 
 export const lifecycleListResultSchema = <T extends z.ZodType>(itemSchema: T) => z.object({
-  items: z.array(itemSchema).max(200),
-  ...lifecycleListPageShape,
-}).strict().superRefine((page, context) => {
-  if (page.items.length > page.limit) {
-    context.addIssue({ code: 'custom', message: 'page items cannot exceed the declared limit', path: ['items'] })
-  }
-})
+  items: z.array(itemSchema).max(lifecycleMaximumPageLimit),
+  pageInfo: lifecyclePageInfoSchema,
+}).strict().superRefine(refinePageBoundaries)
 
 export const mutationResultSchema = <
   T extends z.ZodType,

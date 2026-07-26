@@ -9,6 +9,12 @@ import {
   warningOverrideSchema,
 } from './lifecycle-shared.js'
 import {
+  createPageInfoSchema,
+  createPageInputSchema,
+  opaqueCursorSchema,
+  refinePageBoundaries,
+} from './pagination.js'
+import {
   captureEvidenceReferenceSchema,
   jobDestinationSchema,
   jobExternalIdentitySchema,
@@ -30,45 +36,22 @@ const positiveRevisionSchema = z.number().int().positive()
 const idempotencyKeySchema = z.string().trim().min(1).max(200)
 const boundedMessageSchema = z.string().trim().min(1).max(500)
 
-export const captureResolutionCursorSchema = z
-  .string()
-  .min(1)
-  .max(2_048)
+export const captureResolutionCursorSchema = opaqueCursorSchema
   .brand<'CaptureResolutionCursor'>()
 export type CaptureResolutionCursor = z.infer<typeof captureResolutionCursorSchema>
 
-const pageInputFields = {
-  filter: z.enum(captureResolutionFilters).default('all'),
-  sort: z.literal('observed_desc').default('observed_desc'),
-  limit: z.number().int().min(1).max(captureResolutionMaximumPageLimit)
-    .default(captureResolutionDefaultPageLimit),
-} as const
-
-export const captureResolutionListInputSchema = z.union([
-  z.object({
-    ...pageInputFields,
-    after: captureResolutionCursorSchema,
-    before: z.never().optional(),
-  }).strict(),
-  z.object({
-    ...pageInputFields,
-    before: captureResolutionCursorSchema,
-    after: z.never().optional(),
-  }).strict(),
-  z.object({
-    ...pageInputFields,
-    after: z.never().optional(),
-    before: z.never().optional(),
-  }).strict(),
-])
+export const captureResolutionListInputSchema = createPageInputSchema(
+  captureResolutionCursorSchema,
+  {
+    filter: z.enum(captureResolutionFilters).default('all'),
+    sort: z.literal('observed_desc').default('observed_desc'),
+    limit: z.number().int().min(1).max(captureResolutionMaximumPageLimit)
+      .default(captureResolutionDefaultPageLimit),
+  },
+)
 export type CaptureResolutionListInput = z.input<typeof captureResolutionListInputSchema>
 
-export const captureResolutionPageInfoSchema = z.object({
-  startCursor: captureResolutionCursorSchema.nullable(),
-  endCursor: captureResolutionCursorSchema.nullable(),
-  hasPreviousPage: z.boolean(),
-  hasNextPage: z.boolean(),
-}).strict()
+export const captureResolutionPageInfoSchema = createPageInfoSchema(captureResolutionCursorSchema)
 export type CaptureResolutionPageInfo = z.infer<typeof captureResolutionPageInfoSchema>
 
 export const processingStages = ['destination', 'information', 'promotion'] as const
@@ -639,14 +622,7 @@ export const captureResolutionListResultSchema = z.object({
   pageInfo: captureResolutionPageInfoSchema,
   totalCount: z.number().int().nonnegative(),
 }).strict().superRefine((page, context) => {
-  const cursorsAbsent = page.pageInfo.startCursor === null
-    && page.pageInfo.endCursor === null
-  const cursorsPresent = page.pageInfo.startCursor !== null
-    && page.pageInfo.endCursor !== null
-  if ((page.items.length === 0 && !cursorsAbsent)
-    || (page.items.length > 0 && !cursorsPresent)) {
-    context.addIssue({ code: 'custom', message: 'page boundary cursors must match item presence' })
-  }
+  refinePageBoundaries(page, context)
   if (page.totalCount < page.items.length) {
     context.addIssue({ code: 'custom', message: 'totalCount cannot be smaller than the page' })
   }
