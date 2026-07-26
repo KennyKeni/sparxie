@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createHttpValedictorianClient,
+  defaultPolicyConfig,
   ValedictorianHttpError,
   ValedictorianProtocolError,
   valedictorianSafeRequestFailedMessage,
@@ -101,6 +102,28 @@ describe('HTTP client contracted response parsing', () => {
     expect(JSON.stringify(error)).not.toContain('other-connector')
     expect(String(error)).not.toContain('other-connector')
     expect(JSON.stringify(error)).not.toContain('requested-id')
+  })
+
+  it('rejects policy config payloads carrying the retired queue alias', async () => {
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        ...defaultPolicyConfig,
+        queue: { staleLockHours: 4 },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const error = await createHttpValedictorianClient({
+      baseUrl: 'https://valedictorian.test',
+    })
+      .forWorkspace('workspace-1')
+      .policy.config.get()
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ValedictorianProtocolError)
+    expect(error).toMatchObject({ message: valedictorianSafeRequestFailedMessage })
+    expect(JSON.stringify(error)).not.toContain('queue')
   })
 
   it('maps malformed retirement conflict bodies to ValedictorianProtocolError', async () => {
