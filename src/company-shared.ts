@@ -75,7 +75,6 @@ export const companyCapabilitySchema = z.discriminatedUnion('status', [
     issueCount: z.number().int().positive(),
     reason: z.enum([
       'migration_failed',
-      'invalid_legacy_data',
       'integrity_check_failed',
     ]),
     message: z.string().trim().min(1).max(500),

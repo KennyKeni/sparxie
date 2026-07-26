@@ -404,7 +404,6 @@ export const captureResolutionGenerationTriggers = [
   'retry_destination',
   'replay',
   'manual_completion',
-  'legacy_promotion',
 ] as const
 
 function deriveProcessingSummary(generation: {
