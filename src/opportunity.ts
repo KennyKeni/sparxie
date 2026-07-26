@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import {
   duplicateResolutionSchemaFor, historyListInputSchema, lifecycleActorSchema, lifecycleAuditEvidenceSchema,
-  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListResultSchema, mutationResultSchema,
+  lifecycleIdSchema, lifecycleInstantSchema, lifecycleListInputSchema, lifecycleListResultSchema,
+  mutationResultSchema,
   removalInputSchema, removalResultSchema, restoreInputSchema, restoreResultSchema,
   warningOverrideSchema,
 } from './lifecycle-shared.js'
@@ -26,12 +27,11 @@ export const opportunitySchema = z.object({
 
 export type Opportunity = z.infer<typeof opportunitySchema>
 
-export const opportunityListInputSchema = z.object({
+export const opportunityListInputSchema = lifecycleListInputSchema({
   jobId: jobIdSchema.optional(), fit: z.enum(opportunityFitStates).optional(),
   disposition: z.enum(opportunityDispositions).optional(), includeRemoved: z.boolean().optional(),
-  limit: z.number().int().min(1).max(200).optional(), cursor: lifecycleIdSchema.optional(),
-}).strict()
-export type OpportunityListInput = z.infer<typeof opportunityListInputSchema>
+})
+export type OpportunityListInput = z.input<typeof opportunityListInputSchema>
 export const opportunityListResultSchema = lifecycleListResultSchema(opportunitySchema)
 export type OpportunityListResult = z.infer<typeof opportunityListResultSchema>
 

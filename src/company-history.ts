@@ -6,6 +6,7 @@ import {
   createCompanyPageInputSchema,
   createCompanyPageSchema,
 } from './company-shared.js'
+import { createPageInfoSchema, opaqueCursorSchema } from './pagination.js'
 import {
   lifecycleActorSchema,
   lifecycleIdSchema,
@@ -42,18 +43,9 @@ export const companyHistoryKeysetOrder = {
   directions: ['desc', 'desc'],
 } as const
 
-export const companyHistoryCursorSchema = z
-  .string()
-  .min(1)
-  .max(2_048)
-  .brand<'CompanyHistoryCursor'>()
+export const companyHistoryCursorSchema = opaqueCursorSchema.brand<'CompanyHistoryCursor'>()
 export type CompanyHistoryCursor = z.infer<typeof companyHistoryCursorSchema>
-export const companyHistoryPageInfoSchema = z.object({
-  startCursor: companyHistoryCursorSchema.nullable(),
-  endCursor: companyHistoryCursorSchema.nullable(),
-  hasPreviousPage: z.boolean(),
-  hasNextPage: z.boolean(),
-}).strict()
+export const companyHistoryPageInfoSchema = createPageInfoSchema(companyHistoryCursorSchema)
 export type CompanyHistoryPageInfo = z.infer<typeof companyHistoryPageInfoSchema>
 
 export const companyHistoryListInputSchema = createCompanyPageInputSchema(

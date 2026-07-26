@@ -10,6 +10,7 @@ import {
   createCompanyPageInputSchema,
   createCompanyPageSchema,
 } from './company-shared.js'
+import { createPageInfoSchema, opaqueCursorSchema } from './pagination.js'
 import { lifecycleIdSchema } from './lifecycle-shared.js'
 
 export const jobCompanyAssignmentContractVersion = 1 as const
@@ -21,18 +22,9 @@ export const companyAssignedJobKeysetOrder = {
   fields: ['roleTitle', 'jobId'],
   directions: ['asc', 'asc'],
 } as const
-export const companyAssignedJobCursorSchema = z
-  .string()
-  .min(1)
-  .max(2_048)
-  .brand<'CompanyAssignedJobCursor'>()
+export const companyAssignedJobCursorSchema = opaqueCursorSchema.brand<'CompanyAssignedJobCursor'>()
 export type CompanyAssignedJobCursor = z.infer<typeof companyAssignedJobCursorSchema>
-export const companyAssignedJobPageInfoSchema = z.object({
-  startCursor: companyAssignedJobCursorSchema.nullable(),
-  endCursor: companyAssignedJobCursorSchema.nullable(),
-  hasPreviousPage: z.boolean(),
-  hasNextPage: z.boolean(),
-}).strict()
+export const companyAssignedJobPageInfoSchema = createPageInfoSchema(companyAssignedJobCursorSchema)
 export type CompanyAssignedJobPageInfo = z.infer<typeof companyAssignedJobPageInfoSchema>
 
 export const jobCompanyAssignmentPresentationSchema = z.object({

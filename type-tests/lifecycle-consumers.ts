@@ -8,6 +8,8 @@ import type {
   CreateJobInput,
   CreateOpportunityInput,
   Job,
+  LifecycleCursor,
+  LifecyclePageInfo,
   Opportunity,
   PromoteCaptureToJobInput,
   UpdateOpportunityDispositionInput,
@@ -90,6 +92,27 @@ async function cliConsumer(input: PromoteCaptureToJobInput) {
   return { captures, job }
 }
 
+async function pagingConsumer() {
+  const page = await workspace.jobs.list({ limit: 25 })
+  const pageInfo: LifecyclePageInfo = page.pageInfo
+  const next: LifecycleCursor | null = pageInfo.hasNextPage ? pageInfo.endCursor : null
+  const previous: LifecycleCursor | null = pageInfo.hasPreviousPage ? pageInfo.startCursor : null
+  if (next !== null) await workspace.jobs.list({ limit: 25, after: next })
+  if (previous !== null) await workspace.jobs.list({ limit: 25, before: previous })
+  await workspace.captures.list({ after: next! })
+  await workspace.opportunities.list({ before: previous! })
+  await workspace.applications.list({ after: next! })
+  await workspace.applications.attempts.list({ applicationId: 'application-1', after: next! })
+  await workspace.captures.history({ id: 'capture-1', before: previous! })
+  // @ts-expect-error Lifecycle paging directions are mutually exclusive.
+  await workspace.jobs.list({ after: next!, before: previous! })
+  // @ts-expect-error The retired forward-only cursor input is not accepted.
+  await workspace.jobs.list({ cursor: next! })
+  // @ts-expect-error Lifecycle pages publish page info, never a forward-only cursor.
+  void page.nextCursor
+  return page
+}
+
 async function directCreateConsumers() {
   const jobId = jobIdSchema.parse('018f6f88-4c35-7a62-9f2e-318dd8e164c5')
   const opportunityId = opportunityIdSchema.parse('opportunity-1')
@@ -150,6 +173,7 @@ async function directCreateConsumers() {
 
 void appConsumer
 void cliConsumer
+void pagingConsumer
 void directCreateConsumers
 void (null as unknown as NoRawRecordAlias)
 void (null as unknown as NoCandidateAlias)

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.34.0
+
+- Breaking: replace forward-only lifecycle pagination with the canonical
+  bidirectional page contract. Capture, Job, Opportunity, and Application list
+  inputs — along with lifecycle history, attempt, and event list inputs — now
+  take `after` or `before` (never both) plus a defaulted `limit`, and the
+  retired `cursor` input is rejected. Their results return `items` and an
+  authoritative `pageInfo` with `startCursor`, `endCursor`, `hasPreviousPage`,
+  and `hasNextPage` in place of `{ limit, nextCursor }`; forward-only results
+  and half-populated cursor metadata fail closed with no compatibility alias or
+  dual-support reader. Company, Capture-resolution, and lifecycle pages now
+  share one page-info, page-input, and boundary-invariant vocabulary.
+
 ## 0.33.0
 
 - Breaking: remove the legacy policy and Job timing input aliases.

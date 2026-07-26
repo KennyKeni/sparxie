@@ -155,6 +155,32 @@ external identities, and exact Capture/evidence references. An Opportunity
 references its Job and owns only workspace evaluation, rank, cutoff,
 disposition, and override state.
 
+## Lifecycle pagination
+
+Capture, Job, Opportunity, and Application lists — along with their history,
+attempt, and event lists — share one bidirectional page contract. Requests take
+`limit` plus at most one direction: `after` continues forward from a boundary
+cursor, `before` continues backward from one, and omitting both requests the
+first page. Sending both directions is rejected.
+
+```ts
+const page = await workspace.jobs.list({ limit: 25 })
+const { endCursor, hasNextPage } = page.pageInfo
+
+if (hasNextPage && endCursor !== null) {
+  await workspace.jobs.list({ limit: 25, after: endCursor })
+}
+```
+
+Every page returns authoritative `pageInfo` with `startCursor`, `endCursor`,
+`hasPreviousPage`, and `hasNextPage`. Both flags are answered for both
+directions regardless of how the page was requested, so callers do not keep a
+client-side cursor stack to move backwards. Cursors are opaque and must be
+returned unchanged. `startCursor` and `endCursor` are both present exactly when
+the page has items and both `null` when it is empty; a half-populated pair, an
+empty page that claims adjacent pages in both directions, and the retired
+forward-only `{ limit, nextCursor }` result are all rejected.
+
 Manual Capture resolution is a separate v1 route and contract surface at
 `workspace.captureResolution`. Its list uses opaque `before`/`after` cursors;
 callers must return those cursors unchanged and cannot send both directions.
