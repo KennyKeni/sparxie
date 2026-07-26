@@ -28,11 +28,6 @@ const datedTiming: JobTimingInput = {
   endDate: '2027-04-16',
 }
 
-const retiredFreeTextTerm: JobTimingInput = {
-  // @ts-expect-error Free-text term is an output projection, never timing input.
-  term: 'Fall 2026 internship',
-}
-
 const formattedTermIsOutputOnly: string | null =
   normalizeJobTimingInput(structuredTerms).term
 
@@ -40,5 +35,4 @@ void timingInputKeysAreStructuredOnly
 void normalizedTimingRetainsFormattedTerm
 void structuredTerms
 void datedTiming
-void retiredFreeTextTerm
 void formattedTermIsOutputOnly

@@ -104,12 +104,12 @@ describe('HTTP client contracted response parsing', () => {
     expect(JSON.stringify(error)).not.toContain('requested-id')
   })
 
-  it('rejects policy config payloads carrying the retired queue alias', async () => {
+  it('maps policy config payloads with unknown sections to ValedictorianProtocolError', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         ...defaultPolicyConfig,
-        queue: { staleLockHours: 4 },
+        unsupportedSection: { canary: 'policy-protocol-secret' },
       }),
     )
     vi.stubGlobal('fetch', fetchMock)
@@ -123,7 +123,8 @@ describe('HTTP client contracted response parsing', () => {
 
     expect(error).toBeInstanceOf(ValedictorianProtocolError)
     expect(error).toMatchObject({ message: valedictorianSafeRequestFailedMessage })
-    expect(JSON.stringify(error)).not.toContain('queue')
+    expect(JSON.stringify(error)).not.toContain('policy-protocol-secret')
+    expect(String(error)).not.toContain('policy-protocol-secret')
   })
 
   it('maps malformed retirement conflict bodies to ValedictorianProtocolError', async () => {

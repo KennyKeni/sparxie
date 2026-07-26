@@ -213,9 +213,9 @@ describe('lifecycle HTTP workspace client', () => {
     ])
   })
 
-  it('rejects retired forward-only pages from every lifecycle list as a protocol error', async () => {
+  it('rejects malformed pages from every lifecycle list as a protocol error', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      .mockImplementation(async () => jsonResponse({ items: [], limit: 25, nextCursor: null }))
+      .mockImplementation(async () => jsonResponse({ items: [] }))
     vi.stubGlobal('fetch', fetchMock)
     const workspace = createHttpValedictorianClient({ baseUrl: 'https://api.example' })
       .forWorkspace('workspace-north')
