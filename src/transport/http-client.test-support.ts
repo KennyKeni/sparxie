@@ -226,21 +226,6 @@ export function policyEvidenceRecordPayload(overrides: Record<string, unknown> =
   }
 }
 
-export function profileSensitiveDetailsPayload(overrides: Record<string, unknown> = {}) {
-  return {
-    disabilityStatus: 'No',
-    gender: null,
-    hispanicLatino: null,
-    raceEthnicity: null,
-    veteranStatus: null,
-    birthDay: null,
-    birthMonth: null,
-    birthYear: null,
-    ssnLast4: null,
-    ...overrides,
-  }
-}
-
 export function profileSecretSummaryPayload(overrides: Record<string, unknown> = {}) {
   return {
     key: 'greenhouse_password',

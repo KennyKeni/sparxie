@@ -2,9 +2,12 @@ import type {
   ProfileAgentContext,
   ProfileDocument,
   ProfileDocumentUpdateInput,
-  ProfileSensitiveDetails,
+  ProfileSecretKind,
+  ProfileSecretSummary,
   ProfileUpdateInput,
+  UpsertProfileSecretInput,
   UserProfile,
+  ValedictorianWorkspaceClient,
 } from '../src/index.js'
 
 type IsExact<Actual, Expected> =
@@ -17,48 +20,47 @@ type HasKey<Type, Key extends PropertyKey> = Key extends keyof Type ? true : fal
 
 const userProfileOmitsSsn: IsExact<HasKey<UserProfile, 'ssn'>, false> = true
 const userProfileOmitsSsnLast4: IsExact<HasKey<UserProfile, 'ssnLast4'>, false> = true
-const documentProfileOmitsSsnLast4: IsExact<
-  HasKey<ProfileDocument['profile'], 'ssnLast4'>,
-  false
+const profileUpdateOmitsSsn: IsExact<
+  keyof ProfileUpdateInput & ('ssn' | 'ssnLast4'),
+  never
 > = true
-const agentBasicsOmitSsnLast4: IsExact<
-  HasKey<ProfileAgentContext['basics'], 'ssnLast4'>,
-  false
+const documentProfileOmitsSsn: IsExact<
+  keyof ProfileDocument['profile'] & ('ssn' | 'ssnLast4'),
+  never
+> = true
+const documentUpdateProfileOmitsSsn: IsExact<
+  keyof ProfileDocumentUpdateInput['profile'] & ('ssn' | 'ssnLast4'),
+  never
+> = true
+const agentBasicsOmitSsn: IsExact<
+  keyof ProfileAgentContext['basics'] & ('ssn' | 'ssnLast4'),
+  never
 > = true
 
-const sensitiveKeepsLegacySsnLast4: IsExact<
-  ProfileSensitiveDetails['ssnLast4'],
-  string | null
-> = true
-const sensitiveKeepsLegacyBirthDay: IsExact<
-  ProfileSensitiveDetails['birthDay'],
-  string | null
+const profileClientKeysAreExact: IsExact<
+  keyof ValedictorianWorkspaceClient['profile'],
+  'get' | 'update' | 'agentContext' | 'document'
 > = true
 
-const legacySensitiveOmittingDateOfBirth: ProfileSensitiveDetails = {
-  birthDay: '12',
-  birthMonth: '4',
-  birthYear: '1998',
-  disabilityStatus: 'No',
-  gender: 'Man',
-  hispanicLatino: 'No',
-  raceEthnicity: 'Asian',
-  ssnLast4: '5125',
-  veteranStatus: 'Not a protected veteran',
-}
+const profileClientOmitsSensitiveSurfaces: IsExact<
+  keyof ValedictorianWorkspaceClient['profile'] & ('sensitive' | 'secrets' | 'identity'),
+  never
+> = true
 
-const legacySensitiveArbitraryStrings: ProfileSensitiveDetails = {
-  birthDay: null,
-  birthMonth: null,
-  birthYear: null,
-  dateOfBirth: 'not-necessarily-iso',
-  disabilityStatus: 'custom-legacy-disability',
-  gender: 'custom-legacy-gender',
-  hispanicLatino: 'custom-legacy-hispanic',
-  raceEthnicity: 'custom-legacy-race',
-  ssnLast4: null,
-  veteranStatus: 'custom-legacy-veteran',
-}
+const identityRemainsASecretKind: IsExact<
+  ProfileSecretKind,
+  'password' | 'token' | 'identity' | 'other'
+> = true
+
+const secretSummaryKeysAreExact: IsExact<
+  keyof ProfileSecretSummary,
+  'key' | 'kind' | 'label' | 'updatedAt'
+> = true
+
+const upsertSecretKeysAreExact: IsExact<
+  keyof UpsertProfileSecretInput,
+  'key' | 'kind' | 'label' | 'value'
+> = true
 
 declare const barePatch: ProfileUpdateInput
 // @ts-expect-error Document update is not assignable from a bare profile patch.
@@ -72,13 +74,26 @@ const validDocumentUpdate: ProfileDocumentUpdateInput = {
   },
 }
 
+const documentUpdateRejectingSsn: ProfileDocumentUpdateInput = {
+  expectedRevision: 'rev-1',
+  profile: {
+    fullName: 'Kenny Lin',
+    // @ts-expect-error Identity secrets never travel on the profile document.
+    ssnLast4: '5125',
+  },
+}
+
 void userProfileOmitsSsn
 void userProfileOmitsSsnLast4
-void documentProfileOmitsSsnLast4
-void agentBasicsOmitSsnLast4
-void sensitiveKeepsLegacySsnLast4
-void sensitiveKeepsLegacyBirthDay
-void legacySensitiveOmittingDateOfBirth
-void legacySensitiveArbitraryStrings
+void profileUpdateOmitsSsn
+void documentProfileOmitsSsn
+void documentUpdateProfileOmitsSsn
+void agentBasicsOmitSsn
+void profileClientKeysAreExact
+void profileClientOmitsSensitiveSurfaces
+void identityRemainsASecretKind
+void secretSummaryKeysAreExact
+void upsertSecretKeysAreExact
 void barePatchAsDocumentUpdate
 void validDocumentUpdate
+void documentUpdateRejectingSsn

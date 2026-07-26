@@ -11,7 +11,6 @@ import {
   policyEvidenceRecordPayload,
   policyRunWindowDecisionPayload,
   profileSecretSummaryPayload,
-  profileSensitiveDetailsPayload,
 } from './http-client.test-support.js'
 
 const continuousRunFields = {
@@ -799,15 +798,11 @@ describe('HTTP Valedictorian client', () => {
     )
   })
 
-  it('maps workspace secrets and sensitive profile methods without plaintext reveal', async () => {
+  it('maps workspace secrets methods without plaintext reveal', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(jsonResponse({ items: [] }))
     fetchMock.mockResolvedValueOnce(jsonResponse(profileSecretSummaryPayload()))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    fetchMock.mockResolvedValueOnce(jsonResponse(profileSensitiveDetailsPayload()))
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(profileSensitiveDetailsPayload({ ssnLast4: '5125' })),
-    )
     vi.stubGlobal('fetch', fetchMock)
     const client = createHttpValedictorianClient({ baseUrl: 'http://127.0.0.1:4317' })
     const workspace = client.forWorkspace('workspace-1')
@@ -820,8 +815,6 @@ describe('HTTP Valedictorian client', () => {
       value: 'secret',
     })
     await workspace.secrets.delete('greenhouse_password')
-    await workspace.profile.sensitive.get()
-    await workspace.profile.sensitive.update({ disabilityStatus: 'No', ssnLast4: '5125' })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -845,16 +838,7 @@ describe('HTTP Valedictorian client', () => {
       'http://127.0.0.1:4317/v1/workspaces/workspace-1/secrets/greenhouse_password',
       expect.objectContaining({ method: 'DELETE' }),
     )
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
-      'http://127.0.0.1:4317/v1/workspaces/workspace-1/profile/sensitive',
-      expect.objectContaining({ method: 'GET' }),
-    )
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
-      'http://127.0.0.1:4317/v1/workspaces/workspace-1/profile/sensitive',
-      expect.objectContaining({ method: 'PATCH' }),
-    )
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(workspace.secrets).not.toHaveProperty('reveal')
     expect(workspace.secrets).not.toHaveProperty('get')
     expect(workspace.secrets).not.toHaveProperty('query')

@@ -24,7 +24,6 @@ import {
   profileSecretKinds,
   type ProfileSecretSummary,
   type ProfileSecretsListResult,
-  type ProfileSensitiveDetails,
 } from '../profile.js'
 import type { ScoreRecord } from '../scoring.js'
 import {
@@ -221,21 +220,6 @@ export const profileSecretSummarySchema: z.ZodType<ProfileSecretSummary> = z
 export const profileSecretsListResultSchema: z.ZodType<ProfileSecretsListResult> = z
   .object({
     items: z.array(profileSecretSummarySchema),
-  })
-  .strict()
-
-export const profileSensitiveDetailsSchema: z.ZodType<ProfileSensitiveDetails> = z
-  .object({
-    dateOfBirth: z.string().nullable().optional(),
-    disabilityStatus: z.string().nullable(),
-    gender: z.string().nullable(),
-    hispanicLatino: z.string().nullable(),
-    raceEthnicity: z.string().nullable(),
-    veteranStatus: z.string().nullable(),
-    birthDay: z.string().nullable(),
-    birthMonth: z.string().nullable(),
-    birthYear: z.string().nullable(),
-    ssnLast4: z.string().nullable(),
   })
   .strict()
 

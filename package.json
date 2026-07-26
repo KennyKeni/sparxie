@@ -1,6 +1,6 @@
 {
   "name": "@sparxie/sdk",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "Shared Valedictorian contracts and HTTP client.",
   "author": "Keni",
   "license": "MIT",
@@ -40,8 +40,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "pnpm run lint:line-limit-policy && oxlint . && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json",
+    "lint": "pnpm run lint:line-limit-policy && oxlint . && pnpm run typecheck",
     "lint:line-limit-policy": "node scripts/line-limit-policy.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json",
     "prepare": "pnpm build",
     "prepublishOnly": "pnpm lint && pnpm test && pnpm build",
     "test": "vitest run",

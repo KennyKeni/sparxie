@@ -19,8 +19,6 @@ export const valedictorianApiPaths = {
   opportunities: '/v1/opportunities',
   profile: '/v1/profile',
   profileAgentContext: '/v1/profile/agent-context',
-  /** @deprecated Compatibility sensitive-profile path for the cutover window. */
-  profileSensitive: '/v1/profile/sensitive',
   profileDocument: '/v1/profile/document',
   profileDocumentValidate: '/v1/profile/document/validate',
   profileDocumentFormat: '/v1/profile/document/format',

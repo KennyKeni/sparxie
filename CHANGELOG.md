@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.32.0
+
+- Breaking: remove the deprecated sensitive-profile contract — the
+  `profileSensitive` API path, `ProfileSensitiveDetails`,
+  `ProfileSensitiveDetailsInput`, and `profile.sensitive` on the workspace
+  client. Ordinary profile facts stay on the canonical profile and profile
+  document surfaces, identity secrets stay on the secrets contract, and no
+  compatibility alias or replacement wrapper is provided.
+
 ## 0.31.0
 
 - Breaking: remove the unsupported `browser_session` connector auth mode and the
