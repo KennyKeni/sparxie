@@ -76,8 +76,6 @@ import type {
   ProfileAgentContext,
   ProfileSecretSummary,
   ProfileSecretsListResult,
-  ProfileSensitiveDetails,
-  ProfileSensitiveDetailsInput,
   ProfileUpdateInput,
   UpsertProfileSecretInput,
   UserProfile,
@@ -212,13 +210,6 @@ export interface ValedictorianWorkspaceClient extends LifecycleWorkspaceClient {
       validate(): Promise<ProfileDocumentValidateResult>
       format(input: ProfileDocumentFormatInput): Promise<ProfileDocument>
       restore(input: ProfileDocumentRestoreInput): Promise<ProfileDocument>
-    }
-    /** @deprecated Compatibility sensitive-profile surface for the cutover window. */
-    sensitive: {
-      /** @deprecated */
-      get(): Promise<ProfileSensitiveDetails>
-      /** @deprecated */
-      update(input: ProfileSensitiveDetailsInput): Promise<ProfileSensitiveDetails>
     }
   }
   secrets: {

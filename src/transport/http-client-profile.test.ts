@@ -69,6 +69,17 @@ describe('ordinary profile HTTP validation', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('publishes no sensitive-profile path or client surface', () => {
+    expect(valedictorianApiPaths).not.toHaveProperty('profileSensitive')
+    expect(Object.values(valedictorianApiPaths)).not.toContain('/v1/profile/sensitive')
+
+    const profile = createHttpValedictorianClient({
+      baseUrl: 'http://127.0.0.1:4317',
+    }).forWorkspace('workspace-1').profile
+
+    expect(Object.keys(profile).sort()).toEqual(['agentContext', 'document', 'get', 'update'])
+  })
+
   it('rejects agent-context responses with secrets, unknown fields, or invalid facts', async () => {
     const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
     fetchMock.mockResolvedValueOnce(

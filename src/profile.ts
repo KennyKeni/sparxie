@@ -194,35 +194,6 @@ export interface UpsertProfileSecretInput {
   value: string
 }
 
-type ProfileSensitiveMovedKeys =
-  | 'dateOfBirth'
-  | 'disabilityStatus'
-  | 'gender'
-  | 'hispanicLatino'
-  | 'raceEthnicity'
-  | 'veteranStatus'
-
-type WidenLegacySensitiveField<Value> = Value extends string | null ? string | null : Value
-
-type ProfileSensitiveMovedCompatibility = {
-  [Key in ProfileSensitiveMovedKeys]: WidenLegacySensitiveField<UserProfile[Key]>
-}
-
-/**
- * @deprecated Compatibility sensitive-profile surface for the cutover window.
- * Non-secret application facts live on `UserProfile`; SSN remains identity-secret only.
- */
-export type ProfileSensitiveDetails = Omit<ProfileSensitiveMovedCompatibility, 'dateOfBirth'> & {
-  dateOfBirth?: ProfileSensitiveMovedCompatibility['dateOfBirth']
-  birthDay: string | null
-  birthMonth: string | null
-  birthYear: string | null
-  ssnLast4: string | null
-}
-
-/** @deprecated Use ordinary profile document updates after cutover. */
-export type ProfileSensitiveDetailsInput = Partial<ProfileSensitiveDetails>
-
 export const defaultUserProfile: UserProfile = {
   addressLine1: null,
   addressLine2: null,

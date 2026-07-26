@@ -16,6 +16,7 @@ function readPackageJson() {
     exports?: Record<string, unknown>
     files?: string[]
     name?: string
+    scripts?: Record<string, string>
     types?: string
     version?: string
   }
@@ -87,6 +88,15 @@ describe('SDK public contract', () => {
     }
   })
 
+  it('runs both TypeScript projects through a typecheck script that lint delegates to', () => {
+    const scripts = readPackageJson().scripts ?? {}
+
+    expect(scripts.typecheck).toContain('tsc -p tsconfig.json --noEmit')
+    expect(scripts.typecheck).toContain('tsc -p tsconfig.type-tests.json')
+    expect(scripts.lint).toContain('pnpm run typecheck')
+    expect(scripts.lint).not.toContain('tsc ')
+  })
+
   it('has no Electron, React, SQLite, or native database dependencies', () => {
     const packageJson = readPackageJson()
     const dependencyNames = Object.keys({
@@ -95,7 +105,7 @@ describe('SDK public contract', () => {
     })
 
     expect(packageJson.name).toBe('@sparxie/sdk')
-    expect(packageJson.version).toBe('0.31.0')
+    expect(packageJson.version).toBe('0.32.0')
     expect(packageJson.types).toBe('./dist/index.d.ts')
     expect(packageJson.files).toEqual(['dist'])
     expect(packageJson.exports).toBeDefined()

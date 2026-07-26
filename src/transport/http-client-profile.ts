@@ -10,7 +10,6 @@ import {
   profileUpdateInputSchema,
 } from '../profile-document.js'
 import { profileAgentContextSchema, userProfileSchema } from '../profile.js'
-import { profileSensitiveDetailsSchema } from './http-response-contracts.js'
 
 type ProfileHttpRequest = <T>(
   path: string,
@@ -129,23 +128,6 @@ export function createProfileHttpMethods({
               }),
             ),
           rethrowDocumentError,
-        )
-      },
-    },
-    sensitive: {
-      async get() {
-        return parseValedictorianContractValue(
-          profileSensitiveDetailsSchema,
-          await request(pathFor(valedictorianApiPaths.profileSensitive)),
-        )
-      },
-      async update(input) {
-        return parseValedictorianContractValue(
-          profileSensitiveDetailsSchema,
-          await request(pathFor(valedictorianApiPaths.profileSensitive), {
-            body: input,
-            method: 'PATCH',
-          }),
         )
       },
     },
