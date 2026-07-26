@@ -47,7 +47,7 @@ type GenerationStatusesAreClosed = Assert<IsExactly<
 type GenerationTriggersAreClosed = Assert<IsExactly<
   PublicSdk['captureResolutionGenerationTriggers'][number],
   'intake' | 'correction' | 'restore' | 'retry_destination' | 'replay' |
-  'manual_completion' | 'legacy_promotion'
+  'manual_completion'
 >>
 type ListDestinationStatesAreClosed = Assert<IsExactly<
   PublicSdk['captureListDestinationStates'][number],

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.35.0
+
+- Breaking: remove the migration-only contract vocabulary. The
+  `legacy_promotion` Capture-resolution generation trigger and the
+  `invalid_legacy_data` Company capability blocked reason are no longer part of
+  the published enums, and payloads carrying either value now fail closed. The
+  remaining triggers (`intake`, `correction`, `restore`, `retry_destination`,
+  `replay`, `manual_completion`) and blocked reasons (`migration_failed`,
+  `integrity_check_failed`) are unchanged, and no compatibility alias or
+  fallback reader is provided.
+
 ## 0.34.0
 
 - Breaking: replace forward-only lifecycle pagination with the canonical
