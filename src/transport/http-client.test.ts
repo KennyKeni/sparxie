@@ -54,7 +54,7 @@ function lifecycleCountsFor(runId: string) {
 const connectorStatusPayload = {
   id: 'connector-1', connectorId: 'jobright', connectorVersion: '1.0.0',
   displayName: 'Jobright', enabled: true,
-  auth: [{ id: 'session', mode: 'browser_session', label: 'Session', configured: true }],
+  auth: [{ id: 'login', mode: 'username_password', label: 'Login', configured: true }],
   actionRequired: [], actions: [], lastRunAt: '2026-07-12T14:00:00.000Z', latestRunId: 'run-1',
   observationCount: 0, severity: 'healthy', status: 'caught_up',
   statusLabel: 'Caught up', summary: 'Source is synchronized.',
@@ -345,10 +345,10 @@ describe('HTTP Valedictorian client', () => {
       enabled: true,
       auth: [
         {
-          id: 'jobright-session',
-          label: 'Jobright session',
-          mode: 'browser_session',
-          sessionKey: 'workspace-session',
+          id: 'jobright-login',
+          label: 'Jobright login',
+          mode: 'username_password',
+          secretKey: 'jobright_credentials',
         },
       ],
       config: {
@@ -402,10 +402,10 @@ describe('HTTP Valedictorian client', () => {
           enabled: true,
           auth: [
             {
-              id: 'jobright-session',
-              label: 'Jobright session',
-              mode: 'browser_session',
-              sessionKey: 'workspace-session',
+              id: 'jobright-login',
+              label: 'Jobright login',
+              mode: 'username_password',
+              secretKey: 'jobright_credentials',
             },
           ],
           config: {
@@ -597,6 +597,7 @@ describe('HTTP Valedictorian client', () => {
       expect(auth).not.toHaveProperty('value')
       expect(auth).not.toHaveProperty('cookie')
       expect(auth).not.toHaveProperty('sessionId')
+      expect(auth).not.toHaveProperty('sessionKey')
     }
   })
 
@@ -610,9 +611,9 @@ describe('HTTP Valedictorian client', () => {
       lifecycle: 'enabled',
       auth: [
         {
-          id: 'jobright-session',
-          mode: 'browser_session',
-          label: 'Jobright session',
+          id: 'jobright-login',
+          mode: 'username_password',
+          label: 'Jobright login',
           configured: true,
         },
       ],

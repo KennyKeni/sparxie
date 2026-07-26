@@ -28,9 +28,9 @@ export function connectorInstanceSummaryPayload(
     lifecycle: 'enabled',
     auth: [
       {
-        id: 'jobright-session',
-        mode: 'browser_session',
-        label: 'Jobright session',
+        id: 'jobright-login',
+        mode: 'username_password',
+        label: 'Jobright login',
         configured: true,
       },
     ],
