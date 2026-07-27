@@ -38,10 +38,7 @@ import {
   companySearchPageSchema,
   workspaceCompanyLookupSchema,
 } from '../company-query.js'
-import {
-  companyCapabilitySchema,
-  type CompanyCommandFailure,
-} from '../company-shared.js'
+import type { CompanyCommandFailure } from '../company-shared.js'
 import {
   companyHistoryListInputSchema,
   companyHistoryPageSchema,
@@ -177,14 +174,6 @@ export function createCompanyHttpMethods({
   }
 
   const companies: WorkspaceCompaniesClient = {
-    capability: {
-      async get() {
-        return parse(
-          companyCapabilitySchema,
-          await request(pathFor(valedictorianApiPaths.companyCapability)),
-        )
-      },
-    },
     async create(input) {
       const parsed = createCompanyInputSchema.parse(input)
       assertWorkspace(parsed.workspaceId, workspaceId)

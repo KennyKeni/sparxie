@@ -4,7 +4,6 @@ import type {
   CompanyAssignedJobFilter,
   CompanyAssignedJobPage,
   CompanyAssignedJobSort,
-  CompanyCapability,
   CompanyCommandFailure,
   CompanyDirectoryCursor,
   CompanyDirectoryFilter,
@@ -59,10 +58,6 @@ type AssignmentVersionIsOne = Assert<IsExactly<
 type HistoryVersionIsOne = Assert<IsExactly<
   PublicSdk['companyHistoryContractVersion'],
   1
->>
-type CapabilityStatusesAreClosed = Assert<IsExactly<
-  CompanyCapability['status'],
-  'migrating' | 'blocked' | 'ready'
 >>
 type CompanyStatusesAreClosed = Assert<IsExactly<
   CompanyStatus,
@@ -181,17 +176,13 @@ type MergeAcknowledgementIsClosed = Assert<IsExactly<
 
 type CompanyClientMethodsAreComplete = Assert<IsExactly<
   keyof WorkspaceCompaniesClient,
-  'capability' | 'create' | 'get' | 'lookup' | 'search' | 'previewMatches' |
+  'create' | 'get' | 'lookup' | 'search' | 'previewMatches' |
   'directory' | 'update' | 'notes' | 'aliases' | 'archive' | 'restore' |
   'duplicates' | 'assignedJobs' | 'history'
 >>
 type AliasMethodsAreComplete = Assert<IsExactly<
   keyof WorkspaceCompaniesClient['aliases'],
   'add' | 'update' | 'remove'
->>
-type CapabilityMethodsAreComplete = Assert<IsExactly<
-  keyof WorkspaceCompaniesClient['capability'],
-  'get'
 >>
 type DirectoryMethodsAreComplete = Assert<IsExactly<
   keyof WorkspaceCompaniesClient['directory'],
@@ -269,15 +260,6 @@ type AssignedJobPageUsesAssignedJobCursor = Assert<IsExactly<
 
 function assertNever(value: never): never {
   throw new Error(`Unexpected value: ${String(value)}`)
-}
-
-function handleCapability(value: CompanyCapability): string {
-  switch (value.status) {
-    case 'migrating': return String(value.completed)
-    case 'blocked': return value.reason
-    case 'ready': return value.status
-    default: return assertNever(value)
-  }
 }
 
 function handleCompanyStatus(value: CompanyStatus): string {
@@ -519,7 +501,6 @@ companies.history.list('company-1', { after: assignedJobCursor })
 companies.directory.list({ after: historyCursor })
 
 void [
-  handleCapability,
   handleCompanyStatus,
   handleSearchScope,
   handleSearchStatus,
@@ -550,7 +531,6 @@ void [
 void (null as unknown as CompanyVersionIsOne)
 void (null as unknown as AssignmentVersionIsOne)
 void (null as unknown as HistoryVersionIsOne)
-void (null as unknown as CapabilityStatusesAreClosed)
 void (null as unknown as CompanyStatusesAreClosed)
 void (null as unknown as SearchScopesAreClosed)
 void (null as unknown as SearchStatusesAreClosed)
@@ -581,7 +561,6 @@ void (null as unknown as ReassignmentStatusesAreClosed)
 void (null as unknown as MergeAcknowledgementIsClosed)
 void (null as unknown as CompanyClientMethodsAreComplete)
 void (null as unknown as AliasMethodsAreComplete)
-void (null as unknown as CapabilityMethodsAreComplete)
 void (null as unknown as DirectoryMethodsAreComplete)
 void (null as unknown as NotesMethodsAreComplete)
 void (null as unknown as DuplicateMethodsAreComplete)

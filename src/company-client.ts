@@ -32,7 +32,6 @@ import type {
   UpdateCompanyNotesResult,
   UpdateCompanyResult,
 } from './company-mutations.js'
-import type { CompanyCapability } from './company-shared.js'
 import type {
   CompanyHistoryListInput,
   CompanyHistoryPage,
@@ -46,7 +45,6 @@ import type {
 } from './job-company-assignment.js'
 
 export interface WorkspaceCompaniesClient {
-  capability: { get(): Promise<CompanyCapability> }
   create(input: CreateCompanyInput): Promise<CreateCompanyResult>
   get(companyId: string): Promise<CompanyDetail>
   lookup(companyId: string): Promise<WorkspaceCompanyLookup>

@@ -59,31 +59,6 @@ export const workspaceCompanySchema = z.object({
 })
 export type WorkspaceCompany = z.infer<typeof workspaceCompanySchema>
 
-export const companyCapabilitySchema = z.discriminatedUnion('status', [
-  z.object({
-    status: z.literal('migrating'),
-    completed: z.number().int().nonnegative(),
-    total: z.number().int().nonnegative(),
-    issueCount: z.number().int().nonnegative(),
-  }).strict().superRefine((value, context) => {
-    if (value.completed > value.total) {
-      context.addIssue({ code: 'custom', message: 'completed cannot exceed total' })
-    }
-  }),
-  z.object({
-    status: z.literal('blocked'),
-    issueCount: z.number().int().positive(),
-    reason: z.enum([
-      'migration_failed',
-      'integrity_check_failed',
-    ]),
-    message: z.string().trim().min(1).max(500),
-    remediation: z.null(),
-  }).strict(),
-  z.object({ status: z.literal('ready') }).strict(),
-])
-export type CompanyCapability = z.infer<typeof companyCapabilitySchema>
-
 export function createCompanyPageInputSchema<
   Cursor extends z.ZodType,
   Filter extends z.ZodType,
