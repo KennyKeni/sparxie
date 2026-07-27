@@ -10,7 +10,6 @@ export const valedictorianApiPaths = {
   captures: '/v1/captures',
   captureResolution: '/v1/capture-resolution/captures',
   captureResolutionV2: '/v2/capture-resolution/captures',
-  companyCapability: '/v1/companies/capability',
   companies: '/v1/companies',
   companySearch: '/v1/companies/search',
   companyMatchPreview: '/v1/companies/match-preview',

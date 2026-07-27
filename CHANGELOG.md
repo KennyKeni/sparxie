@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.36.0
+
+- Breaking: remove the retired Workspace Company capability contract. The
+  `workspace.companies.capability` client operation, its typed HTTP request, the
+  `/v1/companies/capability` API path, and the `companyCapabilitySchema` and
+  `CompanyCapability` exports — along with the capability-only `migrating`,
+  `blocked`, and `ready` statuses and the `migration_failed` and
+  `integrity_check_failed` blocked reasons — are no longer published. Canonical
+  Company operations are available immediately, so no capability gate remains,
+  and no compatibility alias, fallback reader, or migration-state wrapper is
+  provided. Company create, read, lookup, search, directory, alias, notes,
+  archive/restore, duplicate review/merge, assigned-Job, history, and
+  Job-reassignment contracts are unchanged.
+
 ## 0.35.0
 
 - Breaking: remove the migration-only contract vocabulary. The

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  companyCapabilitySchema,
   companyAssignedJobKeysetOrder,
   companyDirectoryKeysetOrder,
   companyDirectoryListInputSchema,
@@ -49,31 +48,6 @@ function company(
 }
 
 describe('Workspace Company contracts', () => {
-  it('closes capability states and keeps blocked migration non-actionable', () => {
-    expect(companyCapabilitySchema.parse({ status: 'ready' })).toEqual({ status: 'ready' })
-    expect(companyCapabilitySchema.parse({
-      status: 'migrating',
-      completed: 2,
-      total: 3,
-      issueCount: 0,
-    }).status).toBe('migrating')
-    expect(companyCapabilitySchema.parse({
-      status: 'blocked',
-      issueCount: 1,
-      reason: 'migration_failed',
-      message: 'Migration stopped.',
-      remediation: null,
-    }).remediation).toBeNull()
-    expect(companyCapabilitySchema.safeParse({ status: 'unknown' }).success).toBe(false)
-    expect(companyCapabilitySchema.safeParse({
-      status: 'blocked',
-      issueCount: 1,
-      reason: 'migration_failed',
-      message: 'Migration stopped.',
-      remediation: { action: 'retry' },
-    }).success).toBe(false)
-  })
-
   it('keeps directory and duplicate pair paging distinct and opaque', () => {
     expect(companyDirectoryListInputSchema.parse({})).toEqual({
       filter: 'all',
