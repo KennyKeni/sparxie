@@ -40,6 +40,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "evidence:sdk-export-inventory": "node scripts/generate-sdk-export-inventory.mjs",
     "lint": "pnpm run lint:line-limit-policy && oxlint . && pnpm run typecheck",
     "lint:line-limit-policy": "node scripts/line-limit-policy.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json",

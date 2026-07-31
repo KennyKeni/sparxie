@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "mode": "public",
+  "visibility": "public-safe",
+  "package": {
+    "name": "@sparxie/sdk",
+    "registry": "https://registry.npmjs.org"
+  },
+  "registry": {
+    "endpoint": "https://registry.npmjs.org/%40sparxie%2Fsdk",
+    "command": "npm view @sparxie/sdk --json",
+    "status": "available"
+  },
+  "scope": {
+    "included": [
+      "public SDK package boundary",
+      "public registry reachability"
+    ],
+    "excluded": [
+      "consumer identities, repository names, commit identities, measurements, filenames, symbols, topology, and versions",
+      "consumer source, manifests, lockfiles, built artifacts, installed references, and command output",
+      "ownership or compatibility inferences"
+    ],
+    "privateEvidence": "Permissioned consumer evidence requires an explicit --consumer-config and must be written outside tracked files."
+  }
+}
