@@ -65,8 +65,15 @@ function permissionedCommandEvidence(result) {
   }
 }
 export function runCommand(command, args, cwd) {
+  const env = { ...process.env }
+  if (command === 'git') {
+    for (const name of Object.keys(env)) {
+      if (name.startsWith('GIT_')) delete env[name]
+    }
+  }
   const result = spawnSync(command, args, {
     cwd,
+    env,
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
   })
