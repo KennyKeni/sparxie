@@ -65,8 +65,15 @@ function permissionedCommandEvidence(result) {
   }
 }
 export function runCommand(command, args, cwd) {
+  const env = { ...process.env }
+  if (command === 'git') {
+    for (const name of Object.keys(env)) {
+      if (name.startsWith('GIT_')) delete env[name]
+    }
+  }
   const result = spawnSync(command, args, {
     cwd,
+    env,
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
   })
@@ -938,7 +945,7 @@ function gitPathStatus(root, target) {
 }
 export function validatePermissionedOutput(root, outputPath) {
   const resolvedOutput = path.resolve(outputPath)
-  const candidates = [...new Set([resolvedOutput, canonicalPath(resolvedOutput)])]
+  const candidates = [...new Set([canonicalPath(resolvedOutput), resolvedOutput])]
   const worktrees = gitWorktreeRoots(root)
   for (const candidate of candidates) {
     for (const worktree of worktrees.filter((entry) => pathContains(entry, candidate))) {

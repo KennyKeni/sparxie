@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "mode": "public-safe",
+  "input": {
+    "sha256": "19ec526110f655244f0eb4947befad5273f2f6172cc011db69b20ef0d2a0bf97",
+    "bytes": 3433242,
+    "publicEvidenceSha256": "ed47ef2ae23b13db4d229c5aeccfcbd1d25431c8c388d71ed16e1ed2fdb83577"
+  },
+  "counts": {
+    "exports": 1091,
+    "consumerRows": 1514,
+    "keys": 2605,
+    "exportGroups": {
+      "workspace": 960,
+      "sourceClient": 126,
+      "connectorApi": 5
+    },
+    "exportDestinations": {
+      "workspaceServer": 910,
+      "workspaceClient": 50,
+      "sourceClient": 126,
+      "connectorApi": 5
+    },
+    "dispositions": {
+      "move": 1091,
+      "regenerate-artifact": 182,
+      "regenerate-installed-state": 14,
+      "regenerate-lockfile": 15,
+      "rewrite-dependency": 5,
+      "rewrite-reference": 1292,
+      "replace-with-generated-client": 6
+    }
+  },
+  "exceptions": {
+    "count": 44,
+    "byCode": {
+      "consumer-artifact-package-token": 4,
+      "consumer-installed-package-metadata": 14,
+      "consumer-lockfile-metadata": 15,
+      "consumer-manifest-metadata": 5,
+      "consumer-namespace-import": 2,
+      "consumer-dynamic-import": 4
+    }
+  },
+  "outOfScope": {
+    "retiredConsumerCount": 2,
+    "noDirectS01RowCount": 3,
+    "fleetIndexReconciliation": {
+      "previousRootIndexMemberCount": 7,
+      "currentRootIndexMemberCount": 8,
+      "workspaceManifestMemberCount": 8,
+      "status": "resolved"
+    }
+  },
+  "policies": {
+    "compatibility": "sdk-facade-until-maintained-consumers-migrate",
+    "supportWindow": "p01-two-releases-and-30-days",
+    "migrationOrder": "expand-migrate-contract-producer-first"
+  },
+  "outputDigest": {
+    "sha256": "1637cbca7cea27c5c904181b0d02f23aea7867a15ba0dd6531d34ec4cfa56594",
+    "bytes": 2782123
+  }
+}
