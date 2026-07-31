@@ -945,7 +945,7 @@ function gitPathStatus(root, target) {
 }
 export function validatePermissionedOutput(root, outputPath) {
   const resolvedOutput = path.resolve(outputPath)
-  const candidates = [...new Set([resolvedOutput, canonicalPath(resolvedOutput)])]
+  const candidates = [...new Set([canonicalPath(resolvedOutput), resolvedOutput])]
   const worktrees = gitWorktreeRoots(root)
   for (const candidate of candidates) {
     for (const worktree of worktrees.filter((entry) => pathContains(entry, candidate))) {
